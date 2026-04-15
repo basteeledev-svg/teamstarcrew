@@ -41,11 +41,11 @@
 - **Momentum**: Simplified — crew can stop at will; turn rate capped at 45°/tick with nlerp
 
 ### Known Stubs / TODOs
-- [ ] Warp power cost not yet enforced (drive must be functional, but energy not deducted)
-- [ ] Planets have fixed positions (no orbital simulation yet)
-- [ ] Dynamic object spawning (asteroids, alien ships) not yet implemented
-- [ ] Bot mechanics not yet implemented
-- [ ] All 13 station panels are TBD — skeleton only shows ship movement
+- [x] Warp power cost not yet enforced — **done in Session 3** (capacitor deducted on jump)
+- [x] Planets have fixed positions (no orbital simulation yet) — **done** (planets orbit each tick via `orbit_tick()`)
+- [ ] Dynamic object spawning (asteroids, alien ships) not yet implemented (`DYNAMIC_SPAWN_RADIUS_AU` constant exists but unused)
+- [ ] Bot mechanics not yet implemented (mining bots are count-based, repair/transport bots TBD)
+- [ ] All 13 station panels are TBD — only Navigation, Power, and Engines are functional
 - [ ] Alien races / factions / AI Game Master — future phase
 - [ ] AWS deployment setup — future phase
 
@@ -102,13 +102,13 @@
 - `warp_drive` key exists in `power_allocation` but is not shown in the PowerPanel grid (managed by Engines console, TBD)
 
 ### Known Stubs / TODOs
-- [ ] Engines panel — warp drive charging and thrust power draw
+- [x] Engines panel — warp drive charging and thrust power draw — **done in Session 3**
+- [x] Warp power cost enforcement — **done in Session 3**
 - [ ] Transport bots — moving fuel/radioactive material between rooms
-- [ ] Mined resources making it onto the ship (mining integration)
+- [ ] Mined resources making it onto the ship (mining extracts to planet stockpile but doesn't transfer to ship rooms)
 - [ ] Per-station power-starvation behavior (what happens when a system gets < X GW)
-- [ ] Warp power cost enforcement
 - [ ] Dynamic object spawning (asteroids, alien ships)
-- [ ] Bot mechanics (repair, mining)
+- [ ] Bot mechanics (repair bots, transport bots; mining bots are count-based only)
 - [ ] Alien races / factions / AI Game Master
 - [ ] AWS deployment
 
@@ -170,18 +170,23 @@
 
 ### Known Stubs / TODOs
 - [ ] Transport bots — moving fuel/radioactive material between rooms
-- [ ] Mined resources making it onto the ship (mining integration)
+- [ ] Mined resources making it onto the ship (mining extracts to planet stockpile but doesn't transfer to ship rooms)
 - [ ] Per-station power-starvation behavior (what happens when a system gets < X GW)
 - [ ] Dynamic object spawning (asteroids, alien ships)
-- [ ] Bot mechanics (repair, mining)
+- [ ] Bot mechanics (repair bots, transport bots; mining bots are count-based only)
 - [ ] Alien races / factions / AI Game Master
 - [ ] AWS deployment
-- [ ] Other station panels (navigation, shields, weapons, life support, comms, etc.)
+- [ ] Other station panels (shields, weapons, life support, comms, short/long range scan, repairs, manufacturing, mining, transportation)
+- [ ] Room capacity enforcement (design caps exist but not enforced in backend)
+- [ ] Legacy panel files to clean up: `EngineeringPanel.jsx`, `SciencePanel.jsx`, `MedicalPanel.jsx` (unused, kept for backwards compat)
 
 ---
 
 ## Next Steps (planned)
 1. Transport bots — UI and bot dispatching between rooms
 2. Per-system under-power behavior
-3. Mining integration — mined resources transferred to ship rooms
-4. Additional station panels (navigation, shields, weapons)
+3. Mining integration — mined resources transferred from planet stockpile to ship rooms
+4. Additional station panels (shields, weapons, life support, comms, short/long range scan, repairs, manufacturing, mining, transportation)
+5. Bot mechanics — individual repair/transport bot tracking, health, recharging
+6. Alien races / factions / AI Game Master
+7. AWS deployment

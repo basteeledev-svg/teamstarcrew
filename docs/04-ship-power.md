@@ -1,4 +1,4 @@
-# 03 — Ship Power System
+# 04 — Ship Power System
 
 ## Overview
 The ship generates power every game tick from 4 onboard reactors. Power is consumed each tick by all active systems. Net power = reactor output + battery contribution. If total available power drops below the General Systems floor, all screens and non-critical systems go dark.
@@ -63,7 +63,7 @@ The **Power Station** operator controls power distribution via percentage slider
 | `life_support` | yes | GW-locked at 5 GW minimum |
 | `general_systems` | yes | GW-locked at 20 GW default |
 | `manufacturing` | yes | free |
-| `repairs` | yes | free |
+| `charging_bay` | yes | free |
 | `battery` | **no** | free (bipolar −100..100) |
 
 ### Lock Modes (per station)
@@ -134,6 +134,8 @@ All ship infrastructure that does not have its own power slider draws from `gene
 
 Default GW-lock: 20 GW. Operator can raise or lower this.
 
+> **Note:** `GENERAL_SYSTEMS_FLOOR_GW` in `constants.py` is set to 5 GW but is currently unused. The 20 GW threshold is hardcoded in the frontend (`GamePage.jsx`) and the default GW-lock target in `create_ship()`.
+
 ---
 
 ## Tick Lifecycle (Each Game Tick)
@@ -144,4 +146,6 @@ Default GW-lock: 20 GW. Operator can raise or lower this.
 4. **`consume_reactor_fuel()`** — deduct fuel/radioactive material from Power Room; shut off starved reactors
 5. **`update_gw_locks()`** — recalculate pcts for GW-locked stations against current `net_power_gw`; redistribute delta to free stations
 6. **`update_battery()`** — apply charge/discharge delta; snap to idle on full/empty
-7. **Broadcast** — updated state sent to all WebSocket clients
+7. **`update_transport()`** — charge idle bots in Charging Bay proportional to allocated GW; advance transport bot travel ticks; handle delivery, trip repeats, and returning-to-bay state
+8. **`update_manufacturing()`** — distribute manufacturing GW across recipe slots; produce rate-based items (fuel); accumulate progress toward completion of progress-based items; deliver completed items
+9. **Broadcast** — updated state sent to all WebSocket clients

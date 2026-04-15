@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 
-const WS_URL = `ws://${window.location.host}/ws`
+const _proto = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
+const WS_URL = `${_proto}//${window.location.host}/ws`
 const RECONNECT_MS = 2000
 
 export function useGameSocket() {

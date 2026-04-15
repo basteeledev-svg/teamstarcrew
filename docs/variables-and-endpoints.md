@@ -1,6 +1,6 @@
 # Variables & Endpoints Reference
 
-> Auto-updated as new systems are built. Last updated: Session 3.
+> Auto-updated as new systems are built. Last updated: Session 4 (charging bay, bot entities, repeat transport trips).
 
 ---
 
@@ -50,10 +50,16 @@ URL: `ws://localhost:8000/ws`
 | `set_engine_output` | `"engine": key, "value": 0.0–1.0` | Set one engine's output fraction |
 | `set_power_allocation` | `"allocations": {all 12 keys}` | Update power distribution; server enforces sum=100 and GW locks |
 | `toggle_power_lock` | `"station": key` | Toggle % lock on a station (life_support cannot be toggled) |
-| `set_gw_lock` | `"station": key, "target_gw": float\|null` | Set or clear a GW target on a station |
+| `set_gw_lock` | `"station": key, "gw_target": float\|null` | Set or clear a GW target on a station |
 | `orbit` | `"planet_id": "<uuid>"` | Enter orbit around a planet (must be within 0.5 AU) |
 | `leave_orbit` | — | Exit orbit |
-| `set_mining_bots` | `"planet_id": "<uuid>", "count": int` | Deploy mining bots to a planet |
+| `set_mining_bots` | `"resource": key, "value": int` | Set mining bot count for one resource (must be in orbit); resource is one of `metals`, `rare_earth`, `radioactive`, `hydrocarbons`; value clamped 0–20 |
+| `transport_items` | `"source": room, "dest": room, "item": key, "amount": float, "trips": int\|null, ["bot_id": int]` | Dispatch a transport bot; `trips` = 1/5/10 or `null` for infinite; bot auto-picked if bot_id omitted |
+| `cancel_transport` | `"bot_id": int` | Cancel a transport bot's current job; returns reserved items to source room |
+| `charge_transport` | `"bot_id": int` | Recall a transport to the Charging Bay (sets state `returning`; bot travels 5 ticks) |
+| `build_transport_bot` | — | Build a new transport bot from manufacturing room (costs 500 metals + 200 rare_earth) |
+| `repair_transport_bot` | `"bot_id": int, "amount": float` | Restore health to a transport bot |
+| `set_manufacturing_alloc` | `"item": key, "pct": float` | Set manufacturing power allocation for one recipe slot (0–100); frontend normalises all slots to sum 100% |
 | `ping` | — | Server replies `{"type":"pong"}` |
 
 ---
@@ -85,7 +91,9 @@ URL: `ws://localhost:8000/ws`
 | `name` | `str` | e.g. "Sigma X-347-3" |
 | `type` | `str` | Planet type (see 01-galaxy-layout.md) |
 | `orbital_distance_au` | `float` | Distance from star |
-| `position` | `{x,y,z}` | In-system AU coords (fixed, not orbiting yet) |
+| `orbit_angle_rad` | `float` | Current orbital angle (radians); advances each tick |
+| `orbit_speed_rad` | `float` | Orbital angular speed (radians/tick); scales as `distance^-0.5` |
+| `position` | `{x,y,z}` | In-system AU coords (updated each tick as planet orbits) |
 | `metals` | `float 0–100` | Resource abundance |
 | `rare_earth` | `float 0–100` | Resource abundance |
 | `radioactive` | `float 0–100` | Resource abundance |
@@ -96,6 +104,7 @@ URL: `ws://localhost:8000/ws`
 | `inhabited` | `bool` | |
 | `moons` | `list[Moon]` | |
 | `health` | `float 0–100` | Not player-visible; for future bombardment etc. |
+| `stockpile` | `dict` | `{metals, rare_earth, radioactive, hydrocarbons}` — resources extracted by mining bots |
 
 ### Moon
 Same resource/hostility fields as Planet. Type restricted to: Barren/Rocky, Ice World, Ocean World, Crystalline, Rogue/Dark.
@@ -117,11 +126,23 @@ Same resource/hostility fields as Planet. Type restricted to: Barren/Rocky, Ice 
 | `power_allocation` | `dict` | 12-key distribution dict (see Power section) |
 | `power_allocation_locked` | `dict` | Per-station %-lock flags |
 | `power_allocation_gw_targets` | `dict` | Per-station GW targets (null = not GW-locked) |
-| `battery_pct` | `float` | Current battery charge fraction (via `power_allocation["battery"]`) |
 | `battery_count` | `int` | Number of battery units aboard |
+| `battery_energy_gw` | `float` | Current stored battery energy in GW |
+| `battery_capacity_gw` | `float` | Total battery capacity (`battery_count × 100 GW`) |
+| `people_on_board` | `int` | Crew count (affects life support minimum) |
+| `life_support_min_gw` | `float` | Minimum GW required for life support given crew size |
 | `effective_power_gw` | `float` | Reactor-only GW this tick (health × output × 1000 GW, summed) |
 | `net_power_gw` | `float` | Usable GW = `effective_power_gw + battery_contribution`; clamped ≥ 0 |
-| `rooms` | `dict` | Per-room inventory; keys: `power_room`, `engine_room`, etc. |
+| `orbiting_planet_id` | `uuid str\|null` | Planet currently being orbited, or null |
+| `orbit_radius_au` | `float` | Ship's orbital radius when in orbit |
+| `orbit_center` | `{x,z}` | Center point of the orbit circle |
+| `mining_bots` | `dict` | `{metals, rare_earth, radioactive, hydrocarbons}` — bot count per resource (used by mining system) |
+| `transport_bots` | `list` | Each entry: `{id, charge, health, location, state, job}`. States: `idle`, `pickup`, `deliver`, `returning` |
+| `repair_bots` | `list` | Each entry: `{id, charge, health, location, state, job}`. States: `idle`, `repairing` |
+| `mining_bots_list` | `list` | Each entry: `{id, charge, health, location, state}`. States: `idle`, `mining` |
+| `manufacturing_alloc` | `dict` | Per-recipe power allocation (%, 0–100 per slot, all slots sum to 100) |
+| `manufacturing_progress` | `dict` | Accumulated GW toward completion of each progress-based recipe |
+| `rooms` | `dict` | Per-room inventory; keys: `power_room`, `engine_room`, `weapons_room`, `shields_room`, `living_quarters`, `cargo_bay`, `manufacturing`, `charging_bay` |
 
 ### system_health keys
 `reactor_1_fuel`, `reactor_2_fuel`, `reactor_3_rad`, `reactor_4_rad`,
@@ -134,7 +155,7 @@ Effect: output × (health / 100) linearly.
 
 ### power_allocation keys
 `engines`, `warp_drive`, `shields`, `weapons`, `short_range_scanner`, `long_range_scanner`,
-`comms`, `life_support`, `general_systems`, `manufacturing`, `repairs`, `battery`
+`comms`, `life_support`, `general_systems`, `manufacturing`, `charging_bay`, `battery`
 
 `battery` is outside the 100 % sum (can be negative for charging). All others must sum to 100.
 Life support is always GW-locked at its minimum floor. General systems defaults to GW-lock at 20 GW.
@@ -144,6 +165,12 @@ Life support is always GW-locked at its minimum floor. General systems defaults 
 |---|---|
 | `power_room` | `fuel: 10000`, `radioactive_material: 10000` |
 | `engine_room` | `fuel: 50000` |
+| `weapons_room` | `lasers: 0`, `missiles: 0` |
+| `shields_room` | `shield_batteries: 0`, `lasers: 0` |
+| `living_quarters` | `air_scrubbers: 0` |
+| `cargo_bay` | All small resources + all large items (all start at 0) |
+| `manufacturing` | All small resources + all large items except `mining_bots` (all start at 0) |
+| `charging_bay` | Empty dict — bots tracked separately via `transport_bots`, `repair_bots`, `mining_bots_list` |
 
 ---
 
@@ -168,6 +195,27 @@ Life support is always GW-locked at its minimum floor. General systems defaults 
 | `WARP_COST_EXPONENT` | 1.3 | cost = BASE × dist_ly^EXP |
 | `GALAXY_RADIUS_LY` | 500.0 | Spiral galaxy radius |
 | `GALAXY_SYSTEM_COUNT_MIN/MAX` | 50–70 | Systems per session |
+| `GENERAL_SYSTEMS_FLOOR_GW` | 5.0 | Defined but unused; actual overlay threshold is 20 GW (hardcoded in frontend) |
+| `REACTOR_MELTDOWN_DAMAGE` | 30.0 | Damage on 0–100 scale at 100% heat |
+| `MINING_BOTS_MAX` | 20 | Max bots assignable per resource |
+| `PLANET_ORBIT_MIN_AU` | 0.3 | Closest planet orbit |
+| `PLANET_ORBIT_MAX_AU` | 45.0 | Farthest planet orbit |
+| `PLANET_ORBIT_BASE_SPEED_RAD` | 0.001 | Angular speed at 1 AU; scales as `r^-0.5` |
+| `SHIP_START_DISTANCE_AU` | 3.0 | Starting distance from star |
+| `TRANSPORT_BOT_START_COUNT` | 1 | Transport bots spawned at game start |
+| `TRANSPORT_BOT_CHARGE_MAX` | 100.0 | Max charge per transport bot |
+| `TRANSPORT_BOT_CHARGE_COST` | 10.0 | Charge consumed per trip |
+| `TRANSPORT_BOT_HEALTH_MAX` | 100.0 | Max health per transport bot |
+| `TRANSPORT_BOT_HEALTH_COST` | 1.0 | Health lost per trip |
+| `TRANSPORT_BOT_CARGO_LARGE` | 1 | Max large items per trip |
+| `TRANSPORT_BOT_CARGO_CONSUMABLE` | 1000.0 | Max consumable units per trip |
+| `TRANSPORT_TRAVEL_TICKS` | 5 | Ticks per travel phase (pickup or delivery) |
+| `TRANSPORT_BOT_BUILD_METALS` | 500.0 | Metals to build a new transport bot |
+| `TRANSPORT_BOT_BUILD_RARE` | 200.0 | Rare earth to build a new transport bot |
+| `REPAIR_BOT_CHARGE_MAX` | 100.0 | Max charge per repair bot |
+| `REPAIR_BOT_HEALTH_MAX` | 100.0 | Max health per repair bot |
+| `REPAIR_BOT_REPAIR_RATE` | 0.5 | System HP restored per tick per assigned repair bot |
+| `CHARGING_BAY_CHARGE_RATE_PER_GW` | 2.0 | Charge units gained per GW per bot per tick in the bay |
 
 ---
 

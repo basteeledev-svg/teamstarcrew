@@ -1,6 +1,7 @@
 """WebSocket endpoint — real-time bidirectional comms with tablet stations."""
 import json
 import math
+from typing import Optional
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 
 from game.state import game_state, manager
@@ -226,6 +227,353 @@ async def _handle_command(ws: WebSocket, cmd: dict) -> None:
 
     elif cmd_type == "ping":
         await ws.send_text(json.dumps({"type": "pong"}))
+
+    elif cmd_type == "transport_items":
+        source = cmd.get("source")
+        dest   = cmd.get("dest")
+        item   = cmd.get("item")
+        amount = cmd.get("amount", 0)
+        try:
+            amount = float(amount)
+        except (TypeError, ValueError):
+            await ws.send_text(json.dumps({"type": "error", "detail": "amount must be a number"}))
+            return
+        # Resolve planet stockpile if source is "planet"
+        planet_stockpile = None
+        if source == "planet":
+            if not game_state.ship.orbiting_planet_id:
+                await ws.send_text(json.dumps({"type": "error", "detail": "Not orbiting a planet"}))
+                return
+            current_system = game_state.galaxy.get_system(game_state.ship.current_system_id)
+            planet = current_system.get_planet(game_state.ship.orbiting_planet_id) if current_system else None
+            if not planet:
+                await ws.send_text(json.dumps({"type": "error", "detail": "Orbited planet not found"}))
+                return
+            planet_stockpile = planet.stockpile
+        bot_id = cmd.get("bot_id")  # optional — auto-picks idle bot if omitted
+        if bot_id is not None:
+            try:
+                bot_id = int(bot_id)
+            except (TypeError, ValueError):
+                bot_id = None
+        trips_raw = cmd.get("trips", 1)   # 1 = one trip, null = infinite
+        trips_remaining: Optional[int] = None if trips_raw is None else int(trips_raw)
+        ok, msg, bot = game_state.ship.queue_transport(source, dest, item, amount, bot_id, planet_stockpile, trips_remaining)
+        if ok:
+            await ws.send_text(json.dumps({"type": "ack", "cmd": "transport_items", "detail": msg, "bot": bot}))
+        else:
+            await ws.send_text(json.dumps({"type": "error", "detail": msg}))
+
+    elif cmd_type == "cancel_transport":
+        bot_id = cmd.get("bot_id")
+        if bot_id is None:
+            await ws.send_text(json.dumps({"type": "error", "detail": "bot_id required"}))
+            return
+        try:
+            bot_id = int(bot_id)
+        except (TypeError, ValueError):
+            await ws.send_text(json.dumps({"type": "error", "detail": "bot_id must be an integer"}))
+            return
+        ok, msg = game_state.ship.cancel_transport(bot_id)
+        if ok:
+            await ws.send_text(json.dumps({"type": "ack", "cmd": "cancel_transport", "detail": msg}))
+        else:
+            await ws.send_text(json.dumps({"type": "error", "detail": msg}))
+
+    elif cmd_type == "charge_transport":
+        bot_id = cmd.get("bot_id")
+        if bot_id is None:
+            await ws.send_text(json.dumps({"type": "error", "detail": "bot_id required"}))
+            return
+        try:
+            bot_id = int(bot_id)
+        except (TypeError, ValueError):
+            await ws.send_text(json.dumps({"type": "error", "detail": "bot_id must be an integer"}))
+            return
+        ok, msg = game_state.ship.charge_transport(bot_id)
+        if ok:
+            await ws.send_text(json.dumps({"type": "ack", "cmd": "charge_transport", "detail": msg}))
+        else:
+            await ws.send_text(json.dumps({"type": "error", "detail": msg}))
+
+    elif cmd_type == "build_transport_bot":
+        ok, msg = game_state.ship.build_transport_bot()
+        if ok:
+            await ws.send_text(json.dumps({"type": "ack", "cmd": "build_transport_bot", "detail": msg}))
+        else:
+            await ws.send_text(json.dumps({"type": "error", "detail": msg}))
+
+    elif cmd_type == "repair_transport_bot":
+        bot_id = cmd.get("bot_id")
+        amount = cmd.get("amount", 10)
+        if bot_id is None:
+            await ws.send_text(json.dumps({"type": "error", "detail": "bot_id required"}))
+            return
+        try:
+            bot_id = int(bot_id)
+            amount = float(amount)
+        except (TypeError, ValueError):
+            await ws.send_text(json.dumps({"type": "error", "detail": "invalid bot_id or amount"}))
+            return
+        ok, msg = game_state.ship.repair_transport_bot(bot_id, amount)
+        if ok:
+            await ws.send_text(json.dumps({"type": "ack", "cmd": "repair_transport_bot", "detail": msg}))
+        else:
+            await ws.send_text(json.dumps({"type": "error", "detail": msg}))
+
+    elif cmd_type == "set_manufacturing_alloc":
+        item = cmd.get("item")
+        pct  = cmd.get("pct", 0)
+        try:
+            pct = float(pct)
+        except (TypeError, ValueError):
+            await ws.send_text(json.dumps({"type": "error", "detail": "pct must be a number"}))
+            return
+        if item not in game_state.ship.manufacturing_alloc:
+            await ws.send_text(json.dumps({"type": "error", "detail": f"Unknown manufacturing item: {item}"}))
+            return
+        game_state.ship.manufacturing_alloc[item] = round(max(0.0, min(100.0, pct)), 1)
+        await ws.send_text(json.dumps({"type": "ack", "cmd": "set_manufacturing_alloc",
+                                       "item": item, "pct": game_state.ship.manufacturing_alloc[item]}))
+
+    elif cmd_type == "send_message":
+        to_id   = cmd.get("to_id", "").strip()
+        subject = cmd.get("subject", "").strip()[:200]
+        body    = cmd.get("body", "").strip()[:2000]
+        if not to_id:
+            await ws.send_text(json.dumps({"type": "error", "detail": "to_id required"}))
+            return
+        if not subject:
+            await ws.send_text(json.dumps({"type": "error", "detail": "subject required"}))
+            return
+        if not body:
+            await ws.send_text(json.dumps({"type": "error", "detail": "body required"}))
+            return
+        contacts = game_state._get_comms_contacts()
+        contact  = next((c for c in contacts if c["id"] == to_id), None)
+        if not contact:
+            await ws.send_text(json.dumps({"type": "error", "detail": "Recipient not found"}))
+            return
+        if not contact["in_range"]:
+            rng = round(game_state.ship.comms_range_ly(), 1)
+            await ws.send_text(json.dumps({
+                "type": "error",
+                "detail": f"Out of range — {contact['distance_ly']} LY away, current range {rng} LY",
+            }))
+            return
+        msg = game_state._make_message(
+            from_id="player",
+            from_name="TSC Prometheus",
+            to_id=to_id,
+            to_name=contact["name"],
+            subject=subject,
+            body=body,
+            direction="sent",
+            has_video=False,
+            video_color=contact["video_color"],
+        )
+        await ws.send_text(json.dumps({"type": "ack", "cmd": "send_message", "message": msg}))
+
+    elif cmd_type == "mark_read":
+        msg_id = cmd.get("message_id", "")
+        for msg in game_state.messages:
+            if msg["id"] == msg_id:
+                msg["read"] = True
+                await ws.send_text(json.dumps({"type": "ack", "cmd": "mark_read"}))
+                return
+        await ws.send_text(json.dumps({"type": "error", "detail": "Message not found"}))
+
+    elif cmd_type == "dispatch_repair_bot":
+        bot_id = cmd.get("bot_id")
+        target = cmd.get("target")
+        if bot_id is None or not isinstance(target, dict):
+            await ws.send_text(json.dumps({"type": "error", "detail": "bot_id and target required"}))
+            return
+        try:
+            bot_id = int(bot_id)
+        except (TypeError, ValueError):
+            await ws.send_text(json.dumps({"type": "error", "detail": "bot_id must be an integer"}))
+            return
+        ok, msg = game_state.ship.dispatch_repair_bot(bot_id, target)
+        if ok:
+            await ws.send_text(json.dumps({"type": "ack", "cmd": "dispatch_repair_bot", "detail": msg}))
+        else:
+            await ws.send_text(json.dumps({"type": "error", "detail": msg}))
+
+    elif cmd_type == "recall_repair_bot":
+        bot_id = cmd.get("bot_id")
+        if bot_id is None:
+            await ws.send_text(json.dumps({"type": "error", "detail": "bot_id required"}))
+            return
+        try:
+            bot_id = int(bot_id)
+        except (TypeError, ValueError):
+            await ws.send_text(json.dumps({"type": "error", "detail": "bot_id must be an integer"}))
+            return
+        ok, msg = game_state.ship.recall_repair_bot(bot_id)
+        if ok:
+            await ws.send_text(json.dumps({"type": "ack", "cmd": "recall_repair_bot", "detail": msg}))
+        else:
+            await ws.send_text(json.dumps({"type": "error", "detail": msg}))
+
+    elif cmd_type == "install_component":
+        section = cmd.get("section", "")
+        role    = cmd.get("role", "")
+        station = cmd.get("station", "")
+        ok, msg = game_state.ship.install_component(section, role, station)
+        if ok:
+            await ws.send_text(json.dumps({"type": "ack", "cmd": "install_component", "detail": msg}))
+        else:
+            await ws.send_text(json.dumps({"type": "error", "detail": msg}))
+
+    elif cmd_type == "uninstall_component":
+        section      = cmd.get("section", "")
+        role         = cmd.get("role", "")
+        component_id = cmd.get("component_id")
+        if component_id is None:
+            await ws.send_text(json.dumps({"type": "error", "detail": "component_id required"}))
+            return
+        try:
+            component_id = int(component_id)
+        except (TypeError, ValueError):
+            await ws.send_text(json.dumps({"type": "error", "detail": "component_id must be an integer"}))
+            return
+        ok, msg = game_state.ship.uninstall_component(section, role, component_id)
+        if ok:
+            await ws.send_text(json.dumps({"type": "ack", "cmd": "uninstall_component", "detail": msg}))
+        else:
+            await ws.send_text(json.dumps({"type": "error", "detail": msg}))
+
+    elif cmd_type == "set_shields_section_alloc":
+        # alloc: {front, back, port, starboard, above, below} — values normalized server-side
+        alloc = cmd.get("alloc", {})
+        _SIDES = {"front", "back", "port", "starboard", "above", "below"}
+        if not isinstance(alloc, dict) or not _SIDES.issubset(alloc.keys()):
+            await ws.send_text(json.dumps({"type": "error", "detail": "alloc must include all 6 sides"}))
+            return
+        try:
+            vals = {k: max(0.0, float(alloc[k])) for k in _SIDES}
+        except (TypeError, ValueError):
+            await ws.send_text(json.dumps({"type": "error", "detail": "Invalid alloc values"}))
+            return
+        total = sum(vals.values())
+        if total > 0:
+            vals = {k: round(v / total * 100.0, 4) for k, v in vals.items()}
+        game_state.ship.shields_section_alloc.update(vals)
+        await ws.send_text(json.dumps({"type": "ack", "cmd": "set_shields_section_alloc"}))
+
+    elif cmd_type == "set_shields_component_alloc":
+        section      = cmd.get("section", "")
+        alloc        = cmd.get("alloc", {})  # {str(comp_id): weight}
+        if section not in {"front", "back", "port", "starboard", "above", "below"}:
+            await ws.send_text(json.dumps({"type": "error", "detail": "Unknown section"}))
+            return
+        if not isinstance(alloc, dict):
+            await ws.send_text(json.dumps({"type": "error", "detail": "alloc must be an object"}))
+            return
+        try:
+            cleaned = {str(k): max(0.0, float(v)) for k, v in alloc.items()}
+        except (TypeError, ValueError):
+            await ws.send_text(json.dumps({"type": "error", "detail": "Invalid alloc values"}))
+            return
+        game_state.ship.shields_component_alloc[section] = cleaned
+        await ws.send_text(json.dumps({"type": "ack", "cmd": "set_shields_component_alloc", "section": section}))
+
+    elif cmd_type == "set_weapons_alloc":
+        # targeting_pct: 0-100; section_alloc: {front,...} — normalized
+        targeting_pct = cmd.get("targeting_pct")
+        section_alloc = cmd.get("section_alloc", {})
+        ship = game_state.ship
+        if targeting_pct is not None:
+            try:
+                ship.weapons_targeting_pct = max(0.0, min(100.0, float(targeting_pct)))
+            except (TypeError, ValueError):
+                await ws.send_text(json.dumps({"type": "error", "detail": "Invalid targeting_pct"}))
+                return
+        if section_alloc:
+            _SIDES = {"front", "back", "port", "starboard", "above", "below"}
+            if not isinstance(section_alloc, dict) or not _SIDES.issubset(section_alloc.keys()):
+                await ws.send_text(json.dumps({"type": "error", "detail": "section_alloc must include all 6 sides"}))
+                return
+            try:
+                vals = {k: max(0.0, float(section_alloc[k])) for k in _SIDES}
+            except (TypeError, ValueError):
+                await ws.send_text(json.dumps({"type": "error", "detail": "Invalid section_alloc values"}))
+                return
+            total = sum(vals.values())
+            if total > 0:
+                vals = {k: round(v / total * 100.0, 4) for k, v in vals.items()}
+            ship.weapons_section_alloc.update(vals)
+        await ws.send_text(json.dumps({"type": "ack", "cmd": "set_weapons_alloc"}))
+
+    elif cmd_type == "set_weapons_component_alloc":
+        section      = cmd.get("section", "")
+        alloc        = cmd.get("alloc", {})  # {str(comp_id): weight}
+        if section not in {"front", "back", "port", "starboard", "above", "below"}:
+            await ws.send_text(json.dumps({"type": "error", "detail": "Unknown section"}))
+            return
+        if not isinstance(alloc, dict):
+            await ws.send_text(json.dumps({"type": "error", "detail": "alloc must be an object"}))
+            return
+        try:
+            cleaned = {str(k): max(0.0, float(v)) for k, v in alloc.items()}
+        except (TypeError, ValueError):
+            await ws.send_text(json.dumps({"type": "error", "detail": "Invalid alloc values"}))
+            return
+        game_state.ship.weapons_component_alloc[section] = cleaned
+        await ws.send_text(json.dumps({"type": "ack", "cmd": "set_weapons_component_alloc", "section": section}))
+
+    elif cmd_type == "set_weapons_target":
+        target_id = cmd.get("target_id")  # None = clear lock
+        if target_id is not None and not isinstance(target_id, str):
+            target_id = str(target_id)
+        # Validate target exists if setting
+        if target_id is not None:
+            npc = next((n for n in game_state.npc_ships if n["id"] == target_id), None)
+            if not npc:
+                await ws.send_text(json.dumps({"type": "error", "detail": "Target not found"}))
+                return
+        game_state.ship.weapons_locked_target_id = target_id
+        await ws.send_text(json.dumps({"type": "ack", "cmd": "set_weapons_target", "target_id": target_id}))
+
+    elif cmd_type == "fire_missile":
+        target_id = cmd.get("target_id", "")
+        if not isinstance(target_id, str) or not target_id:
+            await ws.send_text(json.dumps({"type": "error", "detail": "target_id required"}))
+            return
+        npc = next((n for n in game_state.npc_ships if n["id"] == target_id), None)
+        if not npc:
+            await ws.send_text(json.dumps({"type": "error", "detail": "Target NPC not found"}))
+            return
+        if npc["system_id"] != game_state.ship.current_system_id:
+            await ws.send_text(json.dumps({"type": "error", "detail": "Target not in current system"}))
+            return
+        weapons_room = game_state.ship.rooms.get("weapons_room", {})
+        if weapons_room.get("missiles", 0) < 1:
+            await ws.send_text(json.dumps({"type": "error", "detail": "No missiles in weapons room"}))
+            return
+        # Deduct missile, launch entity
+        weapons_room["missiles"] = max(0, weapons_room["missiles"] - 1)
+        sp = game_state.ship.position
+        tp = npc["position"]
+        dx = tp["x"] - sp["x"]
+        dz = tp.get("z", 0.0) - sp["z"]
+        d = max(math.sqrt(dx * dx + dz * dz), 1e-9)
+        from game.constants import MISSILE_SPEED_AU, MISSILE_HEALTH
+        game_state.dynamic_objects.append({
+            "id":           f"obj_{game_state._next_obj_id}",
+            "type":         "player_missile",
+            "position":     {"x": round(sp["x"], 4), "y": 0.0, "z": round(sp["z"], 4)},
+            "velocity":     {"x": round((dx/d)*MISSILE_SPEED_AU, 6), "y": 0.0, "z": round((dz/d)*MISSILE_SPEED_AU, 6)},
+            "health":       MISSILE_HEALTH,
+            "max_health":   MISSILE_HEALTH,
+            "target_npc_id": target_id,
+            "from_sides":   None,
+            "vert_side":    None,
+        })
+        game_state._next_obj_id += 1
+        await ws.send_text(json.dumps({"type": "ack", "cmd": "fire_missile",
+                                       "detail": f"Missile launched at {npc.get('name', target_id)}"}))
 
     else:
         await ws.send_text(json.dumps({"type": "error", "detail": f"Unknown command: {cmd_type}"}))

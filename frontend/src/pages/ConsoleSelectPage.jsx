@@ -59,6 +59,7 @@ export default function ConsoleSelectPage({ onEnter }) {
             return (
               <button
                 key={c.id}
+                data-testid={`console-btn-${c.id}`}
                 onClick={() => toggle(c.id)}
                 disabled={isDisabled}
                 style={{
@@ -131,12 +132,14 @@ export default function ConsoleSelectPage({ onEnter }) {
               OBSERVER
             </button>
             <button
+              data-testid="admin-btn"
               onClick={() => onEnter({ role: 'admin' })}
               style={ghostBtn}
             >
               ADMIN
             </button>
             <button
+              data-testid="enter-btn"
               disabled={selected.length === 0}
               onClick={() => onEnter({ role: 'crew', consoles: selected })}
               style={{

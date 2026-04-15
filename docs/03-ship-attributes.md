@@ -30,9 +30,10 @@ This document defines the core state variables of the player ship — the values
 - Comes from the Engines system (see engine station doc, TBD)
 - Combined with Direction to form the **Movement Vector** each tick
 
-### Movement Vector
-- Derived each tick: `Movement Vector = Direction × Thrust`
-- The ship's position is updated by this vector each tick
+### Movement
+- Derived each tick: `step = direction × thrust × engine_thrust_au`
+- The ship's position is updated by this step each tick inside `update_tick()`
+- There is no stored `movement_vector` field — it is computed inline
 - **Simplified momentum model:** the crew is assumed to have fine enough control to stop the ship when desired; no carry-over thrust or uncontrolled drift between ticks beyond the natural turn/drag feel
 
 ---
@@ -82,11 +83,15 @@ This document defines the core state variables of the player ship — the values
 - Items above 0% can be repaired by Repair Bots (directed from Repairs station)
 - Damaged items may have degraded effectiveness — defined per item type in station docs (TBD)
 
+> **Not yet implemented.** Items in the current codebase do not have individual health tracking.
+
 ### Bot Health
 - Each bot instance has its own **health value (0–100%)**
 - At **0% health**: bot is destroyed and removed from tracking
 - Above 0%: bot can be repaired at the Bot Recharge Bay or by another Repair Bot
 - Damaged bots may operate at reduced efficiency — defined in bot mechanics doc (TBD)
+
+> **Not yet implemented.** Mining bots are tracked as counts per resource (not individual instances). Repair and transport bots are not yet implemented.
 
 ---
 
@@ -94,12 +99,25 @@ This document defines the core state variables of the player ship — the values
 
 | Variable | Type | Description |
 |---|---|---|
-| `current_system` | Reference / null | The solar system the ship is in; null in deep space |
+| `current_system_id` | `uuid str` | The solar system the ship is in |
 | `position` | Vector3 (x, y, z) | 3D coordinates within the current system; star is at (0,0,0) |
 | `direction` | Vector3 (unit vector) | Current heading |
+| `target_direction` | Vector3 (unit vector) | Where the navigator is steering toward |
 | `thrust` | Float (0.0–1.0) | Current engine output fraction |
-| `movement_vector` | Vector3 | Derived: direction × thrust; applied to position each tick |
+| `engine_thrust_au` | Float | Total thrust in AU/tick, computed each tick from all 4 engines (health-scaled) |
 | `hull_health` | Float (0–100) | Ship structural integrity; 0 = game over |
-| `system_health[n]` | Float (0–100) | Per-system health; linearly scales output |
-| `item_health[id]` | Float (0–100) | Per-item health; 0 = destroyed and removed |
-| `bot_health[id]` | Float (0–100) | Per-bot health; 0 = bot destroyed |
+| `system_health[key]` | Float (0–100) | Per-system health (14 keys); linearly scales output |
+| `reactor_outputs[key]` | Float (0–1.0) | Per-reactor output fraction (4 keys) |
+| `reactor_heat[key]` | Float (0–100) | Per-reactor heat level (4 keys) |
+| `reactor_shutdown[key]` | Bool | Meltdown shutdown flag per reactor |
+| `engine_outputs[key]` | Float (0–1.0) | Per-engine output fraction (4 keys) |
+| `warp_capacitor_gw` | Float | Stored warp charge in GW (max 100,000) |
+| `power_allocation[key]` | Float | 12-key power distribution dict (see [04-ship-power.md](04-ship-power.md)) |
+| `power_allocation_locked[key]` | Bool | Per-station %-lock flags |
+| `power_allocation_gw_targets[key]` | Float\|null | Per-station GW targets |
+| `battery_count` | Int | Number of battery units aboard |
+| `battery_energy_gw` | Float | Current battery stored energy |
+| `rooms[key]` | Dict | Per-room inventory (power_room, engine_room, etc.) |
+| `orbiting_planet_id` | `uuid str`\|null | Planet currently being orbited, or null |
+| `mining_bots[resource]` | Int | Mining bots assigned per resource (metals, rare_earth, radioactive, hydrocarbons) |
+| `people_on_board` | Int | Crew count (affects life support minimum) |

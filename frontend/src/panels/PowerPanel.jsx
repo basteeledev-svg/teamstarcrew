@@ -266,6 +266,7 @@ export default function PowerPanel({ gameState, sendCommand }) {
         {REACTOR_KEYS.map(key => (
           <ReactorCard
             key={key}
+            reactorKey={key}
             label={REACTOR_LABELS[key]}
             output={rOuts[key] ?? 1.0}
             health={rHealth[key] ?? 100}
@@ -314,6 +315,7 @@ export default function PowerPanel({ gameState, sendCommand }) {
           {SLIDER_KEYS.map(key => (
             <AllocSlider
               key={key}
+              station={key}
               label={ALLOC_LABELS[key]}
               pct={curAlloc[key] ?? 0}
               pctLocked={curLocks[key] ?? false}
@@ -336,7 +338,7 @@ export default function PowerPanel({ gameState, sendCommand }) {
 // ══════════════════════════════════════════════════════════════════════════════
 // REACTOR CARD
 // ══════════════════════════════════════════════════════════════════════════════
-function ReactorCard({ label, output, health, heat, shutdown, onOutput }) {
+function ReactorCard({ label, reactorKey, output, health, heat, shutdown, onOutput }) {
   const outputGW = output * (health / 100) * MAX_REACTOR_GW
   const borderCol = shutdown ? '#ff4444' : heat >= 90 ? '#ff6600' : `${ACCENT}33`
 
@@ -381,6 +383,7 @@ function ReactorCard({ label, output, health, heat, shutdown, onOutput }) {
 
       {/* Output slider */}
       <input
+        data-testid={`reactor-slider-${reactorKey}`}
         type="range" min="0" max="100" step="1"
         value={Math.round(output * 100)}
         disabled={shutdown}
@@ -520,7 +523,7 @@ function FuelBar({ label, value, max, color }) {
 // Lock modes cycle on tap: none → 🔒% (pct fixed) → 🔒GW (GW fixed) → none
 // ══════════════════════════════════════════════════════════════════════════════
 function AllocSlider({
-  label, pct, pctLocked, gwLocked, gwTarget,
+  label, station, pct, pctLocked, gwLocked, gwTarget,
   isLifeSupport, totalPowerGW, lsMinGW,
   onPct, onLockCycle
 }) {
@@ -581,6 +584,7 @@ function AllocSlider({
 
       {/* Slider */}
       <input
+        data-testid={`alloc-slider-${station}`}
         type="range"
         min={0}
         max="100"

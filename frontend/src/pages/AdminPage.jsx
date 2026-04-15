@@ -134,19 +134,46 @@ function StationsTab({ sendCommand }) {
 
 /* ── Game Control ── */
 function GameControlTab({ gameState, sendCommand }) {
+  const [mode, setMode] = useState('empty')
+
   async function startGame() {
-    await fetch('/api/game/start', { method: 'POST' })
+    await fetch(`/api/game/start?mode=${mode}`, { method: 'POST' })
   }
 
   return (
     <div style={{ flex: 1, padding: '24px 32px', overflowY: 'auto' }}>
       <SectionHeading>GAME CONTROL</SectionHeading>
       <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', maxWidth: 400 }}>
+        {/* Mode selector */}
+        <div style={{ padding: '12px 14px', border: '1px solid #1a1a2e', background: '#08081a', borderRadius: '3px' }}>
+          <div style={{ fontSize: '11px', color: '#8899aa', letterSpacing: '1px', marginBottom: 8 }}>UNIVERSE MODE</div>
+          {[
+            { id: 'empty', label: 'EMPTY UNIVERSE', desc: 'No NPCs or events — test ship systems and mechanics' },
+            { id: 'full',  label: 'FULL UNIVERSE',  desc: 'NPC ships, factions, and initial messages (AI optional)' },
+          ].map(opt => (
+            <label key={opt.id} style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', padding: '4px 0' }}>
+              <input
+                type="radio"
+                name="mode"
+                value={opt.id}
+                checked={mode === opt.id}
+                onChange={() => setMode(opt.id)}
+                style={{ accentColor: '#00aaff' }}
+              />
+              <div>
+                <span style={{ fontSize: '10px', color: mode === opt.id ? '#aabbdd' : '#445566', letterSpacing: '1px' }}>{opt.label}</span>
+                <div style={{ fontSize: '9px', color: '#334455', marginTop: 1 }}>{opt.desc}</div>
+              </div>
+            </label>
+          ))}
+        </div>
+
         <AdminAction
           label="START NEW GAME"
-          desc="Generate a fresh galaxy and reset all state"
+          desc={`Generate a fresh galaxy in ${mode} mode`}
           color="#00cc66"
           onClick={startGame}
+          testId="start-game-btn"
         />
         <AdminAction
           label="STOP ENGINES"
@@ -171,7 +198,7 @@ function GameControlTab({ gameState, sendCommand }) {
   )
 }
 
-function AdminAction({ label, desc, color, onClick }) {
+function AdminAction({ label, desc, color, onClick, testId }) {
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: '16px', padding: '12px 14px', border: '1px solid #1a1a2e', background: '#08081a', borderRadius: '3px' }}>
       <div style={{ flex: 1 }}>
@@ -179,6 +206,7 @@ function AdminAction({ label, desc, color, onClick }) {
         <div style={{ fontSize: '9px', color: '#334455', marginTop: '3px' }}>{desc}</div>
       </div>
       <button
+        data-testid={testId}
         onClick={onClick}
         style={{
           background: 'transparent', border: `1px solid ${color}`,

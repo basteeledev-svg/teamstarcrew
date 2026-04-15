@@ -2,7 +2,7 @@
 import math
 import random
 from dataclasses import dataclass, field
-from typing import Optional
+from typing import ClassVar, Optional
 
 from .constants import (
     MAX_SPEED_AU_PER_TICK,
@@ -17,10 +17,94 @@ from .constants import (
     ENGINE_ROOM_FUEL_START,
     WARP_CAPACITOR_MAX_GW,
     WARP_CAPACITOR_LEAK_GW,
+    TRANSPORT_BOT_START_COUNT,
+    TRANSPORT_BOT_CHARGE_MAX,
+    TRANSPORT_BOT_CHARGE_COST,
+    CHARGING_BAY_CHARGE_RATE_PER_GW,
+    TRANSPORT_BOT_HEALTH_MAX,
+    TRANSPORT_BOT_HEALTH_COST,
+    TRANSPORT_BOT_CARGO_LARGE,
+    TRANSPORT_BOT_CARGO_CONSUMABLE,
+    TRANSPORT_TRAVEL_TICKS,
+    TRANSPORT_BOT_BUILD_METALS,
+    TRANSPORT_BOT_BUILD_RARE,
+    REPAIR_BOT_CHARGE_MAX,
+    REPAIR_BOT_HEALTH_MAX,
+    REPAIR_BOT_REPAIR_RATE,
+    REPAIR_BOT_START_COUNT,
+    REPAIR_BOT_TRAVEL_TICKS,
+    REPAIR_BOT_CHARGE_COST,
+    REPAIR_BOT_POWER_PER_BOT,
+    SECTION_SIDES,
+    SECTION_COMPONENT_CAP,
+    TARGETING_RANGE_PER_GW,
+    DEFENSE_LASER_RANGE_PER_GW,
+    DEFENSE_LASER_DPS_PER_GW,
+    OFFENSE_LASER_DPS_PER_GW,
+    SHIELD_REDUCTION_PER_GW,
+    MAX_SHIELD_REDUCTION,
 )
 from .vector3 import v3, normalize, scale, add, rotate_toward
 
 ORBIT_ANGULAR_SPEED = 0.05  # radians per tick (~17 sec for a full orbit)
+
+# Items classified as "large" (equipment) — 1 per trip.
+# Everything else is a consumable — up to 1000 per trip.
+LARGE_ITEMS = {
+    "lasers", "missiles", "shield_batteries", "power_batteries",
+    "air_scrubbers", "transport_bots", "repair_bots",
+}  # mining_bots are now entities, not inventory items
+
+# ── Manufacturing recipes ──────────────────────────────────────────────────────────
+# kind="rate":     produces output_per_gw units per GW delivered per tick
+# kind="progress": accumulates GW toward total_gw; completion delivers 1 item
+MANUFACTURING_RECIPES: dict = {
+    "fuel": {
+        "kind": "rate", "label": "Fuel",
+        "materials_per_gw": {"hydrocarbons": 1.0},
+        "output_per_gw": 1.0,
+    },
+    "transport_bot": {
+        "kind": "progress", "label": "Transport Bot",
+        "total_gw": 1000.0,
+        "materials": {"metals": 500.0, "rare_earth": 200.0},
+    },
+    "mining_bot": {
+        "kind": "progress", "label": "Mining Bot",
+        "total_gw": 1000.0,
+        "materials": {"metals": 500.0, "rare_earth": 200.0, "radioactive_material": 50.0},
+    },
+    "repair_bot": {
+        "kind": "progress", "label": "Repair Bot",
+        "total_gw": 800.0,
+        "materials": {"metals": 400.0, "rare_earth": 150.0, "radioactive_material": 30.0},
+    },
+    "lasers": {
+        "kind": "progress", "label": "Laser",
+        "total_gw": 500.0,
+        "materials": {"metals": 200.0, "rare_earth": 100.0},
+    },
+    "missiles": {
+        "kind": "progress", "label": "Missile",
+        "total_gw": 400.0,
+        "materials": {"metals": 150.0, "radioactive_material": 50.0},
+    },
+    "shield_batteries": {
+        "kind": "progress", "label": "Shield Battery",
+        "total_gw": 300.0,
+        "materials": {"metals": 100.0, "rare_earth": 50.0},
+    },
+    "power_batteries": {
+        "kind": "progress", "label": "Power Battery",
+        "total_gw": 350.0,
+        "materials": {"metals": 200.0, "rare_earth": 50.0},
+    },
+    "air_scrubbers": {
+        "kind": "progress", "label": "Air Scrubber",
+        "total_gw": 200.0,
+        "materials": {"metals": 50.0, "rare_earth": 10.0},
+    },
+}
 
 # ── System component names (used as keys in system_health) ───────────────────
 SYSTEM_HEALTH_KEYS = [
@@ -137,8 +221,8 @@ class Ship:
     # Power Room: fuel (for R1/R2), radioactive_material (for R3/R4), power_batteries (alias of battery_count)
     rooms: dict = field(default_factory=lambda: {
         "power_room": {
-            "fuel":                 10000.0,
-            "radioactive_material": 10000.0,
+            "fuel":                 1_000_000.0,
+            "radioactive_material": 1_000_000.0,
         },
         "engine_room": {
             "fuel": 0.0,
@@ -164,6 +248,75 @@ class Ship:
             "lasers": 0, "missiles": 0, "shield_batteries": 0,
             "power_batteries": 0, "air_scrubbers": 0,
         },
+        "charging_bay": {},   # bot charging room — no item inventory
+    })
+    # Transport bots
+    transport_bots: list = field(default_factory=list)
+    _next_bot_id: int = field(default=1, repr=False)
+    # Repair bots — each has id, charge, health, state ("idle"|"repairing"), job (None or {target, ticks_remaining})
+    repair_bots: list = field(default_factory=list)
+    _next_repair_bot_id: int = field(default=1, repr=False)
+    # Mining bot entities — each has id, charge, health, location, state ("idle"|"mining")
+    mining_bots_list: list = field(default_factory=list)
+    _next_mining_bot_id: int = field(default=1, repr=False)
+    # ── Hull sections — installed components (6 sides) ─────────────────────────
+    # Each side: {defense_lasers: [{id, health}], offense_lasers: [...], shield_batteries: [...]}
+    hull_sections: dict = field(default_factory=lambda: {
+        side: {"defense_lasers": [], "offense_lasers": [], "shield_batteries": []}
+        for side in ["front", "back", "port", "starboard", "above", "below"]
+    })
+    _next_component_id: int = field(default=1, repr=False)
+    # ── Shields station power allocation ───────────────────────────────────────
+    # Percentage of shields GW going to each hull section (should sum to 100)
+    shields_section_alloc: dict = field(default_factory=lambda: {
+        "front": 16.67, "back": 16.67, "port": 16.67,
+        "starboard": 16.67, "above": 16.66, "below": 16.66,
+    })
+    # Per-component allocation within each section (str(id) → weight; empty = even split)
+    shields_component_alloc: dict = field(default_factory=lambda: {
+        side: {} for side in ["front", "back", "port", "starboard", "above", "below"]
+    })
+    # ── Weapons station power allocation ──────────────────────────────────────
+    # % of weapons GW to the targeting system (rest goes to installed offense lasers)
+    weapons_targeting_pct: float = 30.0
+    # % of weapons laser GW (weapons_gw * (1 - targeting%)) going to each section
+    weapons_section_alloc: dict = field(default_factory=lambda: {
+        "front": 16.67, "back": 16.67, "port": 16.67,
+        "starboard": 16.67, "above": 16.66, "below": 16.66,
+    })
+    # Per-component allocation within each section for offense lasers (str(id) → weight)
+    weapons_component_alloc: dict = field(default_factory=lambda: {
+        side: {} for side in ["front", "back", "port", "starboard", "above", "below"]
+    })
+    # Currently locked weapons target id (NPC id or dynamic object id, or None)
+    weapons_locked_target_id: Optional[str] = None
+    # Room hull health (one value per room, 0-100 %)
+    room_hull_health: dict = field(default_factory=lambda: {
+        "power_room": 100.0, "engine_room": 100.0, "weapons_room": 100.0,
+        "shields_room": 100.0, "living_quarters": 100.0, "cargo_bay": 100.0,
+        "manufacturing": 100.0, "charging_bay": 100.0,
+    })
+    # Outer hull sections (6 sides of the ship, 0-100 %)
+    outer_hull_health: dict = field(default_factory=lambda: {
+        "front": 100.0, "back": 100.0, "port": 100.0,
+        "starboard": 100.0, "above": 100.0, "below": 100.0,
+    })
+    # Repairable item health per item type (aggregate condition, 0-100 %)
+    item_health: dict = field(default_factory=lambda: {
+        "air_scrubbers": 100.0, "lasers": 100.0, "shield_batteries": 100.0,
+    })
+    # Manufacturing — power allocation (%) per item type; values may sum <= 100
+    manufacturing_alloc: dict = field(default_factory=lambda: {
+        "fuel": 0.0,
+        "transport_bot": 0.0, "mining_bot": 0.0, "repair_bot": 0.0,
+        "lasers": 0.0, "missiles": 0.0, "shield_batteries": 0.0,
+        "power_batteries": 0.0, "air_scrubbers": 0.0,
+    })
+    # Accumulated GW toward the current unit of each progress-based recipe
+    manufacturing_progress: dict = field(default_factory=lambda: {
+        "transport_bot": 0.0, "mining_bot": 0.0, "repair_bot": 0.0,
+        "lasers": 0.0, "missiles": 0.0, "shield_batteries": 0.0,
+        "power_batteries": 0.0, "air_scrubbers": 0.0,
     })
 
     def orbit_planet(self, planet_id: str, planet_pos: dict) -> None:
@@ -180,6 +333,519 @@ class Ship:
         """Exit orbit; thrust remains 0 so the crew must apply it manually."""
         self.orbiting_planet_id = None
         self.mining_bots = {"metals": 0, "rare_earth": 0, "radioactive": 0, "hydrocarbons": 0}
+
+    # ── Room storage permissions ──────────────────────────────────────────────
+    # Maps room key → set of allowed item keys.  None means "all items allowed".
+    ROOM_PERMISSIONS: ClassVar[dict] = {
+        "power_room":       {"fuel", "radioactive_material", "power_batteries"},
+        "engine_room":      {"fuel"},
+        "weapons_room":     {"lasers", "missiles"},
+        "shields_room":     {"shield_batteries", "lasers"},
+        "living_quarters":  {"air_scrubbers"},
+        "cargo_bay":        None,   # accepts everything
+        "manufacturing":    None,   # accepts everything
+        "charging_bay":     set(),  # bots only — no item transport
+    }
+
+    def _make_bot(self) -> dict:
+        """Create a new transport bot dict with full charge and health."""
+        bot = {
+            "id": self._next_bot_id,
+            "charge": TRANSPORT_BOT_CHARGE_MAX,
+            "health": TRANSPORT_BOT_HEALTH_MAX,
+            "location": "charging_bay",
+            "state": "idle",
+            "job": None,
+        }
+        self._next_bot_id += 1
+        return bot
+
+    def _make_repair_bot(self) -> dict:
+        """Create a new repair bot dict with full charge and health."""
+        bot = {
+            "id": self._next_repair_bot_id,
+            "charge": REPAIR_BOT_CHARGE_MAX,
+            "health": REPAIR_BOT_HEALTH_MAX,
+            "location": "charging_bay",
+            "state": "idle",  # idle | repairing
+            "job": None,      # None or {"target": system_key}
+        }
+        self._next_repair_bot_id += 1
+        return bot
+
+    def _make_mining_bot(self) -> dict:
+        """Create a new mining bot entity with full charge and health."""
+        bot = {
+            "id": self._next_mining_bot_id,
+            "charge": TRANSPORT_BOT_CHARGE_MAX,
+            "health": TRANSPORT_BOT_HEALTH_MAX,
+            "location": "charging_bay",
+            "state": "idle",  # idle | mining
+        }
+        self._next_mining_bot_id += 1
+        return bot
+
+    def build_transport_bot(self) -> tuple[bool, str]:
+        """Build a new bot from manufacturing room materials."""
+        mfg = self.rooms["manufacturing"]
+        if mfg.get("metals", 0) < TRANSPORT_BOT_BUILD_METALS:
+            return False, f"Need {TRANSPORT_BOT_BUILD_METALS} metals (have {mfg.get('metals', 0)})"
+        if mfg.get("rare_earth", 0) < TRANSPORT_BOT_BUILD_RARE:
+            return False, f"Need {TRANSPORT_BOT_BUILD_RARE} rare_earth (have {mfg.get('rare_earth', 0)})"
+        mfg["metals"]     = round(mfg["metals"] - TRANSPORT_BOT_BUILD_METALS, 2)
+        mfg["rare_earth"] = round(mfg["rare_earth"] - TRANSPORT_BOT_BUILD_RARE, 2)
+        bot = self._make_bot()
+        self.transport_bots.append(bot)
+        return True, f"Built transport bot #{bot['id']}"
+
+    def dispatch_repair_bot(self, bot_id: int, target: dict) -> tuple[bool, str]:
+        """Dispatch a repair bot to a repairable target component."""
+        _VALID_TYPES = ("system", "room_hull", "outer_hull", "bot", "item")
+        for bot in self.repair_bots:
+            if bot["id"] != bot_id:
+                continue
+            if bot["state"] != "idle":
+                return False, f"Repair bot #{bot_id} is not idle (state: {bot['state']})"
+            if bot["health"] <= 0:
+                return False, f"Repair bot #{bot_id} is broken (0 health)"
+            if bot["charge"] < REPAIR_BOT_CHARGE_COST:
+                return False, f"Repair bot #{bot_id} has insufficient charge"
+            ttype = target.get("type")
+            if ttype not in _VALID_TYPES:
+                return False, f"Invalid target type: {ttype}"
+            if ttype == "system" and target.get("key") not in self.system_health:
+                return False, f"Unknown system key: {target.get('key')}"
+            if ttype == "room_hull" and target.get("room") not in self.room_hull_health:
+                return False, f"Unknown room: {target.get('room')}"
+            if ttype == "outer_hull" and target.get("side") not in self.outer_hull_health:
+                return False, f"Unknown hull side: {target.get('side')}"
+            if ttype == "item" and target.get("item") not in self.item_health:
+                return False, f"Unknown item: {target.get('item')}"
+            bot["state"] = "traveling"
+            bot["location"] = "in_transit"
+            bot["job"] = {"target": target, "ticks_left": REPAIR_BOT_TRAVEL_TICKS}
+            return True, f"Repair bot #{bot_id} dispatched"
+        return False, f"Repair bot #{bot_id} not found"
+
+    def recall_repair_bot(self, bot_id: int) -> tuple[bool, str]:
+        """Recall a repair bot to the charging bay."""
+        for bot in self.repair_bots:
+            if bot["id"] != bot_id:
+                continue
+            if bot["state"] == "idle":
+                return True, f"Repair bot #{bot_id} already idle at charging bay"
+            if bot["state"] == "returning":
+                return True, f"Repair bot #{bot_id} already returning"
+            bot["state"] = "returning"
+            bot["job"] = {"ticks_left": REPAIR_BOT_TRAVEL_TICKS}
+            return True, f"Repair bot #{bot_id} recalling to charging bay"
+        return False, f"Repair bot #{bot_id} not found"
+
+    def update_repair_bots(self) -> None:
+        """Advance repair bots by one tick. Active bots consume power and charge."""
+        repairs_gw = self.net_power_gw() * self.power_allocation.get("repairs", 0.0) / 100.0
+        # Each active (traveling/repairing) bot requires REPAIR_BOT_POWER_PER_BOT GW
+        active = [b for b in self.repair_bots if b["state"] in ("traveling", "repairing")]
+        powered_ids = {b["id"] for b in active[:int(repairs_gw / max(REPAIR_BOT_POWER_PER_BOT, 0.01))]}
+
+        for bot in self.repair_bots:
+            state = bot["state"]
+
+            if state == "returning":
+                job = bot.get("job") or {}
+                job["ticks_left"] = job.get("ticks_left", 0) - 1
+                bot["job"] = job
+                if job["ticks_left"] <= 0:
+                    bot["location"] = "charging_bay"
+                    bot["state"] = "idle"
+                    bot["job"] = None
+                continue
+
+            if state in ("traveling", "repairing"):
+                if bot["id"] not in powered_ids:
+                    continue  # paused — insufficient power
+                # Consume charge
+                bot["charge"] = max(0.0, round(bot["charge"] - REPAIR_BOT_CHARGE_COST, 2))
+                if bot["charge"] <= 0:
+                    bot["state"] = "returning"
+                    bot["job"] = {"ticks_left": REPAIR_BOT_TRAVEL_TICKS}
+                    continue
+
+            if state == "traveling":
+                job = bot.get("job") or {}
+                job["ticks_left"] = job.get("ticks_left", 0) - 1
+                bot["job"] = job
+                if job["ticks_left"] <= 0:
+                    bot["state"] = "repairing"
+                    bot["location"] = "on_duty"
+
+            elif state == "repairing":
+                job = bot.get("job") or {}
+                target = job.get("target", {})
+                ttype = target.get("type")
+                full = False
+                if ttype == "system":
+                    key = target.get("key")
+                    if key in self.system_health:
+                        self.system_health[key] = min(100.0,
+                            round(self.system_health[key] + REPAIR_BOT_REPAIR_RATE, 4))
+                        full = self.system_health[key] >= 100.0
+                elif ttype == "room_hull":
+                    room = target.get("room")
+                    if room in self.room_hull_health:
+                        self.room_hull_health[room] = min(100.0,
+                            round(self.room_hull_health[room] + REPAIR_BOT_REPAIR_RATE, 4))
+                        full = self.room_hull_health[room] >= 100.0
+                elif ttype == "outer_hull":
+                    side = target.get("side")
+                    if side in self.outer_hull_health:
+                        self.outer_hull_health[side] = min(100.0,
+                            round(self.outer_hull_health[side] + REPAIR_BOT_REPAIR_RATE, 4))
+                        full = self.outer_hull_health[side] >= 100.0
+                elif ttype == "bot":
+                    bot_type = target.get("bot_type")
+                    target_id = target.get("id")
+                    if bot_type == "transport":
+                        bot_list = self.transport_bots
+                    elif bot_type == "repair":
+                        bot_list = self.repair_bots
+                    else:
+                        bot_list = self.mining_bots_list
+                    for tb in bot_list:
+                        if tb["id"] == target_id:
+                            tb["health"] = min(100.0,
+                                round(tb["health"] + REPAIR_BOT_REPAIR_RATE, 4))
+                            full = tb["health"] >= 100.0
+                            break
+                elif ttype == "item":
+                    item = target.get("item")
+                    if item in self.item_health:
+                        self.item_health[item] = min(100.0,
+                            round(self.item_health[item] + REPAIR_BOT_REPAIR_RATE, 4))
+                        full = self.item_health[item] >= 100.0
+                if full:
+                    bot["state"] = "returning"
+                    bot["job"] = {"ticks_left": REPAIR_BOT_TRAVEL_TICKS}
+
+    def repair_transport_bot(self, bot_id: int, amount: float) -> tuple[bool, str]:
+        """Restore health to a bot. Called from Repairs panel."""
+        for bot in self.transport_bots:
+            if bot["id"] == bot_id:
+                if bot["health"] >= TRANSPORT_BOT_HEALTH_MAX:
+                    return False, "Bot already at full health"
+                bot["health"] = min(TRANSPORT_BOT_HEALTH_MAX, round(bot["health"] + amount, 2))
+                return True, f"Bot #{bot_id} health → {bot['health']}"
+        return False, f"No bot #{bot_id}"
+
+    def _validate_transport(self, source: str, dest: str, item: str, amount: float,
+                            planet_stockpile: Optional[dict] = None) -> tuple:
+        """Validate a transport request. Returns (ok, message, clamped_amount)."""
+        if amount <= 0:
+            return False, "Amount must be positive", 0
+        if source == dest:
+            return False, "Source and destination are the same", 0
+
+        # Resolve source inventory
+        if source == "planet":
+            if planet_stockpile is None:
+                return False, "Not orbiting a planet", 0
+            src_inv = planet_stockpile
+        else:
+            src_inv = self.rooms.get(source)
+            if src_inv is None:
+                return False, f"Unknown source room: {source}", 0
+
+        # Resolve destination
+        dst_inv = self.rooms.get(dest)
+        if dst_inv is None:
+            return False, f"Unknown destination room: {dest}", 0
+
+        # Check source has item
+        available = src_inv.get(item, 0)
+        if available <= 0:
+            return False, f"Source has no {item}", 0
+        actual = min(amount, available)
+
+        # Clamp to bot cargo capacity (1 large item or 1000 consumables)
+        if item in LARGE_ITEMS:
+            actual = min(actual, TRANSPORT_BOT_CARGO_LARGE)
+        else:
+            actual = min(actual, TRANSPORT_BOT_CARGO_CONSUMABLE)
+
+        # Check destination permission
+        perms = self.ROOM_PERMISSIONS.get(dest)
+        if perms is not None and item not in perms:
+            return False, f"{dest} does not accept {item}", 0
+
+        return True, "OK", actual
+
+    def queue_transport(self, source: str, dest: str, item: str, amount: float,
+                        bot_id: Optional[int] = None,
+                        planet_stockpile: Optional[dict] = None,
+                        trips_remaining: Optional[int] = 1) -> tuple:
+        """Assign a transport job to an idle bot. Items are reserved immediately.
+        trips_remaining: 1 = one trip, None = infinite repeats.
+        If bot_id is None, picks the first available idle bot.
+        Returns (ok, message, bot_dict_or_None).
+        """
+        ok, msg, actual = self._validate_transport(source, dest, item, amount, planet_stockpile)
+        if not ok:
+            return False, msg, None
+
+        # Find an idle bot
+        bot = None
+        if bot_id is not None:
+            for b in self.transport_bots:
+                if b["id"] == bot_id and b["state"] == "idle":
+                    bot = b
+                    break
+            if bot is None:
+                return False, f"Bot #{bot_id} is not available", None
+        else:
+            for b in self.transport_bots:
+                if b["state"] == "idle":
+                    bot = b
+                    break
+            if bot is None:
+                return False, "No idle bots available", None
+
+        # Check bot condition
+        if bot["health"] <= 0:
+            return False, f"Bot #{bot['id']} is broken (0 health)", None
+        if bot["charge"] < TRANSPORT_BOT_CHARGE_COST:
+            return False, f"Bot #{bot['id']} charge too low ({bot['charge']}/{TRANSPORT_BOT_CHARGE_COST} needed)", None
+
+        # Reserve items: deduct from source now
+        if source == "planet":
+            src_inv = planet_stockpile
+        else:
+            src_inv = self.rooms[source]
+        src_inv[item] = round(src_inv.get(item, 0) - actual, 2)
+
+        # Consume charge and health
+        bot["charge"] = round(bot["charge"] - TRANSPORT_BOT_CHARGE_COST, 2)
+        bot["health"] = round(bot["health"] - TRANSPORT_BOT_HEALTH_COST, 2)
+
+        # Assign job
+        bot["state"] = "pickup"
+        bot["job"] = {
+            "source": source,
+            "dest": dest,
+            "item": item,
+            "amount": actual,
+            "ticks_left": TRANSPORT_TRAVEL_TICKS,
+            "trips_remaining": trips_remaining,
+        }
+        return True, f"Bot #{bot['id']}: {actual} {item} ({source} → {dest})", bot
+
+    def cancel_transport(self, bot_id: int) -> tuple[bool, str]:
+        """Cancel a bot's current job or recall-to-charge. Returns reserved items."""
+        for bot in self.transport_bots:
+            if bot["id"] == bot_id:
+                if bot["state"] == "returning":
+                    # Stop mid-return, idle where the bot currently is
+                    bot["state"] = "idle"
+                    bot["job"] = None
+                    return True, f"Transport #{bot_id} stopped"
+                if bot["job"] is not None:
+                    job = bot["job"]
+                    if "item" in job:
+                        return_to = job["source"] if job["source"] != "planet" else "cargo_bay"
+                        inv = self.rooms.get(return_to, self.rooms["cargo_bay"])
+                        inv[job["item"]] = round(inv.get(job["item"], 0) + job["amount"], 2)
+                    bot["state"] = "idle"
+                    bot["job"] = None
+                    return True, f"Cancelled transport #{bot_id}'s job"
+        return False, f"Transport #{bot_id} has no active job"
+
+    def charge_transport(self, bot_id: int) -> tuple[bool, str]:
+        """Recall a transport to the charging bay. Cancels active job (returns items)."""
+        for bot in self.transport_bots:
+            if bot["id"] == bot_id:
+                if bot["location"] == "charging_bay" and bot["state"] == "idle":
+                    return True, f"Transport #{bot_id} is already in the charging bay"
+                if bot["state"] == "returning":
+                    return True, f"Transport #{bot_id} is already returning to charging bay"
+                # Return any reserved items before recalling
+                if bot["job"] is not None and "item" in bot["job"]:
+                    job = bot["job"]
+                    return_to = job["source"] if job["source"] != "planet" else "cargo_bay"
+                    inv = self.rooms.get(return_to, self.rooms["cargo_bay"])
+                    inv[job["item"]] = round(inv.get(job["item"], 0) + job["amount"], 2)
+                bot["state"] = "returning"
+                bot["job"] = {"dest": "charging_bay", "ticks_left": TRANSPORT_TRAVEL_TICKS}
+                return True, f"Transport #{bot_id} returning to charging bay"
+        return False, f"Transport #{bot_id} not found"
+
+    def _max_mfg_gw(self, recipe: dict, gw: float, mfg: dict) -> float:
+        """Return the GW this manufacturing slot can actually consume given materials."""
+        if gw <= 0:
+            return 0.0
+        if recipe["kind"] == "rate":
+            usable = gw
+            for mat, rate in recipe["materials_per_gw"].items():
+                if rate > 0:
+                    usable = min(usable, mfg.get(mat, 0.0) / rate)
+            return max(0.0, usable)
+        else:  # progress — all-or-nothing per tick
+            frac = gw / recipe["total_gw"]
+            for mat, total_mat in recipe["materials"].items():
+                if mfg.get(mat, 0.0) < total_mat * frac - 0.001:
+                    return 0.0
+            return gw
+
+    def _complete_manufactured_item(self, key: str) -> None:
+        """Deliver a completed manufactured item."""
+        mfg = self.rooms["manufacturing"]
+        if key == "transport_bot":
+            self.transport_bots.append(self._make_bot())
+        elif key == "repair_bot":
+            self.repair_bots.append(self._make_repair_bot())
+        elif key == "mining_bot":
+            self.mining_bots_list.append(self._make_mining_bot())
+        else:
+            mfg[key] = mfg.get(key, 0) + 1
+
+    def update_manufacturing(self) -> None:
+        """Run one tick of manufacturing production. Called from tick_loop."""
+        mfg = self.rooms["manufacturing"]
+        total_mfg_gw = self.net_power_gw() * (self.power_allocation.get("manufacturing", 0.0) / 100.0)
+        if total_mfg_gw <= 0.001:
+            return
+
+        # Normalise if total allocation exceeds 100 %
+        total_pct = sum(self.manufacturing_alloc.values())
+        scale = 1.0 if total_pct <= 100.0 else 100.0 / total_pct
+
+        # Build active slot list: [key, recipe, target_gw]
+        slots = []
+        for key, pct in self.manufacturing_alloc.items():
+            if pct <= 0:
+                continue
+            recipe = MANUFACTURING_RECIPES.get(key)
+            if recipe is None:
+                continue
+            slots.append([key, recipe, total_mfg_gw * pct * scale / 100.0])
+
+        if not slots:
+            return
+
+        # First pass: cap each slot to what its materials allow
+        usable = {s[0]: self._max_mfg_gw(s[1], s[2], mfg) for s in slots}
+
+        # Redistribute blocked GW to other slots that can absorb it
+        blocked = sum(s[2] - usable[s[0]] for s in slots)
+        if blocked > 0.001:
+            winners = [s for s in slots if usable[s[0]] > 0]
+            if winners:
+                win_sum = sum(usable[s[0]] for s in winners)
+                for s in winners:
+                    extra = blocked * (usable[s[0]] / win_sum)
+                    new_target = s[2] + extra
+                    usable[s[0]] = self._max_mfg_gw(s[1], new_target, mfg)
+
+        # Apply production
+        for key, recipe, _ in slots:
+            gw = usable[key]
+            if gw <= 0.001:
+                continue
+            if recipe["kind"] == "rate":
+                for mat, rate in recipe["materials_per_gw"].items():
+                    mfg[mat] = round(max(0.0, mfg.get(mat, 0.0) - gw * rate), 2)
+                mfg[key] = round(mfg.get(key, 0.0) + gw * recipe["output_per_gw"], 2)
+            else:  # progress
+                frac = gw / recipe["total_gw"]
+                for mat, total_mat in recipe["materials"].items():
+                    mfg[mat] = round(max(0.0, mfg.get(mat, 0.0) - total_mat * frac), 2)
+                self.manufacturing_progress[key] = round(
+                    self.manufacturing_progress.get(key, 0.0) + gw, 2)
+                if self.manufacturing_progress[key] >= recipe["total_gw"]:
+                    self.manufacturing_progress[key] = 0.0
+                    self._complete_manufactured_item(key)
+
+    def update_transport(self) -> None:
+        """Advance all transport bots by 1 tick. Charging only applies in the charging bay."""
+        # ── Charging bay power ──────────────────────────────────────────────
+        charging_gw = self.net_power_gw() * self.power_allocation.get("repairs", 0.0) / 100.0
+        all_bots = self.transport_bots + self.repair_bots + self.mining_bots_list
+        bots_in_bay = sum(
+            1 for b in all_bots
+            if b.get("location") == "charging_bay" and b["state"] == "idle"
+        )
+        charge_per_bot = (
+            round(charging_gw / bots_in_bay * CHARGING_BAY_CHARGE_RATE_PER_GW, 3)
+            if bots_in_bay > 0 else 0.0
+        )
+        # Charge all idle bots in charging bay (transport + repair + mining)
+        for bot in all_bots:
+            if bot.get("location") == "charging_bay" and bot["state"] == "idle":
+                if bot["charge"] < TRANSPORT_BOT_CHARGE_MAX:
+                    bot["charge"] = min(TRANSPORT_BOT_CHARGE_MAX,
+                                        round(bot["charge"] + charge_per_bot, 2))
+
+        # ── Advance transport bot jobs ───────────────────────────────────────
+        for bot in self.transport_bots:
+            if bot["state"] == "idle":
+                continue
+
+            if bot["state"] == "returning":
+                # Traveling back to charging bay with no cargo
+                job = bot["job"]
+                job["ticks_left"] -= 1
+                if job["ticks_left"] <= 0:
+                    bot["location"] = "charging_bay"
+                    bot["state"] = "idle"
+                    bot["job"] = None
+                continue
+
+            job = bot["job"]
+            if job is None:
+                bot["state"] = "idle"
+                continue
+
+            job["ticks_left"] -= 1
+            if job["ticks_left"] <= 0:
+                if bot["state"] == "pickup":
+                    # Arrived at source → now deliver to destination
+                    bot["state"] = "deliver"
+                    job["ticks_left"] = TRANSPORT_TRAVEL_TICKS
+                else:
+                    # Delivery complete → deposit items, update location
+                    dst_inv = self.rooms.get(job["dest"], {})
+                    dst_inv[job["item"]] = round(dst_inv.get(job["item"], 0) + job["amount"], 2)
+                    bot["location"] = job["dest"]
+
+                    # ── Repeat trips ────────────────────────────────────────
+                    trips = job.get("trips_remaining")  # 1 = last, None = infinite
+                    source = job["source"]
+                    should_repeat = (trips is None or trips > 1) and source != "planet"
+                    if should_repeat:
+                        next_trips = None if trips is None else trips - 1
+                        ok, _, actual = self._validate_transport(
+                            source, job["dest"], job["item"], job["amount"])
+                        can_go = (ok and actual > 0
+                                  and bot["charge"] >= TRANSPORT_BOT_CHARGE_COST
+                                  and bot["health"] > 0)
+                        if can_go:
+                            src_inv = self.rooms[source]
+                            src_inv[job["item"]] = round(
+                                src_inv.get(job["item"], 0) - actual, 2)
+                            bot["charge"] = round(bot["charge"] - TRANSPORT_BOT_CHARGE_COST, 2)
+                            bot["health"] = round(bot["health"] - TRANSPORT_BOT_HEALTH_COST, 2)
+                            bot["state"] = "pickup"
+                            bot["job"] = {
+                                "source": source,
+                                "dest": job["dest"],
+                                "item": job["item"],
+                                "amount": actual,
+                                "ticks_left": TRANSPORT_TRAVEL_TICKS,
+                                "trips_remaining": next_trips,
+                            }
+                            continue
+
+                    # No repeat (or unable to repeat)
+                    bot["state"] = "idle"
+                    bot["job"] = None
 
     def update_tick(self, planet_center=None) -> None:
         """Called once per game tick: rotate toward target, then translate.
@@ -326,6 +992,23 @@ class Ship:
         )
 
     # ── Power helpers ─────────────────────────────────────────────────────────
+
+    def comms_gw(self) -> float:
+        """GW currently allocated to the comms array."""
+        return round(self.net_power_gw() * self.power_allocation.get("comms", 0.0) / 100.0, 2)
+
+    def comms_range_ly(self) -> float:
+        """Maximum comms range in light-years based on current comms GW."""
+        from .constants import COMMS_RANGE_LY_PER_GW
+        return round(self.comms_gw() * COMMS_RANGE_LY_PER_GW, 2)
+
+    def short_range_scan_gw(self) -> float:
+        """GW currently allocated to the short-range scanner."""
+        return round(self.net_power_gw() * self.power_allocation.get("short_range_scanner", 0.0) / 100.0, 2)
+
+    def long_range_scan_gw(self) -> float:
+        """GW currently allocated to the long-range scanner."""
+        return round(self.net_power_gw() * self.power_allocation.get("long_range_scanner", 0.0) / 100.0, 2)
 
     def life_support_min_gw(self) -> float:
         """Minimum GW the life support system requires given current crew."""
@@ -527,7 +1210,207 @@ class Ship:
         if at_full or at_empty:
             self.power_allocation["battery"] = 0.0
 
+    def shields_gw(self) -> float:
+        """GW currently allocated to the shields station."""
+        return round(self.net_power_gw() * self.power_allocation.get("shields", 0.0) / 100.0, 2)
+
+    def weapons_gw(self) -> float:
+        """GW currently allocated to the weapons station."""
+        return round(self.net_power_gw() * self.power_allocation.get("weapons", 0.0) / 100.0, 2)
+
+    def targeting_range_au(self) -> float:
+        """Detection range of the targeting system based on weapons power."""
+        t_gw = self.weapons_gw() * max(0.0, min(100.0, self.weapons_targeting_pct)) / 100.0
+        return round(t_gw * TARGETING_RANGE_PER_GW, 3)
+
+    def _component_gw(self, station: str, section: str, role: str, comp_id: int) -> float:
+        """GW delivered to a single installed component."""
+        if station == "shields":
+            s_gw = self.shields_gw() * self.shields_section_alloc.get(section, 0.0) / 100.0
+            alloc = self.shields_component_alloc.get(section, {})
+            pool = (
+                self.hull_sections.get(section, {}).get("defense_lasers", []) +
+                self.hull_sections.get(section, {}).get("shield_batteries", [])
+            )
+        else:
+            laser_gw = self.weapons_gw() * max(0.0, 100.0 - self.weapons_targeting_pct) / 100.0
+            s_gw = laser_gw * self.weapons_section_alloc.get(section, 0.0) / 100.0
+            alloc = self.weapons_component_alloc.get(section, {})
+            pool = self.hull_sections.get(section, {}).get("offense_lasers", [])
+
+        if not pool:
+            return 0.0
+        id_str = str(comp_id)
+        if alloc:
+            total_w = sum(alloc.values()) or 1.0
+            w = alloc.get(id_str, 0.0) / total_w
+        else:
+            w = 1.0 / len(pool)
+        return round(s_gw * w, 4)
+
+    def get_section_shield_reduction(self, section: str) -> float:
+        """Damage reduction fraction (0..1) provided by shield batteries on a section."""
+        batteries = self.hull_sections.get(section, {}).get("shield_batteries", [])
+        if not batteries:
+            return 0.0
+        total_reduction = 0.0
+        for b in batteries:
+            gw = self._component_gw("shields", section, "shield_battery", b["id"])
+            health_frac = b["health"] / 100.0
+            total_reduction += gw * health_frac * SHIELD_REDUCTION_PER_GW / 100.0
+        return round(min(MAX_SHIELD_REDUCTION, total_reduction), 4)
+
+    def get_section_defense_info(self, section: str) -> dict:
+        """Aggregate range (AU) and DPS for defense lasers on a section."""
+        lasers = self.hull_sections.get(section, {}).get("defense_lasers", [])
+        total_range = 0.0
+        total_dps = 0.0
+        for laser in lasers:
+            gw = self._component_gw("shields", section, "defense_laser", laser["id"])
+            h = laser["health"] / 100.0
+            total_range = max(total_range, gw * h * DEFENSE_LASER_RANGE_PER_GW)
+            total_dps += gw * h * DEFENSE_LASER_DPS_PER_GW
+        return {"range_au": round(total_range, 3), "dps": round(total_dps, 3)}
+
+    def fire_defense_lasers(self, obj: dict, obj_sides: list, distance_au: float) -> float:
+        """Fire all defense lasers on sides matching obj_sides at an approaching object.
+        Returns total HP dealt this tick."""
+        total_dps = 0.0
+        for side in obj_sides:
+            lasers = self.hull_sections.get(side, {}).get("defense_lasers", [])
+            for laser in lasers:
+                if laser["health"] <= 0:
+                    continue
+                gw = self._component_gw("shields", side, "defense_laser", laser["id"])
+                h_frac = laser["health"] / 100.0
+                laser_range = gw * h_frac * DEFENSE_LASER_RANGE_PER_GW
+                if distance_au <= laser_range:
+                    total_dps += gw * h_frac * DEFENSE_LASER_DPS_PER_GW
+        return round(total_dps, 3)
+
+    def fire_offense_lasers_at(self, obj_sides: list, distance_au: float) -> float:
+        """Fire offense lasers on sides matching obj_sides at a target.
+        Returns total DPS this tick."""
+        total_dps = 0.0
+        for side in obj_sides:
+            lasers = self.hull_sections.get(side, {}).get("offense_lasers", [])
+            for laser in lasers:
+                if laser["health"] <= 0:
+                    continue
+                gw = self._component_gw("weapons", side, "offense_laser", laser["id"])
+                total_dps += gw * (laser["health"] / 100.0) * OFFENSE_LASER_DPS_PER_GW
+        return round(total_dps, 3)
+
+    def apply_hit_damage(self, base_damage: float, obj_sides: list, fwd_frac: float, right_frac: float) -> None:
+        """Apply hit damage to hull sections with shield reduction. Also damages 10% to components."""
+        # Build weighted fractions per side
+        weights: dict = {}
+        if abs(fwd_frac) >= 0.5:
+            weights["front" if fwd_frac > 0 else "back"] = abs(fwd_frac)
+        if abs(right_frac) >= 0.5:
+            weights["starboard" if right_frac > 0 else "port"] = abs(right_frac)
+        # Above/below
+        for side in obj_sides:
+            if side in ("above", "below"):
+                weights[side] = 0.3
+        if not weights:
+            weights = {obj_sides[0]: 1.0} if obj_sides else {"front": 1.0}
+        total_w = sum(weights.values()) or 1.0
+
+        for side, w in weights.items():
+            side_damage = base_damage * (w / total_w)
+            # Reduce by shield batteries on this side
+            reduction = self.get_section_shield_reduction(side)
+            actual = side_damage * (1.0 - reduction)
+            # Apply 10% to installed components on this side
+            comp_dmg = actual * 0.10
+            for role in ("defense_lasers", "offense_lasers", "shield_batteries"):
+                for comp in self.hull_sections.get(side, {}).get(role, []):
+                    comp["health"] = round(max(0.0, comp["health"] - comp_dmg), 2)
+            # Apply remaining 90% to outer hull section
+            self.outer_hull_health[side] = round(
+                max(0.0, self.outer_hull_health[side] - actual * 0.90), 2)
+            # Carry remainder into overall hull_health (reduced from 10% of 90% total hit)
+            self.hull_health = round(max(0.0, self.hull_health - actual * 0.10), 2)
+
+    def install_component(self, section: str, role: str, station: str) -> tuple[bool, str]:
+        """Install a component from room inventory into a hull section.
+        role: 'defense_laser' | 'offense_laser' | 'shield_battery'
+        station: 'shields' | 'weapons'
+        """
+        if section not in SECTION_SIDES:
+            return False, f"Unknown section: {section}"
+        _ROLE_MAP = {
+            "defense_laser":  ("shields_room", "lasers",          "defense_lasers"),
+            "offense_laser":  ("weapons_room", "lasers",          "offense_lasers"),
+            "shield_battery": ("shields_room", "shield_batteries", "shield_batteries"),
+        }
+        if role not in _ROLE_MAP:
+            return False, f"Unknown role: {role}"
+        room_key, item_key, col_key = _ROLE_MAP[role]
+        # Shields station can install anything in _ROLE_MAP; weapons station, only offense_laser
+        if station == "weapons" and role != "offense_laser":
+            return False, "Weapons station can only install offense lasers"
+        if station == "shields" and role == "offense_laser":
+            return False, "Shields station cannot install offense lasers"
+        room = self.rooms.get(room_key, {})
+        if room.get(item_key, 0) < 1:
+            return False, f"No {item_key} in {room_key}"
+        sec = self.hull_sections[section]
+        if len(sec.get(col_key, [])) >= SECTION_COMPONENT_CAP:
+            return False, f"{section} already has {SECTION_COMPONENT_CAP} {role}s"
+        room[item_key] = max(0, room.get(item_key, 0) - 1)
+        comp = {"id": self._next_component_id, "health": 100.0}
+        self._next_component_id += 1
+        sec[col_key].append(comp)
+        return True, f"Installed {role} #{comp['id']} in {section}"
+
+    def uninstall_component(self, section: str, role: str, component_id: int) -> tuple[bool, str]:
+        """Remove an installed component and return it to room inventory."""
+        if section not in SECTION_SIDES:
+            return False, f"Unknown section: {section}"
+        _ROLE_MAP = {
+            "defense_laser":  ("defense_lasers",  "shields_room", "lasers"),
+            "offense_laser":  ("offense_lasers",  "weapons_room", "lasers"),
+            "shield_battery": ("shield_batteries", "shields_room", "shield_batteries"),
+        }
+        if role not in _ROLE_MAP:
+            return False, f"Unknown role: {role}"
+        col_key, room_key, item_key = _ROLE_MAP[role]
+        sec = self.hull_sections.get(section, {})
+        comps = sec.get(col_key, [])
+        comp = next((c for c in comps if c["id"] == component_id), None)
+        if not comp:
+            return False, f"Component {component_id} not found in {section}.{col_key}"
+        comps.remove(comp)
+        self.rooms[room_key][item_key] = self.rooms[room_key].get(item_key, 0) + 1
+        # Clean up alloc entry
+        alloc = (self.shields_component_alloc if role in ("defense_laser", "shield_battery")
+                 else self.weapons_component_alloc)
+        alloc.get(section, {}).pop(str(component_id), None)
+        return True, f"Uninstalled {role} #{component_id} from {section}"
+
     def to_dict(self) -> dict:
+        # Compute aggregate item_health for backward-compat (repair panel ITEMS tab)
+        all_lasers = []
+        all_batteries = []
+        for sd in self.hull_sections.values():
+            all_lasers.extend(sd.get("defense_lasers", []))
+            all_lasers.extend(sd.get("offense_lasers", []))
+            all_batteries.extend(sd.get("shield_batteries", []))
+        computed_laser_health = (
+            sum(l["health"] for l in all_lasers) / len(all_lasers) if all_lasers else 100.0
+        )
+        computed_battery_health = (
+            sum(b["health"] for b in all_batteries) / len(all_batteries) if all_batteries else 100.0
+        )
+        # Per-section defense info (range, dps) for the shields panel
+        section_defense = {
+            side: self.get_section_defense_info(side) for side in SECTION_SIDES
+        }
+        section_shield_reduction = {
+            side: self.get_section_shield_reduction(side) for side in SECTION_SIDES
+        }
         return {
             "current_system_id": self.current_system_id,
             "position": self.position,
@@ -557,6 +1440,31 @@ class Ship:
             "orbit_radius_au": self.orbit_radius_au,
             "orbit_center": self.orbit_center,
             "mining_bots": self.mining_bots,
+            "transport_bots": self.transport_bots,
+            "repair_bots": self.repair_bots,
+            "mining_bots_list": self.mining_bots_list,
+            "room_hull_health": self.room_hull_health,
+            "outer_hull_health": self.outer_hull_health,
+            "item_health": {
+                "air_scrubbers":    self.item_health.get("air_scrubbers", 100.0),
+                "lasers":           round(computed_laser_health, 2),
+                "shield_batteries": round(computed_battery_health, 2),
+            },
+            "manufacturing_alloc": self.manufacturing_alloc,
+            "manufacturing_progress": self.manufacturing_progress,
+            # ── Combat / shields / weapons ────────────────────────────────────────
+            "hull_sections": self.hull_sections,
+            "shields_gw": self.shields_gw(),
+            "shields_section_alloc": self.shields_section_alloc,
+            "shields_component_alloc": self.shields_component_alloc,
+            "section_defense": section_defense,
+            "section_shield_reduction": section_shield_reduction,
+            "weapons_gw": self.weapons_gw(),
+            "weapons_targeting_pct": self.weapons_targeting_pct,
+            "weapons_section_alloc": self.weapons_section_alloc,
+            "weapons_component_alloc": self.weapons_component_alloc,
+            "weapons_locked_target_id": self.weapons_locked_target_id,
+            "targeting_range_au": self.targeting_range_au(),
         }
 
 
@@ -590,4 +1498,51 @@ def create_ship(starting_system_id: str) -> Ship:
     ship.power_allocation_gw_targets["general_systems"] = 20.0
     # Seed Engine Room with fuel
     ship.rooms["engine_room"]["fuel"] = ENGINE_ROOM_FUEL_START
+
+    # ── Seed starting resources so all stations are immediately playable ──────
+    # Cargo bay — raw materials for manufacturing + spares
+    ship.rooms["cargo_bay"].update({
+        "metals":               5000.0,
+        "rare_earth":           2000.0,
+        "radioactive_material": 1000.0,
+        "hydrocarbons":          500.0,
+        "fuel":                 5000.0,
+        "lasers":                  4,
+        "missiles":                4,
+        "shield_batteries":        4,
+        "power_batteries":         2,
+        "air_scrubbers":           3,
+    })
+    # Manufacturing room — enough materials pre-staged to build several items
+    ship.rooms["manufacturing"].update({
+        "metals":               3000.0,
+        "rare_earth":           1000.0,
+        "radioactive_material":  500.0,
+        "hydrocarbons":          200.0,
+        "fuel":                 1000.0,
+    })
+    # Weapons room — a few pre-installed lasers and missiles
+    ship.rooms["weapons_room"].update({
+        "lasers":   3,
+        "missiles": 3,
+    })
+    # Shields room — a few pre-installed shield batteries and lasers
+    ship.rooms["shields_room"].update({
+        "shield_batteries": 3,
+        "lasers":           2,
+    })
+    # Living quarters — air scrubbers installed for life support from the start
+    ship.rooms["living_quarters"].update({
+        "air_scrubbers": 2,
+    })
+
+    # Spawn starting transport bots
+    for _ in range(TRANSPORT_BOT_START_COUNT):
+        ship.transport_bots.append(ship._make_bot())
+    # Spawn starting repair bots
+    for _ in range(REPAIR_BOT_START_COUNT):
+        ship.repair_bots.append(ship._make_repair_bot())
+    # Spawn starting mining bots
+    for _ in range(3):
+        ship.mining_bots_list.append(ship._make_mining_bot())
     return ship

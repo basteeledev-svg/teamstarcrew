@@ -30,19 +30,36 @@ class WarpRequest(BaseModel):
 # ── Game lifecycle ────────────────────────────────────────────────────────────
 
 @router.post("/game/start")
-async def start_game(seed: Optional[int] = None):
-    """Generate a new galaxy, spawn the ship, begin the tick loop."""
+async def start_game(seed: Optional[int] = None, mode: str = "full"):
+    """Generate a new galaxy, spawn the ship, begin the tick loop.
+
+    mode="full"  – seed NPC ships and initial messages (default)
+    mode="empty" – pure physics sandbox: no NPCs, no story messages
+    """
+    if mode not in ("full", "empty"):
+        raise HTTPException(status_code=400, detail="mode must be 'full' or 'empty'")
+
     galaxy = generate_galaxy(seed)
     starting_system = galaxy.systems[0]
     starting_system.visited = True
 
-    game_state.galaxy  = galaxy
-    game_state.ship    = create_ship(starting_system.id)
-    game_state.tick    = 0
-    game_state.running = True
+    game_state.galaxy          = galaxy
+    game_state.ship            = create_ship(starting_system.id)
+    game_state.tick            = 0
+    game_state.running         = True
+    game_state.npc_ships       = []
+    game_state.messages        = []
+    game_state.dynamic_objects = []
+    game_state._next_npc_ship_id = 1
+    game_state._next_obj_id      = 1
+
+    if mode == "full":
+        game_state.seed_npc_ships(starting_system.id)
+        game_state.seed_initial_messages()
 
     return {
         "status": "started",
+        "mode": mode,
         "seed": galaxy.seed,
         "system_count": len(galaxy.systems),
         "starting_system": starting_system.name,
