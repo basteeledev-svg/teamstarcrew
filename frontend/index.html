@@ -6,9 +6,68 @@
     <meta name="viewport" content="width=1280, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
     <title>TeamStarCrew</title>
     <style>
+      /* ═══════════════════════════════════════════════════════════════
+         THEME — edit these variables to restyle the entire application
+         ═══════════════════════════════════════════════════════════════ */
+      :root {
+        /* Layout backgrounds (darkest → lightest) */
+        --bg-base:   #050510;   /* root canvas                   */
+        --bg-raised: #0a0a20;   /* active tabs, overlays          */
+        --bg-card:   #08081a;   /* cards, stations list           */
+        --bg-input:  #09091c;   /* panel inner sections           */
+        --bg-label:  #070714;   /* section-label strips           */
+
+        /* Borders */
+        --border:       #1a1a2e;
+        --border-faint: #0d0d22;
+
+        /* Text hierarchy (brightest → most dimmed) */
+        --text-bright:    #d0d8f0;
+        --text-primary:   #aabbdd;
+        --text-body:      #8899cc;
+        --text-secondary: #556677;
+        --text-muted:     #445566;
+        --text-dim:       #334455;
+        --text-ghost:     #1a2a3a;
+
+        /* Core accent colours */
+        --accent:       #00aaff;   /* primary blue (nav, active states) */
+        --accent-green: #00cc66;   /* success / health good             */
+        --accent-amber: #ffaa00;   /* warning                           */
+        --accent-red:   #cc3300;   /* critical / danger                 */
+        --accent-cyan:  #00ffcc;   /* secondary teal (comms etc.)       */
+
+        /* Status indicators in health bars and condition readouts */
+        --status-good:   #00ff88;
+        --status-warn:   #ffaa00;
+        --status-bad:    #ff4444;
+        --status-danger: #ff3333;
+
+        /* Tinted backgrounds for coloured panels/overlays */
+        --tint-success: #003322;
+        --tint-accent:  #002244;
+        --tint-danger:  rgba(26, 0, 0, 0.85);
+
+        /* Navigation arrow buttons */
+        --btn-arrow-bg: rgba(255, 140, 0, 0.75);
+
+        /* Typography */
+        --font-mono: 'Courier New', monospace;
+
+        /* UI shape */
+        --btn-radius: 2px;
+        --slider-height: 12px;
+
+        /* Button sizing */
+        --btn-font-size: 11px;
+        --btn-font-size-sm: 9px;
+        --btn-pad: 5px 10px;
+        --btn-pad-sm: 3px 8px;
+      }
+
       * { margin: 0; padding: 0; box-sizing: border-box; }
-      html, body { width: 1280px; height: 800px; overflow: hidden; background: #050510; }
-      body { color: #d0d8f0; font-family: 'Courier New', monospace; }
+      html, body { width: 1280px; height: 800px; overflow: hidden; background: var(--bg-base); }
+      body { color: var(--text-bright); font-family: var(--font-mono); }
       #root { width: 1280px; height: 800px; overflow: hidden; }
     </style>
   </head>

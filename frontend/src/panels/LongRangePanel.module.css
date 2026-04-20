@@ -1,0 +1,285 @@
+/* LongRangePanel – extracted from inline styles */
+
+.container {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  background: var(--bg-label);
+  overflow: hidden;
+}
+
+/* ── Header ──────────────────────────────────────────── */
+.header {
+  padding: 7px 14px;
+  border-bottom: 1px solid #0a1d2a;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-shrink: 0;
+}
+
+.headerTitle {
+  font-size: 11px;
+  letter-spacing: 3px;
+  font-family: var(--font-mono);
+  color: #88ddff;
+  font-weight: bold;
+}
+
+.headerInfo {
+  font-size: 9px;
+  letter-spacing: 1px;
+  font-family: var(--font-mono);
+  color: #1a3344;
+}
+
+.tierLegend {
+  margin-left: auto;
+  display: flex;
+  gap: 8px;
+}
+
+.tierTag {
+  font-size: 7px;
+  font-family: var(--font-mono);
+  letter-spacing: 0.5px;
+}
+
+/* ── Body ────────────────────────────────────────────── */
+.body {
+  flex: 1;
+  display: flex;
+  overflow: hidden;
+}
+
+.mapWrap {
+  flex-shrink: 0;
+  border-right: 1px solid #0a1d2a;
+}
+
+.detailWrap {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  background: #040a10;
+}
+
+/* ── Detail: Section heads ───────────────────────────── */
+.sectionHead {
+  font-size: 8px;
+  letter-spacing: 2px;
+  color: #1a3344;
+  font-family: var(--font-mono);
+  margin-top: 14px;
+  margin-bottom: 6px;
+  border-bottom: 1px solid #0a1d2a;
+  padding-bottom: 4px;
+}
+
+/* ── Detail: Tier badge ──────────────────────────────── */
+.tierBadge {
+  display: flex;
+  gap: 3px;
+  margin-top: 8px;
+  margin-bottom: 2px;
+}
+
+.tierBlock {
+  width: 18px;
+  height: 4px;
+  border-radius: 1px;
+}
+
+.tierLabel {
+  font-size: 8px;
+  color: #1a3344;
+  font-family: var(--font-mono);
+  margin-left: 5px;
+  line-height: 4px;
+}
+
+/* ── Detail: KV rows ─────────────────────────────────── */
+.kvLabel {
+  font-size: 9px;
+  color: #1a3344;
+  font-family: var(--font-mono);
+  letter-spacing: 1px;
+}
+
+.kvValue {
+  font-size: 9px;
+  font-family: var(--font-mono);
+}
+
+/* ── Detail: Planet types ────────────────────────────── */
+.planetTypeWrap {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.planetName {
+  font-size: 8px;
+  color: #2a4455;
+  font-family: var(--font-mono);
+  margin-bottom: 2px;
+}
+
+.planetTag {
+  padding: 2px 7px;
+  font-size: 8px;
+  font-family: var(--font-mono);
+  letter-spacing: 0.5px;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.planetDot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  opacity: 0.85;
+}
+
+.moonWrap {
+  padding-left: 12px;
+  margin-top: 2px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 3px;
+}
+
+.moonTag {
+  font-size: 7px;
+  padding: 1px 5px;
+  font-family: var(--font-mono);
+  color: var(--text-dim);
+  border: 1px solid #0a1a22;
+}
+
+/* ── Detail: Ship activity ───────────────────────────── */
+.activityBadge {
+  display: inline-block;
+  padding: 3px 10px;
+  font-size: 9px;
+  font-family: var(--font-mono);
+  letter-spacing: 1px;
+  background: #030a10;
+}
+
+/* ── Detail: Next tier hint ──────────────────────────── */
+.nextTier {
+  margin-top: 12px;
+  padding: 8px 10px;
+  background: #030a10;
+  border: 1px solid #0a2030;
+  font-size: 9px;
+  font-family: var(--font-mono);
+}
+
+/* ── Detail: System header ───────────────────────────── */
+.sysDetail {
+  flex: 1;
+  overflow-y: auto;
+  padding: 16px;
+}
+
+.sysHeader {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+.starDot {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.sysName {
+  font-size: 14px;
+  font-family: var(--font-mono);
+  letter-spacing: 1px;
+}
+
+.sysSubtitle {
+  font-size: 9px;
+  color: #1a3344;
+  font-family: var(--font-mono);
+  letter-spacing: 1px;
+  margin-top: 2px;
+}
+
+.scanGrid {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 4px 14px;
+  margin-bottom: 4px;
+}
+
+.planetCount {
+  font-size: 10px;
+  color: #5588aa;
+  font-family: var(--font-mono);
+}
+
+/* ── Empty detail ────────────────────────────────────── */
+.emptyWrap {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  padding: 24px;
+}
+
+.emptyIcon {
+  font-size: 42px;
+  opacity: 0.07;
+  color: #88ddff;
+}
+
+.emptyLabel {
+  color: #1a3344;
+  font-size: 10px;
+  letter-spacing: 3px;
+  font-family: var(--font-mono);
+}
+
+.statsWrap {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 8px 0;
+  width: 100%;
+  max-width: 230px;
+}
+
+.statRow {
+  display: flex;
+  justify-content: space-between;
+  font-size: 9px;
+  font-family: var(--font-mono);
+}
+
+.statLabel {
+  color: #1a3344;
+}
+
+.tierHints {
+  font-size: 7px;
+  color: #0a2030;
+  font-family: var(--font-mono);
+  letter-spacing: 1px;
+  text-align: center;
+  line-height: 1.9;
+}
+
+.tierHintDash {
+  color: #1a3040;
+}

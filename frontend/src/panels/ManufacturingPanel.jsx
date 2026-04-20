@@ -1,11 +1,9 @@
 import { useState, useEffect } from 'react'
+import s from './ManufacturingPanel.module.css'
 
 // ── Style ─────────────────────────────────────────────────────────────────────
-const BG      = '#070714'
-const CARD_BG = '#09091c'
 const ACCENT  = '#ffcc44'
 const ACCENT2 = '#00ffcc'
-const FONT    = 'Courier New'
 
 // Mirror backend MANUFACTURING_RECIPES
 const RECIPES = {
@@ -14,10 +12,10 @@ const RECIPES = {
     materialsPerGw: { hydrocarbons: 1 }, outputPerGw: 1, unit: 'fuel',
   },
   transport_bot:    { kind: 'progress', label: 'TRANSPORT BOT',  totalGw: 1000, materials: { metals: 500, rare_earth: 200 } },
-  mining_bot:       { kind: 'progress', label: 'MINING BOT',     totalGw: 1000, materials: { metals: 500, rare_earth: 200, radioactive_material: 50 } },
-  repair_bot:       { kind: 'progress', label: 'REPAIR BOT',     totalGw: 800,  materials: { metals: 400, rare_earth: 150, radioactive_material: 30 } },
+  mining_bot:       { kind: 'progress', label: 'MINING BOT',     totalGw: 1000, materials: { metals: 500, rare_earth: 200, radioactive: 50 } },
+  repair_bot:       { kind: 'progress', label: 'REPAIR BOT',     totalGw: 800,  materials: { metals: 400, rare_earth: 150, radioactive: 30 } },
   lasers:           { kind: 'progress', label: 'LASER',          totalGw: 500,  materials: { metals: 200, rare_earth: 100 } },
-  missiles:         { kind: 'progress', label: 'MISSILE',        totalGw: 400,  materials: { metals: 150, radioactive_material: 50 } },
+  missiles:         { kind: 'progress', label: 'MISSILE',        totalGw: 400,  materials: { metals: 150, radioactive: 50 } },
   shield_batteries: { kind: 'progress', label: 'SHIELD BATTERY', totalGw: 300,  materials: { metals: 100, rare_earth: 50 } },
   power_batteries:  { kind: 'progress', label: 'POWER BATTERY',  totalGw: 350,  materials: { metals: 200, rare_earth: 50 } },
   air_scrubbers:    { kind: 'progress', label: 'AIR SCRUBBER',   totalGw: 200,  materials: { metals: 50,  rare_earth: 10 } },
@@ -86,9 +84,7 @@ export default function ManufacturingPanel({ gameState, sendCommand }) {
 
   if (!ship) {
     return (
-      <div style={{ flex: 1, background: BG, display: 'flex', alignItems: 'center',
-                    justifyContent: 'center', color: '#222', fontFamily: FONT,
-                    fontSize: '12px', letterSpacing: '4px' }}>
+      <div className={s.noSignal}>
         NO SIGNAL
       </div>
     )
@@ -119,36 +115,33 @@ export default function ManufacturingPanel({ gameState, sendCommand }) {
   const invItems = Object.entries(mfgRoom).filter(([, v]) => v > 0)
 
   return (
-    <div style={{ flex: 1, display: 'flex', background: BG, fontFamily: FONT,
-                  color: '#ccc', fontSize: '11px', overflow: 'hidden' }}>
+    <div className={s.container}>
 
       {/* ── LEFT: Inventory + power summary ─────────────────────────────── */}
-      <div style={{ width: '196px', flexShrink: 0, borderRight: '1px solid #111',
-                    display: 'flex', flexDirection: 'column', padding: '8px', overflowY: 'auto' }}>
+      <div className={s.sidebar}>
 
-        <div style={sectionLabel}>MFG INVENTORY</div>
+        <div className={s.sectionLabel}>MFG INVENTORY</div>
         {invItems.length === 0
-          ? <div style={{ color: '#333', fontSize: '10px' }}>empty</div>
+          ? <div className={s.invEmpty}>empty</div>
           : invItems.map(([item, qty]) => (
-              <div key={item} style={{ display: 'flex', justifyContent: 'space-between',
-                                       padding: '2px 0', borderBottom: '1px solid #0d0d1a' }}>
-                <span style={{ color: '#777', fontSize: '10px' }}>{item}</span>
-                <span style={{ color: ACCENT2, fontSize: '10px' }}>{fmtNum(qty)}</span>
+              <div key={item} className={s.invRow}>
+                <span className={s.invItem}>{item}</span>
+                <span className={s.invQty}>{fmtNum(qty)}</span>
               </div>
             ))
         }
 
-        <div style={{ ...sectionLabel, marginTop: '14px' }}>POWER</div>
-        <div style={{ color: '#666', fontSize: '10px' }}>Room alloc: {mfgPct.toFixed(1)}%</div>
-        <div style={{ color: ACCENT2, fontSize: '14px', fontWeight: 'bold' }}>{mfgGw.toFixed(1)} GW</div>
-        <div style={{ color: '#555', fontSize: '9px', marginTop: '3px' }}>
-          Total: <span style={{ color: Math.abs(totalPct - 100) > 1 ? '#ff4444' : '#888' }}>
+        <div className={s.sectionLabelMt}>POWER</div>
+        <div className={s.powerPct}>Room alloc: {mfgPct.toFixed(1)}%</div>
+        <div className={s.powerGw}>{mfgGw.toFixed(1)} GW</div>
+        <div className={s.totalPct}>
+          Total: <span className={Math.abs(totalPct - 100) > 1 ? s.totalPctBad : s.totalPctOk}>
             {totalPct.toFixed(0)}%
           </span>
         </div>
 
-        <div style={{ ...sectionLabel, marginTop: '14px' }}>LEGEND</div>
-        <div style={{ color: '#555', fontSize: '9px', lineHeight: '1.6' }}>
+        <div className={s.sectionLabelMt}>LEGEND</div>
+        <div className={s.legend}>
           Rate items produce<br />each tick × GW.<br />
           Progress items<br />complete then deliver<br />1 unit to inventory.<br /><br />
           🔒 Lock a slider to<br />exclude from<br />redistribution.
@@ -156,8 +149,8 @@ export default function ManufacturingPanel({ gameState, sendCommand }) {
       </div>
 
       {/* ── CENTER: Recipe sliders ───────────────────────────────────────── */}
-      <div style={{ flex: 1, overflowY: 'auto', padding: '8px' }}>
-        <div style={sectionLabel}>PRODUCTION — POWER ALLOCATION (sum = 100%)</div>
+      <div className={s.center}>
+        <div className={s.sectionLabel}>PRODUCTION — POWER ALLOCATION (sum = 100%)</div>
 
         {RECIPE_KEYS.map(key => {
           const recipe   = RECIPES[key]
@@ -181,31 +174,27 @@ export default function ManufacturingPanel({ gameState, sendCommand }) {
             : null
 
           return (
-            <div key={key} style={{
-              background: active ? CARD_BG : '#050510',
-              border: `1px solid ${locked ? '#332200' : active ? '#1e1e38' : '#0a0a18'}`,
-              borderRadius: '4px', padding: '6px 8px', marginBottom: '4px',
+            <div key={key} className={s.recipeCard} style={{
+              background: active ? 'var(--bg-input)' : 'var(--bg-base)',
+              border: `1px solid ${locked ? '#332200' : active ? 'var(--border)' : 'var(--border-faint)'}`,
             }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <div className={s.recipeRow}>
                 {/* Lock button */}
                 <button
                   onClick={() => toggleLock(key)}
                   title={locked ? 'Unlock' : 'Lock'}
-                  style={{
-                    flexShrink: 0, background: 'transparent', border: 'none',
-                    cursor: 'pointer', fontSize: '12px', padding: '0 2px',
-                    color: locked ? ACCENT : '#333', lineHeight: 1,
-                  }}
+                  className={s.lockBtn}
+                  style={{ color: locked ? ACCENT : 'var(--text-dim)' }}
                 >
                   {locked ? '🔒' : '🔓'}
                 </button>
 
                 {/* Label + material cost */}
-                <div style={{ width: '130px', flexShrink: 0 }}>
-                  <div style={{ color: active ? ACCENT : '#444', fontSize: '11px', letterSpacing: '1px' }}>
+                <div className={s.labelWrap}>
+                  <div className={s.labelName} style={{ color: active ? ACCENT : 'var(--text-dim)' }}>
                     {recipe.label}
                   </div>
-                  <div style={{ color: '#3a3a50', fontSize: '8px', marginTop: '1px' }}>{matStr}</div>
+                  <div className={s.labelMat}>{matStr}</div>
                 </div>
 
                 {/* Slider */}
@@ -215,45 +204,42 @@ export default function ManufacturingPanel({ gameState, sendCommand }) {
                   value={pct}
                   disabled={locked}
                   onChange={e => handleSlider(key, parseFloat(e.target.value))}
+                  className={s.slider}
                   style={{
-                    flex: 1, accentColor: locked ? '#664400' : ACCENT,
-                    cursor: locked ? 'not-allowed' : 'pointer', height: '14px',
+                    accentColor: locked ? '#664400' : ACCENT,
+                    cursor: locked ? 'not-allowed' : 'pointer',
                     opacity: locked ? 0.5 : 1,
                   }}
                 />
 
                 {/* Pct + GW readout */}
-                <div style={{ width: '76px', textAlign: 'right', flexShrink: 0, fontSize: '10px' }}>
-                  <span style={{ color: active ? (locked ? '#aa7700' : ACCENT) : '#333' }}>
+                <div className={s.readout}>
+                  <span style={{ color: active ? (locked ? '#aa7700' : ACCENT) : 'var(--text-dim)' }}>
                     {pct.toFixed(1)}%
                   </span>
-                  <span style={{ color: '#444' }}> {slotGw.toFixed(1)}GW</span>
+                  <span className={s.readoutDim}> {slotGw.toFixed(1)}GW</span>
                 </div>
               </div>
 
               {/* Progress bar */}
               {active && recipe.kind === 'progress' && (
-                <div style={{ marginTop: '4px', paddingLeft: '22px' }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between',
-                                fontSize: '8px', color: '#555', marginBottom: '1px' }}>
+                <div className={s.progressWrap}>
+                  <div className={s.progressHeader}>
                     <span>PROGRESS</span>
-                    <span style={{ color: '#777' }}>
+                    <span className={s.progressLabel}>
                       {progPct.toFixed(1)}%
                       {ticksLeft != null && ` · ~${ticksLeft}t`}
                     </span>
                   </div>
-                  <div style={{ height: '4px', background: '#111', borderRadius: '2px' }}>
-                    <div style={{
-                      width: `${progPct}%`, height: '100%', background: ACCENT,
-                      borderRadius: '2px', transition: 'width 0.4s',
-                    }} />
+                  <div className={s.progressTrack}>
+                    <div className={s.progressFill} style={{ width: `${progPct}%` }} />
                   </div>
                 </div>
               )}
 
               {/* Rate output */}
               {active && recipe.kind === 'rate' && rateStr && (
-                <div style={{ fontSize: '9px', color: ACCENT2, marginTop: '3px', paddingLeft: '22px' }}>
+                <div className={s.rateOutput}>
                   {rateStr}
                 </div>
               )}
@@ -265,8 +251,3 @@ export default function ManufacturingPanel({ gameState, sendCommand }) {
   )
 }
 
-// ── Shared styles ────────────────────────────────────────────────────────────
-const sectionLabel = {
-  color: ACCENT, fontSize: '10px', letterSpacing: '3px', marginBottom: '5px',
-  fontFamily: FONT,
-}

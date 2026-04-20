@@ -14,6 +14,19 @@ from .constants import (
     SCAN_PLANET_TIER1, SCAN_PLANET_TIER2, SCAN_PLANET_TIER3, SCAN_PLANET_TIER4,
     SCAN_SHIP_TIER1, SCAN_SHIP_TIER2, SCAN_SHIP_TIER3, SCAN_SHIP_TIER4,
     LRS_TIER1, LRS_TIER2, LRS_TIER3, LRS_TIER4, LRS_TIER5, LRS_TIER6,
+    MAX_REACTOR_OUTPUT_GW, REACTOR_COUNT,
+    REACTOR_START_OUTPUT,
+    FUEL_ENGINE_MAX_THRUST_AU, ELEC_ENGINE_MAX_THRUST_AU,
+    WARP_CAPACITOR_MAX_GW, WARP_CAPACITOR_LEAK_GW,
+    WARP_COST_BASE, WARP_COST_EXPONENT,
+    MINING_BOTS_MAX,
+    MINING_BOT_START_COUNT,
+    MINING_BOT_CHARGE_MAX,
+    CHARGING_BAY_CHARGE_RATE_PER_GW,
+    BATTERY_CAPACITY_GW,
+    ROOM_CAPACITY_STANDARD,
+    ROOM_CAPACITY_LARGE,
+    ORBIT_DISTANCE_AU,
 )
 
 # ── Comms helpers — planet type → display metadata ───────────────────────────
@@ -282,6 +295,7 @@ class GameState:
                     "y": 0.0,
                     "z": round(dist * math.sin(angle), 4),
                 },
+                "velocity":    {"x": 0.0, "y": 0.0, "z": 0.0},
                 "system_id":   system_id,
             })
             self._next_npc_ship_id += 1
@@ -548,6 +562,22 @@ class GameState:
             "long_range_scan":  lrs,
             "dynamic_objects":  self.dynamic_objects,
             "targeting_contacts": targeting,
+            "constants": {
+                "MAX_REACTOR_OUTPUT_GW": MAX_REACTOR_OUTPUT_GW,
+                "REACTOR_COUNT": REACTOR_COUNT,
+                "FUEL_ENGINE_MAX_THRUST_AU": FUEL_ENGINE_MAX_THRUST_AU,
+                "ELEC_ENGINE_MAX_THRUST_AU": ELEC_ENGINE_MAX_THRUST_AU,
+                "WARP_CAPACITOR_MAX_GW": WARP_CAPACITOR_MAX_GW,
+                "WARP_CAPACITOR_LEAK_GW": WARP_CAPACITOR_LEAK_GW,
+                "WARP_COST_BASE": WARP_COST_BASE,
+                "WARP_COST_EXPONENT": WARP_COST_EXPONENT,
+                "MINING_BOTS_MAX": MINING_BOTS_MAX,
+                "CHARGING_BAY_CHARGE_RATE_PER_GW": CHARGING_BAY_CHARGE_RATE_PER_GW,
+                "BATTERY_CAPACITY_GW": BATTERY_CAPACITY_GW,
+                "ROOM_CAPACITY_STANDARD": ROOM_CAPACITY_STANDARD,
+                "ROOM_CAPACITY_LARGE": ROOM_CAPACITY_LARGE,
+                "ORBIT_DISTANCE_AU": ORBIT_DISTANCE_AU,
+            },
         }
 
 

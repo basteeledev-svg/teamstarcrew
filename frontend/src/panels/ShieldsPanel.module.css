@@ -1,0 +1,376 @@
+/* ShieldsPanel – extracted from inline styles */
+
+/* ── Bars ─────────────────────────────────────────── */
+.barOuter {
+  background: var(--bg-base);
+  border: 1px solid var(--border-faint);
+  flex-shrink: 0;
+}
+
+.powerBarFill {
+  height: 100%;
+  background: #00ccff;
+  opacity: 0.7;
+}
+
+/* ── CompRow ──────────────────────────────────────── */
+.compRow {
+  padding: 6px 8px;
+  border-bottom: 1px solid var(--border-faint);
+  font-family: var(--font-mono);
+}
+
+.compRowHead {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 3px;
+}
+
+.compRowRoleLabel {
+  font-size: 9px;
+}
+
+.compRowStats {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+
+.compRowHp {
+  font-size: 8px;
+}
+
+.compRowPower {
+  margin-top: 4px;
+}
+
+.compRowPowerRow {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.compRowPwrLabel {
+  font-size: 7px;
+  color: var(--text-ghost);
+  width: 36px;
+}
+
+.compRowSlider {
+  flex: 1;
+  height: 10px;
+}
+
+.compRowPct {
+  font-size: 7px;
+  width: 24px;
+  text-align: right;
+}
+
+/* ── SectionDetail ────────────────────────────────── */
+.sectionDetail {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.sectionHeader {
+  padding: 6px 12px;
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+  background: var(--bg-base);
+}
+
+.sectionHeaderRow {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.sectionTitle {
+  font-size: 13px;
+  color: #00ccff;
+  letter-spacing: 2px;
+  font-family: var(--font-mono);
+}
+
+.sectionHullWrap {
+  text-align: right;
+  font-family: var(--font-mono);
+}
+
+.sectionHullLabel {
+  font-size: 9px;
+  color: var(--text-ghost);
+}
+
+.sectionHullVal {
+  font-size: 11px;
+}
+
+.sectionStats {
+  display: flex;
+  gap: 16px;
+  margin-top: 4px;
+}
+
+.stat {
+  font-family: var(--font-mono);
+  font-size: 8px;
+}
+
+.statLabel {
+  color: var(--text-ghost);
+}
+
+.statAccent {
+  color: #00ccff;
+}
+
+.statAmber {
+  color: var(--accent-amber);
+}
+
+/* ── Threats (section detail) ─────────────────────── */
+.threatBar {
+  padding: 4px 12px;
+  background: var(--tint-danger);
+  border-bottom: 1px solid var(--accent-red);
+  flex-shrink: 0;
+}
+
+.threatRow {
+  display: flex;
+  justify-content: space-between;
+  font-family: var(--font-mono);
+  font-size: 8px;
+}
+
+.threatLabel {
+  color: var(--status-bad);
+}
+
+.threatHp {
+  color: var(--accent-amber);
+}
+
+/* ── Component groups ─────────────────────────────── */
+.scrollArea {
+  flex: 1;
+  overflow-y: auto;
+}
+
+.groupHeader {
+  padding: 4px 10px;
+  font-size: 7px;
+  letter-spacing: 2px;
+  border-bottom: 1px solid var(--border-faint);
+  font-family: var(--font-mono);
+}
+
+.emptyMsg {
+  padding: 8px 12px;
+  color: var(--text-ghost);
+  font-size: 9px;
+  font-family: var(--font-mono);
+}
+
+.installWrap {
+  padding: 4px 10px;
+}
+
+/* ── SectionOverview ──────────────────────────────── */
+.overviewScroll {
+  flex: 1;
+  overflow-y: auto;
+  padding: 8px;
+}
+
+.overviewCard {
+  background: var(--bg-input);
+  border: 1px solid var(--border-faint);
+  margin-bottom: 6px;
+  padding: 8px;
+}
+
+.overviewCardHead {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 6px;
+  align-items: center;
+}
+
+.sectionBtn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: #00ccff;
+  font-size: 11px;
+  font-family: var(--font-mono);
+  letter-spacing: 2px;
+}
+
+.overviewStats {
+  display: flex;
+  gap: 10px;
+  font-family: var(--font-mono);
+  font-size: 8px;
+}
+
+.sliderWrap {
+  margin-top: 6px;
+}
+
+.overviewFooter {
+  display: flex;
+  gap: 12px;
+  margin-top: 4px;
+  font-family: var(--font-mono);
+  font-size: 8px;
+}
+
+/* ── Main panel ───────────────────────────────────── */
+.container {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  background: var(--bg-label);
+  overflow: hidden;
+  font-family: var(--font-mono);
+}
+
+.header {
+  padding: 7px 14px;
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.headerTitle {
+  font-size: 11px;
+  color: #00ccff;
+  letter-spacing: 3px;
+  font-weight: bold;
+}
+
+.headerInfo {
+  font-size: 9px;
+  color: var(--text-ghost);
+  letter-spacing: 1px;
+}
+
+.headerGw {
+  margin-left: auto;
+  font-size: 9px;
+}
+
+.body {
+  flex: 1;
+  display: flex;
+  overflow: hidden;
+}
+
+/* ── Sidebar ──────────────────────────────────────── */
+.sidebar {
+  width: 160px;
+  display: flex;
+  flex-direction: column;
+  border-right: 1px solid var(--border-faint);
+  flex-shrink: 0;
+}
+
+.backBtn {
+  padding: 6px 8px;
+  background: var(--bg-base);
+  border: none;
+  border-bottom: 1px solid var(--border);
+  color: #00ccff;
+  font-family: var(--font-mono);
+  font-size: 8px;
+  cursor: pointer;
+  letter-spacing: 1px;
+  text-align: left;
+}
+
+.sidebarLabel {
+  padding: 5px 8px;
+  font-size: 7px;
+  color: var(--text-ghost);
+  letter-spacing: 2px;
+  border-bottom: 1px solid var(--border-faint);
+}
+
+.inventoryBlock {
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--border-faint);
+}
+
+.inventoryTitle {
+  font-size: 9px;
+  margin-bottom: 4px;
+}
+
+.inventoryCount {
+  font-size: 13px;
+}
+
+.inventorySubtext {
+  font-size: 8px;
+  color: var(--text-ghost);
+}
+
+.threatsLabel {
+  padding: 4px 8px;
+  font-size: 7px;
+  color: var(--status-bad);
+  letter-spacing: 2px;
+  border-bottom: 1px solid var(--border-faint);
+}
+
+.threatsList {
+  overflow-y: auto;
+  flex: 1;
+}
+
+.threatItem {
+  padding: 5px 8px;
+  border-bottom: 1px solid var(--border-faint);
+}
+
+.threatItemLabel {
+  font-size: 8px;
+  color: var(--status-bad);
+}
+
+.threatItemSides {
+  font-size: 7px;
+  color: var(--text-ghost);
+  margin-top: 2px;
+}
+
+/* ── Main area ────────────────────────────────────── */
+.mainArea {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.pendingBar {
+  padding: 4px 12px;
+  border-bottom: 1px solid var(--border);
+  background: var(--tint-success);
+  flex-shrink: 0;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.pendingLabel {
+  font-size: 8px;
+  color: var(--status-good);
+  font-family: var(--font-mono);
+}

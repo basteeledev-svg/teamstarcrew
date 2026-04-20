@@ -1,51 +1,10 @@
 import { useState, useMemo } from 'react'
+import { RACE_COLORS, PLANET_TYPE_COLORS } from '../shared'
+import './keyframes.css'
+import s from './ShortRangePanel.module.css'
 
 // ── Theme ──────────────────────────────────────────────────────────────────────
-const BG      = '#070714'
-const CARD    = '#09091c'
 const ACCENT  = '#44ffaa'
-const MUTED   = '#1a4433'
-const DIM     = '#0d2d22'
-
-// ── Injected keyframes ─────────────────────────────────────────────────────────
-const KEYFRAMES = `
-  @keyframes srsSweep {
-    from { transform: rotate(0deg); }
-    to   { transform: rotate(360deg); }
-  }
-  @keyframes srsPulse {
-    0%, 100% { opacity: 0.6; }
-    50%       { opacity: 1.0; }
-  }
-`
-
-// ── Planet type colours ────────────────────────────────────────────────────────
-const PLANET_COLORS = {
-  'Barren/Rocky':    '#996655',
-  'Terrestrial':     '#44bb77',
-  'Desert/Arid':     '#cc8833',
-  'Ice World':       '#88ddff',
-  'Gas Giant':       '#9966dd',
-  'Ice Giant':       '#66aacc',
-  'Ocean World':     '#2288cc',
-  'Jungle/Lush':     '#55cc44',
-  'Tidally Locked':  '#aaaaaa',
-  'Toxic/Corrosive': '#88cc22',
-  'Volcanic/Magma':  '#ff6622',
-  'Irradiated':      '#ddaa00',
-  'Super-Earth':     '#77aa44',
-  'Crystalline':     '#cc88ff',
-  'Rogue/Dark':      '#334455',
-}
-
-// ── Faction colours ────────────────────────────────────────────────────────────
-const RACE_COLORS = {
-  'Human':      '#4488ff',
-  'Ssysrian':   '#44ff88',
-  'Unitarian':  '#ffcc44',
-  'Fulborg':    '#ff4455',
-  'Klackin':    '#cc44ff',
-}
 
 // ── Resource bucket helpers ────────────────────────────────────────────────────
 const BUCKET_COLORS = {
@@ -113,7 +72,7 @@ function OrbitRing({ planet, scale }) {
 
 function PlanetDot({ planet, scale, selected, onSelect }) {
   const { x, y } = posToXY(planet.position, scale)
-  const color = planet.tier >= 1 ? (PLANET_COLORS[planet.type] ?? '#888888') : '#334444'
+  const color = planet.tier >= 1 ? (PLANET_TYPE_COLORS[planet.type] ?? '#888888') : '#334444'
   const r = 6
 
   return (
@@ -207,10 +166,10 @@ function Radar({ scanData, ship, selectedId, onSelect }) {
   const scale     = RADAR_R / (maxOrbit * 1.15)
 
   return (
-    <div style={{ position: 'relative', flexShrink: 0 }}>
+    <div className={s.radarContainer}>
       <svg
         width={SVG_SIZE} height={SVG_SIZE}
-        style={{ background: '#020a06', display: 'block' }}
+        className={s.radarSvg}
         viewBox={`0 0 ${SVG_SIZE} ${SVG_SIZE}`}
       >
         {/* Background grid */}
@@ -288,12 +247,12 @@ function ResourceBar({ label, value }) {
   const pct = BUCKET_PCT[value] ?? 0
   const color = BUCKET_COLORS[value] ?? '#223333'
   return (
-    <div style={{ display: 'grid', gridTemplateColumns: '90px 1fr 60px', alignItems: 'center', gap: 6, marginBottom: 4 }}>
-      <span style={{ fontSize: 9, color: '#557766', fontFamily: 'Courier New', letterSpacing: 0.5 }}>{label}</span>
-      <div style={{ height: 6, background: '#0a1a10', borderRadius: 2 }}>
-        <div style={{ height: 6, width: `${pct}%`, background: color, borderRadius: 2 }} />
+    <div className={s.resourceBarRow}>
+      <span className={s.resourceLabel}>{label}</span>
+      <div className={s.barTrack}>
+        <div className={s.barFill} style={{ width: `${pct}%`, background: color }} />
       </div>
-      <span style={{ fontSize: 9, color, fontFamily: 'Courier New', letterSpacing: 1 }}>{value.toUpperCase()}</span>
+      <span className={s.resourceBarValue} style={{ color }}>{value.toUpperCase()}</span>
     </div>
   )
 }
@@ -304,19 +263,19 @@ function ResourceExact({ label, value }) {
     value < 20 ? 'trace' : value < 40 ? 'low' : value < 60 ? 'moderate' : value < 80 ? 'high' : 'rich'
   ]
   return (
-    <div style={{ display: 'grid', gridTemplateColumns: '90px 1fr 44px', alignItems: 'center', gap: 6, marginBottom: 4 }}>
-      <span style={{ fontSize: 9, color: '#557766', fontFamily: 'Courier New', letterSpacing: 0.5 }}>{label}</span>
-      <div style={{ height: 6, background: '#0a1a10', borderRadius: 2 }}>
-        <div style={{ height: 6, width: `${pct}%`, background: color, borderRadius: 2 }} />
+    <div className={s.resourceExactRow}>
+      <span className={s.resourceLabel}>{label}</span>
+      <div className={s.barTrack}>
+        <div className={s.barFill} style={{ width: `${pct}%`, background: color }} />
       </div>
-      <span style={{ fontSize: 9, color, fontFamily: 'Courier New', textAlign: 'right' }}>{value.toFixed(1)}</span>
+      <span className={s.resourceExactValue} style={{ color }}>{value.toFixed(1)}</span>
     </div>
   )
 }
 
 function SectionHead({ label }) {
   return (
-    <div style={{ fontSize: 8, letterSpacing: 2, color: MUTED, fontFamily: 'Courier New', marginBottom: 8, marginTop: 14, borderBottom: '1px solid #0a2a1a', paddingBottom: 4 }}>
+    <div className={s.sectionHead}>
       {label}
     </div>
   )
@@ -324,14 +283,13 @@ function SectionHead({ label }) {
 
 function TierBadge({ tier, max = 4 }) {
   return (
-    <div style={{ display: 'flex', gap: 3, marginTop: 6 }}>
+    <div className={s.tierBadge}>
       {Array.from({ length: max }).map((_, i) => (
-        <div key={i} style={{
-          width: 22, height: 4, borderRadius: 1,
+        <div key={i} className={s.tierBar} style={{
           background: i < tier ? ACCENT : '#0a2a1a',
         }} />
       ))}
-      <span style={{ fontSize: 8, color: MUTED, fontFamily: 'Courier New', marginLeft: 4, lineHeight: '4px' }}>
+      <span className={s.tierLabel}>
         TIER {tier}/{max}
       </span>
     </div>
@@ -347,10 +305,10 @@ function NextTierHint({ obj, scanGw, thresholds, kind }) {
     ? ['planet type', 'inhabited status', 'approx resources', 'precise data']
     : ['contact', 'ship size', 'faction', 'hull health']
   return (
-    <div style={{ marginTop: 10, padding: '8px 10px', background: '#040d08', border: '1px solid #0a2a1a', fontSize: 9, fontFamily: 'Courier New' }}>
-      <span style={{ color: MUTED }}>NEXT TIER: </span>
-      <span style={{ color: '#447766' }}>{labels[obj.tier]}</span>
-      <span style={{ color: '#224433' }}>
+    <div className={s.nextTierHint}>
+      <span className={s.nextTierPrefix}>NEXT TIER: </span>
+      <span className={s.nextTierName}>{labels[obj.tier]}</span>
+      <span className={s.nextTierNeeded}>
         {needed > 0 ? ` — +${needed.toFixed(1)} GW needed` : ' — UNLOCKING...'}
       </span>
     </div>
@@ -358,17 +316,17 @@ function NextTierHint({ obj, scanGw, thresholds, kind }) {
 }
 
 function PlanetDetail({ planet, scanGw, thresholds }) {
-  const color = (planet.tier >= 1 ? PLANET_COLORS[planet.type] : null) ?? '#334444'
+  const color = (planet.tier >= 1 ? PLANET_TYPE_COLORS[planet.type] : null) ?? '#334444'
   return (
-    <div style={{ padding: 16, overflowY: 'auto', flex: 1 }}>
+    <div className={s.detailContent}>
       {/* Header */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12 }}>
-        <div style={{ width: 14, height: 14, borderRadius: '50%', background: color, flexShrink: 0 }} />
+      <div className={s.detailHeader}>
+        <div className={s.planetDotIcon} style={{ background: color }} />
         <div>
-          <div style={{ fontSize: 13, color, fontFamily: 'Courier New', letterSpacing: 1 }}>
+          <div className={s.detailName} style={{ color }}>
             {planet.tier >= 1 ? planet.name : 'UNKNOWN'}
           </div>
-          <div style={{ fontSize: 9, color: MUTED, fontFamily: 'Courier New', letterSpacing: 1, marginTop: 2 }}>
+          <div className={s.detailSubtitle}>
             PLANET {planet.tier >= 1 ? `· ${planet.type.toUpperCase()}` : ''}
           </div>
         </div>
@@ -377,15 +335,15 @@ function PlanetDetail({ planet, scanGw, thresholds }) {
       <TierBadge tier={planet.tier} />
 
       <SectionHead label="SCAN DATA" />
-      <div style={{ display: 'grid', gridTemplateColumns: 'auto 1fr', gap: '4px 12px', marginBottom: 8 }}>
+      <div className={s.scanDataGrid}>
         {[
           ['DISTANCE', `${planet.distance_au} AU`],
           ['SIGNAL',   `${planet.signal}`],
           ...(planet.tier >= 1 ? [['MOONS', String(planet.moons ?? 0)]] : []),
         ].map(([k, v]) => (
           <>
-            <span key={`k-${k}`} style={{ fontSize: 9, color: MUTED, fontFamily: 'Courier New', letterSpacing: 1 }}>{k}</span>
-            <span key={`v-${k}`} style={{ fontSize: 9, color: '#668877', fontFamily: 'Courier New' }}>{v}</span>
+            <span key={`k-${k}`} className={s.scanDataKey}>{k}</span>
+            <span key={`v-${k}`} className={s.scanDataValue}>{v}</span>
           </>
         ))}
       </div>
@@ -393,8 +351,7 @@ function PlanetDetail({ planet, scanGw, thresholds }) {
       {planet.tier >= 2 && (
         <>
           <SectionHead label="POPULATION" />
-          <div style={{
-            display: 'inline-block', padding: '3px 10px', fontSize: 9, fontFamily: 'Courier New', letterSpacing: 2,
+          <div className={s.populationBadge} style={{
             background: planet.inhabited ? '#0a2a0a' : '#1a1a0a',
             border: `1px solid ${planet.inhabited ? '#447744' : '#334433'}`,
             color: planet.inhabited ? '#44aa44' : '#665544',
@@ -440,16 +397,14 @@ function NpcShipDetail({ ship, scanGw, thresholds }) {
   const SIZE_LABELS = { small: 'SMALL VESSEL', medium: 'MEDIUM VESSEL', large: 'LARGE VESSEL', capital: 'CAPITAL SHIP' }
 
   return (
-    <div style={{ padding: 16, overflowY: 'auto', flex: 1 }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12 }}>
-        <div style={{ width: 0, height: 0,
-          borderLeft: '7px solid transparent', borderRight: '7px solid transparent',
-          borderBottom: `14px solid ${raceColor}`, flexShrink: 0 }} />
+    <div className={s.detailContent}>
+      <div className={s.detailHeader}>
+        <div className={s.shipTriangle} style={{ borderBottom: `14px solid ${raceColor}` }} />
         <div>
-          <div style={{ fontSize: 13, color: raceColor, fontFamily: 'Courier New', letterSpacing: 1 }}>
+          <div className={s.detailName} style={{ color: raceColor }}>
             {ship.tier >= 3 ? ship.name : 'CONTACT'}
           </div>
-          <div style={{ fontSize: 9, color: MUTED, fontFamily: 'Courier New', letterSpacing: 1, marginTop: 2 }}>
+          <div className={s.detailSubtitle}>
             {ship.tier >= 2 ? (SIZE_LABELS[ship.size] ?? 'VESSEL') : 'UNCLASSIFIED VESSEL'}
           </div>
         </div>
@@ -458,7 +413,7 @@ function NpcShipDetail({ ship, scanGw, thresholds }) {
       <TierBadge tier={ship.tier} />
 
       <SectionHead label="SCAN DATA" />
-      <div style={{ display: 'grid', gridTemplateColumns: 'auto 1fr', gap: '4px 12px', marginBottom: 8 }}>
+      <div className={s.scanDataGrid}>
         {[
           ['DISTANCE', `${ship.distance_au} AU`],
           ['SIGNAL',   `${ship.signal}`],
@@ -466,8 +421,8 @@ function NpcShipDetail({ ship, scanGw, thresholds }) {
           ...(ship.tier >= 3 ? [['FACTION', ship.race ?? '—']] : []),
         ].map(([k, v]) => (
           <>
-            <span key={`k-${k}`} style={{ fontSize: 9, color: MUTED, fontFamily: 'Courier New', letterSpacing: 1 }}>{k}</span>
-            <span key={`v-${k}`} style={{ fontSize: 9, color: raceColor, fontFamily: 'Courier New' }}>{v}</span>
+            <span key={`k-${k}`} className={s.scanDataKey}>{k}</span>
+            <span key={`v-${k}`} className={s.scanDataValue} style={{ color: raceColor }}>{v}</span>
           </>
         ))}
       </div>
@@ -475,8 +430,7 @@ function NpcShipDetail({ ship, scanGw, thresholds }) {
       {ship.tier >= 3 && (
         <>
           <SectionHead label="FACTION" />
-          <div style={{
-            display: 'inline-block', padding: '4px 12px', fontSize: 10, fontFamily: 'Courier New', letterSpacing: 2,
+          <div className={s.factionBadge} style={{
             background: `${raceColor}18`, border: `1px solid ${raceColor}44`, color: raceColor,
           }}>
             {ship.race}
@@ -487,16 +441,15 @@ function NpcShipDetail({ ship, scanGw, thresholds }) {
       {ship.tier >= 4 && ship.hull_health != null && (
         <>
           <SectionHead label="HULL INTEGRITY" />
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 46px', alignItems: 'center', gap: 8 }}>
-            <div style={{ height: 8, background: '#0a1a10', borderRadius: 2 }}>
-              <div style={{
-                height: 8, borderRadius: 2,
+          <div className={s.hullBarGrid}>
+            <div className={s.hullTrack}>
+              <div className={s.hullFill} style={{
                 width: `${Math.max(0, ship.hull_health)}%`,
                 background: ship.hull_health > 60 ? '#44aa55'
                   : ship.hull_health > 30 ? '#aaaa44' : '#aa4444',
               }} />
             </div>
-            <span style={{ fontSize: 10, color: '#668877', fontFamily: 'Courier New', textAlign: 'right' }}>
+            <span className={s.hullValue}>
               {ship.hull_health.toFixed(0)}%
             </span>
           </div>
@@ -512,26 +465,26 @@ function NpcShipDetail({ ship, scanGw, thresholds }) {
 
 function EmptyDetail({ scanGw, planetCount, shipCount }) {
   return (
-    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 14, padding: 24 }}>
-      <div style={{ fontSize: 42, opacity: 0.08, color: ACCENT }}>◎</div>
-      <div style={{ color: MUTED, fontSize: 10, letterSpacing: 3, fontFamily: 'Courier New' }}>
+    <div className={s.emptyDetail}>
+      <div className={s.emptyIcon}>◎</div>
+      <div className={s.emptyTitle}>
         SELECT AN OBJECT
       </div>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginTop: 8, width: '100%', maxWidth: 220 }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 9, fontFamily: 'Courier New' }}>
-          <span style={{ color: MUTED }}>PLANETS DETECTED</span>
-          <span style={{ color: '#668877' }}>{planetCount}</span>
+      <div className={s.emptyStats}>
+        <div className={s.emptyStatRow}>
+          <span className={s.emptyStatLabel}>PLANETS DETECTED</span>
+          <span className={s.emptyStatValue}>{planetCount}</span>
         </div>
-        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 9, fontFamily: 'Courier New' }}>
-          <span style={{ color: MUTED }}>SHIPS DETECTED</span>
-          <span style={{ color: '#668877' }}>{shipCount}</span>
+        <div className={s.emptyStatRow}>
+          <span className={s.emptyStatLabel}>SHIPS DETECTED</span>
+          <span className={s.emptyStatValue}>{shipCount}</span>
         </div>
-        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 9, fontFamily: 'Courier New', marginTop: 4 }}>
-          <span style={{ color: MUTED }}>SCAN POWER</span>
-          <span style={{ color: ACCENT }}>{scanGw.toFixed(1)} GW</span>
+        <div className={s.emptyStatRow} style={{ marginTop: 4 }}>
+          <span className={s.emptyStatLabel}>SCAN POWER</span>
+          <span className={s.emptyStatAccent}>{scanGw.toFixed(1)} GW</span>
         </div>
       </div>
-      <div style={{ fontSize: 8, color: '#0a3020', fontFamily: 'Courier New', letterSpacing: 1, textAlign: 'center', marginTop: 4 }}>
+      <div className={s.emptyLegend}>
         ◆ = NPC SHIP &nbsp;&nbsp; ● = PLANET<br />
         ✛ = PLAYER SHIP
       </div>
@@ -559,28 +512,24 @@ export default function ShortRangePanel({ gameState, sendCommand }) {
   }
 
   return (
-    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', background: BG, overflow: 'hidden' }}>
-      <style>{KEYFRAMES}</style>
+    <div className={s.container}>
 
       {/* Header */}
-      <div style={{
-        padding: '7px 14px', borderBottom: '1px solid #0a2a1a',
-        display: 'flex', alignItems: 'center', gap: 10, flexShrink: 0,
-      }}>
-        <span style={{ fontSize: 11, letterSpacing: 3, fontFamily: 'Courier New', color: ACCENT, fontWeight: 'bold' }}>
+      <div className={s.header}>
+        <span className={s.headerTitle}>
           ◎ SHORT RANGE SCAN
         </span>
-        <span style={{ fontSize: 9, letterSpacing: 1, fontFamily: 'Courier New', color: MUTED }}>
+        <span className={s.headerGw}>
           {scanGw.toFixed(1)} GW
         </span>
         {system && (
-          <span style={{ fontSize: 9, letterSpacing: 1, fontFamily: 'Courier New', color: '#2a5a3a' }}>
+          <span className={s.headerSystem}>
             · {system.name} ({system.star_type} STAR)
           </span>
         )}
-        <div style={{ marginLeft: 'auto', display: 'flex', gap: 12 }}>
-          {[['◆', 'NPC SHIP', '#667788'], ['●', 'PLANET', MUTED], ['✛', 'PLAYER', ACCENT]].map(([sym, lbl, col]) => (
-            <span key={lbl} style={{ fontSize: 8, fontFamily: 'Courier New', color: col, letterSpacing: 1 }}>
+        <div className={s.headerLegend}>
+          {[['◆', 'NPC SHIP', '#667788'], ['●', 'PLANET', '#1a4433'], ['✛', 'PLAYER', ACCENT]].map(([sym, lbl, col]) => (
+            <span key={lbl} className={s.legendItem} style={{ color: col }}>
               {sym} {lbl}
             </span>
           ))}
@@ -588,10 +537,10 @@ export default function ShortRangePanel({ gameState, sendCommand }) {
       </div>
 
       {/* Body: radar left, detail right */}
-      <div style={{ flex: 1, display: 'flex', overflow: 'hidden' }}>
+      <div className={s.body}>
 
         {/* Left: radar */}
-        <div style={{ flexShrink: 0, borderRight: '1px solid #0a2a1a', overflow: 'hidden' }}>
+        <div className={s.radarPane}>
           <Radar
             scanData={scan}
             ship={ship}
@@ -601,7 +550,7 @@ export default function ShortRangePanel({ gameState, sendCommand }) {
         </div>
 
         {/* Right: detail */}
-        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', background: '#050d08' }}>
+        <div className={s.detailPane}>
           {selected
             ? selected.kind === 'planet'
               ? <PlanetDetail planet={selected} scanGw={scanGw} thresholds={thresholds} />

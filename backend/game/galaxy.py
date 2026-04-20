@@ -93,7 +93,6 @@ class Moon:
     hydrocarbons: float
     base_hostility: float
     inhabited: bool
-    health: float = 100.0
     position: dict = field(default_factory=lambda: {"x": 0.0, "y": 0.0, "z": 0.0})
     stockpile: dict = field(default_factory=lambda: {
         "metals": 0.0, "rare_earth": 0.0, "radioactive": 0.0, "hydrocarbons": 0.0
@@ -120,7 +119,6 @@ class Planet:
     moons: list
     orbit_angle_rad: float = 0.0   # current angle in the orbital plane
     orbit_speed_rad: float = 0.0   # radians advanced per tick
-    health: float = 100.0
     stockpile: dict = field(default_factory=lambda: {
         "metals": 0.0, "rare_earth": 0.0, "radioactive": 0.0, "hydrocarbons": 0.0
     })
@@ -145,15 +143,15 @@ class Planet:
     def mine_tick(self, bots: dict) -> None:
         """Accumulate resources per assigned bot count.
 
-        Formula: gained = count * richness * health / 100
-        (richness and health are both 0-100 percentages)
+        Formula: gained = count * richness / 100
+        (richness is 0-100 percentage)
         """
         for resource in ("metals", "rare_earth", "radioactive", "hydrocarbons"):
             count = bots.get(resource, 0)
             if count <= 0:
                 continue
             richness = getattr(self, resource)  # 0-100
-            gained   = count * richness * self.health / 100.0
+            gained   = count * richness / 100.0
             self.stockpile[resource] = round(self.stockpile[resource] + gained, 2)
 
     def to_dict(self) -> dict:
@@ -230,8 +228,12 @@ class Galaxy:
 
 
 # ── Generation helpers ────────────────────────────────────────────────────────
+# Module-level local RNG, seeded per generate_galaxy() call
+_rng: random.Random = random.Random()
+
+
 def _rng_range(lo: float, hi: float) -> float:
-    return round(random.uniform(lo, hi), 2)
+    return round(_rng.uniform(lo, hi), 2)
 
 
 def _orbital_distance(index: int, n_planets: int) -> float:
@@ -246,8 +248,8 @@ def _orbit_position(distance_au: float):
     """Random position on a roughly circular orbit (slight inclination).
     Returns (position_dict, angle_rad).
     """
-    angle = random.uniform(0, math.pi * 2)
-    incl  = math.radians(random.uniform(-5, 5))
+    angle = _rng.uniform(0, math.pi * 2)
+    incl  = math.radians(_rng.uniform(-5, 5))
     pos = {
         "x": round(distance_au * math.cos(angle), 4),
         "y": round(distance_au * math.sin(incl), 4),
@@ -257,9 +259,9 @@ def _orbit_position(distance_au: float):
 
 
 def _generate_moon(parent_name: str, moon_index: int, parent_distance_au: float) -> Moon:
-    moon_type = random.choices(MOON_TYPES, weights=MOON_WEIGHTS, k=1)[0]
+    moon_type = _rng.choices(MOON_TYPES, weights=MOON_WEIGHTS, k=1)[0]
     cfg = PLANET_TYPE_CONFIG[moon_type]
-    moon_dist = random.uniform(0.002, 0.05)  # AU from parent planet
+    moon_dist = _rng.uniform(0.002, 0.05)  # AU from parent planet
     moon_pos, _ = _orbit_position(moon_dist)  # moons are static (position only)
     return Moon(
         id=str(uuid.uuid4()),
@@ -277,7 +279,7 @@ def _generate_moon(parent_name: str, moon_index: int, parent_distance_au: float)
 
 def _generate_planet(system_name: str, index: int, n_planets: int) -> Planet:
     from .constants import PLANET_ORBIT_BASE_SPEED_RAD
-    p_type = random.choices(_PLANET_TYPE_NAMES, weights=_PLANET_TYPE_WEIGHTS, k=1)[0]
+    p_type = _rng.choices(_PLANET_TYPE_NAMES, weights=_PLANET_TYPE_WEIGHTS, k=1)[0]
     cfg = PLANET_TYPE_CONFIG[p_type]
     orbital_dist = _orbital_distance(index, n_planets)
     position, orbit_angle = _orbit_position(orbital_dist)
@@ -287,9 +289,9 @@ def _generate_planet(system_name: str, index: int, n_planets: int) -> Planet:
 
     base_hostility = _rng_range(*cfg["base_hostility"])
     # 15 % chance of inhabited on eligible types; faction hostility added later by AI GM
-    inhabited = cfg["can_inhabit"] and random.random() < 0.15
+    inhabited = cfg["can_inhabit"] and _rng.random() < 0.15
 
-    n_moons = random.randint(*cfg["moons"])
+    n_moons = _rng.randint(*cfg["moons"])
     moons = [_generate_moon(name, i, orbital_dist) for i in range(n_moons)]
 
     return Planet(
@@ -303,7 +305,7 @@ def _generate_planet(system_name: str, index: int, n_planets: int) -> Planet:
         radioactive=_rng_range(*cfg["radioactive"]),
         hydrocarbons=_rng_range(*cfg["hydrocarbons"]),
         base_hostility=base_hostility,
-        faction_hostility_bump=random.uniform(15, 40) if inhabited else 0.0,
+        faction_hostility_bump=_rng.uniform(15, 40) if inhabited else 0.0,
         inhabited=inhabited,
         moons=moons,
         orbit_angle_rad=orbit_angle,
@@ -313,37 +315,37 @@ def _generate_planet(system_name: str, index: int, n_planets: int) -> Planet:
 
 def _spiral_position() -> dict:
     """Place a star system in a 2-arm spiral galaxy."""
-    if random.random() < 0.8:                      # 80 % in spiral arms
-        arm   = random.randint(0, 1)
-        r     = random.triangular(50, GALAXY_RADIUS_LY, GALAXY_RADIUS_LY * 0.4)
+    if _rng.random() < 0.8:                      # 80 % in spiral arms
+        arm   = _rng.randint(0, 1)
+        r     = _rng.triangular(50, GALAXY_RADIUS_LY, GALAXY_RADIUS_LY * 0.4)
         angle = (r / GALAXY_RADIUS_LY) * math.pi * 4  # 2 full rotations
         angle += arm * math.pi                         # second arm offset
-        angle += random.gauss(0, 0.25)                # arm spread
-        x = r * math.cos(angle) + random.gauss(0, 20)
-        z = r * math.sin(angle) + random.gauss(0, 20)
+        angle += _rng.gauss(0, 0.25)                # arm spread
+        x = r * math.cos(angle) + _rng.gauss(0, 20)
+        z = r * math.sin(angle) + _rng.gauss(0, 20)
     else:                                              # 20 % scattered
-        angle = random.uniform(0, math.pi * 2)
-        r     = random.uniform(0, GALAXY_RADIUS_LY)
+        angle = _rng.uniform(0, math.pi * 2)
+        r     = _rng.uniform(0, GALAXY_RADIUS_LY)
         x     = r * math.cos(angle)
         z     = r * math.sin(angle)
 
-    y = random.gauss(0, GALAXY_HEIGHT_LY * 0.5)
+    y = _rng.gauss(0, GALAXY_HEIGHT_LY * 0.5)
     return {"x": round(x, 2), "y": round(y, 2), "z": round(z, 2)}
 
 
 def _generate_system(used_names: set) -> StarSystem:
-    star_type = random.choices(STAR_TYPES, weights=STAR_WEIGHTS, k=1)[0]
-    prefix = random.choice(_NAME_PREFIXES)
-    letter = chr(random.randint(65, 90))
-    number = random.randint(1, 999)
+    star_type = _rng.choices(STAR_TYPES, weights=STAR_WEIGHTS, k=1)[0]
+    prefix = _rng.choice(_NAME_PREFIXES)
+    letter = chr(_rng.randint(65, 90))
+    number = _rng.randint(1, 999)
     name   = f"{prefix} {letter}-{number:03d}"
     while name in used_names:
-        number = random.randint(1, 999)
+        number = _rng.randint(1, 999)
         name   = f"{prefix} {letter}-{number:03d}"
     used_names.add(name)
 
     lo, hi = STAR_PLANET_COUNT.get(star_type, (2, 5))
-    n_planets = random.randint(lo, hi)
+    n_planets = _rng.randint(lo, hi)
     planets = [_generate_planet(name, i, n_planets) for i in range(n_planets)]
     max_orbit = max((p.orbital_distance_au for p in planets), default=1.0)
 
@@ -359,10 +361,11 @@ def _generate_system(used_names: set) -> StarSystem:
 
 
 def generate_galaxy(seed: Optional[int] = None) -> Galaxy:
+    global _rng
     if seed is None:
         seed = random.randint(0, 2**32 - 1)
-    random.seed(seed)
-    n = random.randint(GALAXY_SYSTEM_COUNT_MIN, GALAXY_SYSTEM_COUNT_MAX)
+    _rng = random.Random(seed)
+    n = _rng.randint(GALAXY_SYSTEM_COUNT_MIN, GALAXY_SYSTEM_COUNT_MAX)
     used_names: set[str] = set()
     systems = [_generate_system(used_names) for _ in range(n)]
     return Galaxy(systems=systems, seed=seed)

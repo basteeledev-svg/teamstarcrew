@@ -1,11 +1,11 @@
 import { useState, useMemo, useRef, useEffect } from 'react'
+import { PLANET_TYPE_COLORS } from '../shared'
+import './keyframes.css'
+import s from './LongRangePanel.module.css'
 
 // ── Theme ──────────────────────────────────────────────────────────────────────
-const BG     = '#070714'
-const CARD   = '#09091c'
 const ACCENT = '#88ddff'
 const MUTED  = '#1a3344'
-const DIM    = '#0d1d2a'
 
 const MAP_W = 560
 const MAP_H = 540
@@ -46,19 +46,12 @@ function buildProjection(systems) {
   return { toXY, scaleV, minX, minZ }
 }
 
-// ── Keyframes ──────────────────────────────────────────────────────────────────
-const KEYFRAMES = `
-  @keyframes lrsPulse {
-    0%, 100% { opacity: 0.7; }
-    50%       { opacity: 1.0; }
-  }
-`
 
 // ── System dot on the galaxy map ───────────────────────────────────────────────
 function SystemDot({ sys, xy, selected, onSelect }) {
   const r       = sys.current ? 7 : sys.visited ? 4 : 3
   const opacity = sys.tier === 0 ? 0.2 : sys.visited || sys.current ? 1.0 : 0.6
-  const color   = sys.tier === 0 ? '#334455' : (sys.star_color ?? '#aabbcc')
+  const color   = sys.tier === 0 ? 'var(--text-dim)' : (sys.star_color ?? 'var(--text-primary)')
 
   return (
     <g onClick={() => onSelect(sys.id)} style={{ cursor: 'pointer' }}>
@@ -118,7 +111,7 @@ function GalaxyMap({ systems, lrsGw, thresholds, selectedId, onSelect }) {
 
   return (
     <svg width={MAP_W} height={MAP_H}
-      style={{ background: '#020508', display: 'block' }}
+      style={{ background: 'var(--bg-base)', display: 'block' }}
       viewBox={`0 0 ${MAP_W} ${MAP_H}`}
     >
       {/* Scan range rings */}
@@ -157,10 +150,7 @@ function GalaxyMap({ systems, lrsGw, thresholds, selectedId, onSelect }) {
 // ── Detail panel helpers ───────────────────────────────────────────────────────
 function SectionHead({ label }) {
   return (
-    <div style={{
-      fontSize: 8, letterSpacing: 2, color: MUTED, fontFamily: 'Courier New',
-      marginTop: 14, marginBottom: 6, borderBottom: '1px solid #0a1d2a', paddingBottom: 4,
-    }}>
+    <div className={s.sectionHead}>
       {label}
     </div>
   )
@@ -168,16 +158,13 @@ function SectionHead({ label }) {
 
 function TierBadge({ tier, max = 6 }) {
   return (
-    <div style={{ display: 'flex', gap: 3, marginTop: 8, marginBottom: 2 }}>
+    <div className={s.tierBadge}>
       {Array.from({ length: max }).map((_, i) => (
-        <div key={i} style={{
-          width: 18, height: 4, borderRadius: 1,
+        <div key={i} className={s.tierBlock} style={{
           background: i < tier ? TIER_COLORS[Math.min(i, TIER_COLORS.length - 1)] : '#0a1d2a',
         }} />
       ))}
-      <span style={{
-        fontSize: 8, color: MUTED, fontFamily: 'Courier New', marginLeft: 5, lineHeight: '4px',
-      }}>
+      <span className={s.tierLabel}>
         TIER {tier}/6
       </span>
     </div>
@@ -187,43 +174,23 @@ function TierBadge({ tier, max = 6 }) {
 function KvRow({ label, value, valueColor }) {
   return (
     <>
-      <span style={{ fontSize: 9, color: MUTED, fontFamily: 'Courier New', letterSpacing: 1 }}>
+      <span className={s.kvLabel}>
         {label}
       </span>
-      <span style={{ fontSize: 9, color: valueColor ?? '#7aaccc', fontFamily: 'Courier New' }}>
+      <span className={s.kvValue} style={{ color: valueColor ?? 'var(--text-body)' }}>
         {value}
       </span>
     </>
   )
 }
 
-const PLANET_TYPE_COLORS = {
-  'Barren/Rocky':    '#886655',
-  'Terrestrial':     '#44bb77',
-  'Desert/Arid':     '#cc8833',
-  'Ice World':       '#88ddff',
-  'Gas Giant':       '#9966dd',
-  'Ice Giant':       '#66aacc',
-  'Ocean World':     '#2288cc',
-  'Jungle/Lush':     '#55cc44',
-  'Tidally Locked':  '#aaaaaa',
-  'Toxic/Corrosive': '#88cc22',
-  'Volcanic/Magma':  '#ff6622',
-  'Irradiated':      '#ddaa00',
-  'Super-Earth':     '#77aa44',
-  'Crystalline':     '#cc88ff',
-  'Rogue/Dark':      '#334455',
-}
-
 function PlanetTypeTag({ type, moons }) {
   const color = PLANET_TYPE_COLORS[type] ?? '#667788'
   return (
-    <div style={{
-      padding: '2px 7px', fontSize: 8, fontFamily: 'Courier New', letterSpacing: 0.5,
+    <div className={s.planetTag} style={{
       background: `${color}18`, border: `1px solid ${color}44`, color,
-      display: 'flex', alignItems: 'center', gap: 5,
     }}>
-      <div style={{ width: 6, height: 6, borderRadius: '50%', background: color, opacity: 0.85 }} />
+      <div className={s.planetDot} style={{ background: color }} />
       {type}
       {moons?.length > 0 && (
         <span style={{ color: '#446677', fontSize: 7 }}>+{moons.length} moon{moons.length > 1 ? 's' : ''}</span>
@@ -247,11 +214,7 @@ function NextTierHint({ sys, lrsGw, thresholds }) {
   const neededGw = Math.max(0, nextThresh * sys.distance_ly - lrsGw)
   const label    = TIER_LABELS[sys.tier]
   return (
-    <div style={{
-      marginTop: 12, padding: '8px 10px',
-      background: '#030a10', border: '1px solid #0a2030',
-      fontSize: 9, fontFamily: 'Courier New',
-    }}>
+    <div className={s.nextTier}>
       <span style={{ color: '#1a3344' }}>NEXT TIER: </span>
       <span style={{ color: '#3a6688' }}>{label}</span>
       <span style={{ color: '#1a2a38' }}>
@@ -268,18 +231,17 @@ function SystemDetail({ sys, lrsGw, thresholds }) {
   const starColor = sys.star_color ?? '#aabbcc'
 
   return (
-    <div style={{ flex: 1, overflowY: 'auto', padding: 16 }}>
+    <div className={s.sysDetail}>
       {/* Header */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10 }}>
-        <div style={{
-          width: 14, height: 14, borderRadius: '50%', flexShrink: 0,
+      <div className={s.sysHeader}>
+        <div className={s.starDot} style={{
           background: starColor, boxShadow: `0 0 6px ${starColor}88`,
         }} />
         <div>
-          <div style={{ fontSize: 14, color: starColor, fontFamily: 'Courier New', letterSpacing: 1 }}>
+          <div className={s.sysName} style={{ color: starColor }}>
             {sys.tier >= 1 ? sys.name : 'UNKNOWN SYSTEM'}
           </div>
-          <div style={{ fontSize: 9, color: MUTED, fontFamily: 'Courier New', letterSpacing: 1, marginTop: 2 }}>
+          <div className={s.sysSubtitle}>
             {sys.star_type ?? '?'} STAR
             {sys.current ? ' · CURRENT LOCATION' : ''}
             {sys.visited && !sys.current ? ' · VISITED' : ''}
@@ -290,9 +252,7 @@ function SystemDetail({ sys, lrsGw, thresholds }) {
       <TierBadge tier={sys.tier} />
 
       <SectionHead label="SCAN DATA" />
-      <div style={{
-        display: 'grid', gridTemplateColumns: 'auto 1fr', gap: '4px 14px', marginBottom: 4,
-      }}>
+      <div className={s.scanGrid}>
         {sys.current
           ? <KvRow label="DISTANCE" value="LOCAL SYSTEM" />
           : <KvRow label="DISTANCE" value={`${sys.distance_ly} LY`} />
@@ -304,14 +264,12 @@ function SystemDetail({ sys, lrsGw, thresholds }) {
         <>
           <SectionHead label="PLANETS" />
           {sys.tier === 2 && (
-            <div style={{ fontSize: 10, color: '#5588aa', fontFamily: 'Courier New' }}>
+            <div className={s.planetCount}>
               {sys.planet_count_approx}
             </div>
           )}
           {sys.tier >= 3 && (
-            <div style={{
-              display: 'grid', gridTemplateColumns: 'auto 1fr', gap: '4px 14px',
-            }}>
+            <div className={s.scanGrid}>
               <KvRow label="PLANETS" value={String(sys.planet_count)} />
               {sys.tier >= 4 && <KvRow label="MOONS" value={String(sys.moon_count)} />}
             </div>
@@ -322,20 +280,17 @@ function SystemDetail({ sys, lrsGw, thresholds }) {
       {sys.tier >= 5 && sys.planet_types?.length > 0 && (
         <>
           <SectionHead label="PLANET TYPES" />
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+          <div className={s.planetTypeWrap}>
             {sys.planet_types.map((p, i) => (
               <div key={i}>
-                <div style={{ fontSize: 8, color: '#2a4455', fontFamily: 'Courier New', marginBottom: 2 }}>
+                <div className={s.planetName}>
                   {p.name}
                 </div>
                 <PlanetTypeTag type={p.type} moons={p.moons} />
                 {p.moons?.length > 0 && (
-                  <div style={{ paddingLeft: 12, marginTop: 2, display: 'flex', flexWrap: 'wrap', gap: 3 }}>
+                  <div className={s.moonWrap}>
                     {p.moons.map((m, j) => (
-                      <div key={j} style={{
-                        fontSize: 7, padding: '1px 5px', fontFamily: 'Courier New',
-                        color: '#334455', border: '1px solid #0a1a22',
-                      }}>
+                      <div key={j} className={s.moonTag}>
                         {m.type}
                       </div>
                     ))}
@@ -350,10 +305,7 @@ function SystemDetail({ sys, lrsGw, thresholds }) {
       {sys.tier >= 6 && sys.ship_count_approx !== undefined && (
         <>
           <SectionHead label="SHIP ACTIVITY" />
-          <div style={{
-            display: 'inline-block', padding: '3px 10px', fontSize: 9,
-            fontFamily: 'Courier New', letterSpacing: 1,
-            background: '#030a10',
+          <div className={s.activityBadge} style={{
             border: `1px solid ${SHIP_ACTIVITY_COLOR[sys.ship_count_approx] ?? '#334455'}55`,
             color: SHIP_ACTIVITY_COLOR[sys.ship_count_approx] ?? '#334455',
           }}>
@@ -375,15 +327,12 @@ function EmptyDetail({ systems, lrsGw }) {
   const visited        = systems.filter(s => s.visited).length
 
   return (
-    <div style={{
-      flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center',
-      justifyContent: 'center', gap: 14, padding: 24,
-    }}>
-      <div style={{ fontSize: 42, opacity: 0.07, color: ACCENT }}>⊙</div>
-      <div style={{ color: MUTED, fontSize: 10, letterSpacing: 3, fontFamily: 'Courier New' }}>
+    <div className={s.emptyWrap}>
+      <div className={s.emptyIcon}>⊙</div>
+      <div className={s.emptyLabel}>
         SELECT A SYSTEM
       </div>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 6, margin: '8px 0', width: '100%', maxWidth: 230 }}>
+      <div className={s.statsWrap}>
         {[
           ['SCAN POWER', `${lrsGw.toFixed(1)} GW`],
           ['TOTAL SYSTEMS', String(totalSystems)],
@@ -391,17 +340,17 @@ function EmptyDetail({ systems, lrsGw }) {
           ['DETAILED (T3+)', String(scannedAtT3)],
           ['VISITED', String(visited)],
         ].map(([k, v]) => (
-          <div key={k} style={{ display: 'flex', justifyContent: 'space-between', fontSize: 9, fontFamily: 'Courier New' }}>
-            <span style={{ color: MUTED }}>{k}</span>
+          <div key={k} className={s.statRow}>
+            <span className={s.statLabel}>{k}</span>
             <span style={{ color: k === 'SCAN POWER' ? ACCENT : '#5588aa' }}>{v}</span>
           </div>
         ))}
       </div>
-      <div style={{ fontSize: 7, color: '#0a2030', fontFamily: 'Courier New', letterSpacing: 1, textAlign: 'center', lineHeight: 1.9 }}>
+      <div className={s.tierHints}>
         {TIER_LABELS.map((l, i) => (
           <div key={i}>
             <span style={{ color: TIER_COLORS[i] }}>T{i + 1}</span>
-            <span style={{ color: '#1a3040' }}> — {l}</span>
+            <span className={s.tierHintDash}> — {l}</span>
           </div>
         ))}
       </div>
@@ -428,23 +377,19 @@ export default function LongRangePanel({ gameState, sendCommand }) {
   }
 
   return (
-    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', background: BG, overflow: 'hidden' }}>
-      <style>{KEYFRAMES}</style>
+    <div className={s.container}>
 
       {/* Header */}
-      <div style={{
-        padding: '7px 14px', borderBottom: '1px solid #0a1d2a',
-        display: 'flex', alignItems: 'center', gap: 10, flexShrink: 0,
-      }}>
-        <span style={{ fontSize: 11, letterSpacing: 3, fontFamily: 'Courier New', color: ACCENT, fontWeight: 'bold' }}>
+      <div className={s.header}>
+        <span className={s.headerTitle}>
           ⊙ LONG RANGE SCAN
         </span>
-        <span style={{ fontSize: 9, letterSpacing: 1, fontFamily: 'Courier New', color: MUTED }}>
+        <span className={s.headerInfo}>
           {lrsGw.toFixed(1)} GW · {systems.filter(s => s.tier >= 1).length}/{systems.length} SYSTEMS IDENTIFIED
         </span>
-        <div style={{ marginLeft: 'auto', display: 'flex', gap: 8 }}>
+        <div className={s.tierLegend}>
           {TIER_COLORS.map((c, i) => (
-            <span key={i} style={{ fontSize: 7, fontFamily: 'Courier New', color: c, letterSpacing: 0.5 }}>
+            <span key={i} className={s.tierTag} style={{ color: c }}>
               T{i + 1}
             </span>
           ))}
@@ -452,9 +397,9 @@ export default function LongRangePanel({ gameState, sendCommand }) {
       </div>
 
       {/* Body */}
-      <div style={{ flex: 1, display: 'flex', overflow: 'hidden' }}>
+      <div className={s.body}>
         {/* Left: galaxy map */}
-        <div style={{ flexShrink: 0, borderRight: '1px solid #0a1d2a' }}>
+        <div className={s.mapWrap}>
           <GalaxyMap
             systems={systems}
             lrsGw={lrsGw}
@@ -465,7 +410,7 @@ export default function LongRangePanel({ gameState, sendCommand }) {
         </div>
 
         {/* Right: detail */}
-        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', background: '#040a10' }}>
+        <div className={s.detailWrap}>
           {selected
             ? <SystemDetail sys={selected} lrsGw={lrsGw} thresholds={thresholds} />
             : <EmptyDetail systems={systems} lrsGw={lrsGw} />

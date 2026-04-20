@@ -104,7 +104,7 @@ export default function GalaxyMap({ gameState, onSelectSystem }) {
       width={460}
       height={460}
       onClick={handleClick}
-      style={{ background: '#070714', border: '1px solid #223', cursor: 'crosshair', display: 'block' }}
+      style={{ background: 'var(--bg-label)', border: '1px solid var(--border-faint)', cursor: 'crosshair', display: 'block' }}
     />
   )
 }

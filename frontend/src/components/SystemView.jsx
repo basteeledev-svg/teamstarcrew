@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { Btn, IconBtn } from '../components/ui'
 
 const STAR_RADIUS = 10
 
@@ -198,21 +199,21 @@ export default function SystemView({ gameState, sendCommand }) {
         width={460}
         height={320}
         onClick={handleCanvasClick}
-        style={{ background: '#070714', border: '1px solid #223', display: 'block', cursor: 'crosshair' }}
+        style={{ background: 'var(--bg-label)', border: '1px solid var(--border)', display: 'block', cursor: 'crosshair' }}
       />
       {/* Zoom controls — overlaid bottom-right */}
       <div style={{
         position: 'absolute', bottom: '8px', right: '8px',
         display: 'flex', alignItems: 'center', gap: '6px',
         background: 'rgba(5,5,16,0.75)', padding: '4px 8px',
-        border: '1px solid #223', fontSize: '10px', color: '#557',
+        border: '1px solid var(--border)', fontSize: '10px', color: 'var(--text-secondary)',
       }}>
-        <button onClick={() => setZoom(z => Math.max(0.25, +(z / 1.5).toFixed(2)))} style={zoomBtn}>−</button>
-        <span style={{ minWidth: '48px', textAlign: 'center', color: '#8899bb' }}>
+        <IconBtn onClick={() => setZoom(z => Math.max(0.25, +(z / 1.5).toFixed(2)))}>−</IconBtn>
+        <span style={{ minWidth: '48px', textAlign: 'center', color: 'var(--text-body)' }}>
           {zoom.toFixed(1)}× ZOOM
         </span>
-        <button onClick={() => setZoom(z => Math.min(20, +(z * 1.5).toFixed(2)))} style={zoomBtn}>+</button>
-        <button onClick={() => setZoom(1.0)} style={{ ...zoomBtn, marginLeft: '4px', color: '#445' }}>FIT</button>
+        <IconBtn onClick={() => setZoom(z => Math.min(20, +(z * 1.5).toFixed(2)))}>+</IconBtn>
+        <IconBtn onClick={() => setZoom(1.0)} style={{ marginLeft: '4px', color: 'var(--text-secondary)' }}>FIT</IconBtn>
       </div>
 
       {/* Planet info panel */}
@@ -230,19 +231,19 @@ export default function SystemView({ gameState, sendCommand }) {
       {orbitingPlanet && (
         <div style={orbitBarStyle}>
           <span style={{ color: '#00ffcc' }}>⊙ IN ORBIT: {orbitingPlanet.name.split('-').pop()}</span>
-          <button
+          <Btn
             onClick={() => sendCommand({ type: 'leave_orbit' })}
-            style={orbitBtn('#550011')}
-          >LEAVE ORBIT</button>
+            bg="#550011" color="var(--text-bright)" borderColor="var(--border)"
+          >LEAVE ORBIT</Btn>
         </div>
       )}
       {!orbitingPlanet && nearbyPlanet && (
         <div style={orbitBarStyle}>
           <span style={{ color: '#ffcc00' }}>◎ {nearbyPlanet.name.split('-').pop()} within range</span>
-          <button
+          <Btn
             onClick={() => sendCommand({ type: 'orbit', planet_id: nearbyPlanet.id })}
-            style={orbitBtn('#003322')}
-          >ORBIT PLANET</button>
+            bg="#003322" color="var(--text-bright)" borderColor="var(--border)"
+          >ORBIT PLANET</Btn>
         </div>
       )}
     </div>
@@ -256,10 +257,6 @@ function PlanetPanel({ planet, shipPos, ship, sendCommand, onClose }) {
     (shipPos.z - (planet.position.z ?? 0)) ** 2
   ).toFixed(2) : null
 
-  const isOrbiting = ship?.orbiting_planet_id === planet.id
-  const miningBots = isOrbiting ? (ship?.mining_bots ?? {}) : {}
-  const totalBots  = isOrbiting ? Object.values(miningBots).reduce((a, b) => a + b, 0) : 0
-
   const res = [
     { label: 'Metals',       key: 'metals',       richness: planet.metals,       stockpile: planet.stockpile?.metals       ?? 0 },
     { label: 'Rare Earth',   key: 'rare_earth',   richness: planet.rare_earth,   stockpile: planet.stockpile?.rare_earth   ?? 0 },
@@ -269,65 +266,47 @@ function PlanetPanel({ planet, shipPos, ship, sendCommand, onClose }) {
   return (
     <div style={{
       position: 'absolute', top: '8px', left: '8px',
-      background: 'rgba(4,4,18,0.93)', border: '1px solid #335',
+      background: 'rgba(4,4,18,0.93)', border: '1px solid var(--border)',
       padding: '10px 12px', minWidth: '210px', fontSize: '11px',
-      fontFamily: 'Courier New', maxHeight: '310px', overflowY: 'auto',
+      fontFamily: 'var(--font-mono)', maxHeight: '310px', overflowY: 'auto',
     }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
         <span style={{ color: '#00ffcc', letterSpacing: '1px' }}>{planet.name.split('-').pop()}</span>
-        <button onClick={onClose} style={{ ...zoomBtn, fontSize: '11px' }}>✕</button>
+        <IconBtn onClick={onClose} style={{ fontSize: '11px' }}>✕</IconBtn>
       </div>
 
       <Row label="TYPE"      value={planet.type} />
       <Row label="ORBIT"     value={`${planet.orbital_distance_au.toFixed(2)} AU`} />
       {distAU !== null && <Row label="DISTANCE" value={`${distAU} AU`} valueColor="#ffcc44" />}
-      <Row label="HEALTH"    value={<Bar value={planet.health} color='#00cc66' />} />
-      <Row label="HOSTILITY" value={<Bar value={planet.total_hostility} color='#cc3300' />} />
+      <Row label="HOSTILITY" value={<Bar value={planet.total_hostility} color='var(--accent-red)' />} />
       {planet.inhabited && <Row label="INHABITED" value="YES" valueColor="#ffcc00" />}
 
-      <div style={{ margin: '8px 0 4px', color: '#335', borderTop: '1px solid #1a1a2e', paddingTop: '6px' }}>
+      <div style={{ margin: '8px 0 4px', color: 'var(--text-ghost)', borderTop: '1px solid var(--border)', paddingTop: '6px' }}>
         RESOURCES &amp; STOCKPILE
       </div>
-      <div style={{ display: 'grid', gridTemplateColumns: isOrbiting && sendCommand ? '66px 1fr 42px 30px' : '70px 1fr 46px', gap: '2px 6px', alignItems: 'center', marginBottom: '2px' }}>
-        <span style={{ color: '#334' }}></span>
-        <span style={{ color: '#334', fontSize: '9px' }}>RICHNESS</span>
-        <span style={{ color: '#334', fontSize: '9px', textAlign: 'right' }}>STORED</span>
-        {isOrbiting && sendCommand && <span style={{ color: '#334', fontSize: '9px', textAlign: 'center' }}>BOTS</span>}
+      <div style={{ display: 'grid', gridTemplateColumns: '70px 1fr 46px', gap: '2px 6px', alignItems: 'center', marginBottom: '2px' }}>
+        <span style={{ color: 'var(--text-ghost)' }}></span>
+        <span style={{ color: 'var(--text-ghost)', fontSize: '9px' }}>RICHNESS</span>
+        <span style={{ color: 'var(--text-ghost)', fontSize: '9px', textAlign: 'right' }}>STORED</span>
       </div>
-      {res.map(r => {
-        const botCount = miningBots[r.key] ?? 0
-        return (
-          <div key={r.label} style={{ display: 'grid', gridTemplateColumns: isOrbiting && sendCommand ? '66px 1fr 42px 30px' : '70px 1fr 46px', gap: '2px 6px', alignItems: 'center', marginBottom: '3px' }}>
-            <span style={{ color: '#445577' }}>{r.label}</span>
-            <Bar value={r.richness} color='#4488ff' />
-            <span style={{ color: botCount > 0 ? '#00ffcc' : '#556677', fontSize: '10px', textAlign: 'right' }}>
-              {r.stockpile.toFixed(1)}
-            </span>
-            {isOrbiting && sendCommand && (
-              <input
-                type="number" min="0" max="20" step="1"
-                value={botCount}
-                onChange={e => sendCommand({ type: 'set_mining_bots', resource: r.key, value: Number(e.target.value) })}
-                style={{ width: '28px', background: '#0a0a20', border: '1px solid #335', color: '#00ffcc', textAlign: 'center', fontSize: '10px', padding: '1px 2px', borderRadius: '2px' }}
-              />
-            )}
-          </div>
-        )
-      })}
-      {isOrbiting && totalBots > 0 && (
-        <div style={{ color: '#446655', fontSize: '10px', marginTop: '3px' }}>
-          Mining active — {totalBots} bot{totalBots > 1 ? 's' : ''} deployed
+      {res.map(r => (
+        <div key={r.label} style={{ display: 'grid', gridTemplateColumns: '70px 1fr 46px', gap: '2px 6px', alignItems: 'center', marginBottom: '3px' }}>
+          <span style={{ color: 'var(--text-muted)' }}>{r.label}</span>
+          <Bar value={r.richness} color='var(--accent)' />
+          <span style={{ color: 'var(--text-secondary)', fontSize: '10px', textAlign: 'right' }}>
+            {r.stockpile.toFixed(1)}
+          </span>
         </div>
-      )}
+      ))}
 
       {planet.moons?.length > 0 && (
         <>
-          <div style={{ margin: '8px 0 4px', color: '#335', borderTop: '1px solid #1a1a2e', paddingTop: '6px' }}>
+          <div style={{ margin: '8px 0 4px', color: 'var(--text-ghost)', borderTop: '1px solid var(--border)', paddingTop: '6px' }}>
             MOONS ({planet.moons.length})
           </div>
           {planet.moons.map(m => (
-            <div key={m.id} style={{ color: '#556677', fontSize: '10px', paddingLeft: '4px' }}>
-              · {m.name.split('-').pop()} <span style={{ color: '#334' }}>({m.type})</span>
+            <div key={m.id} style={{ color: 'var(--text-secondary)', fontSize: '10px', paddingLeft: '4px' }}>
+              · {m.name.split('-').pop()} <span style={{ color: 'var(--text-ghost)' }}>({m.type})</span>
             </div>
           ))}
         </>
@@ -336,10 +315,10 @@ function PlanetPanel({ planet, shipPos, ship, sendCommand, onClose }) {
   )
 }
 
-function Row({ label, value, valueColor = '#aabbdd' }) {
+function Row({ label, value, valueColor = 'var(--text-primary)' }) {
   return (
     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '3px' }}>
-      <span style={{ color: '#445577', marginRight: '8px', flexShrink: 0 }}>{label}</span>
+      <span style={{ color: 'var(--text-muted)', marginRight: '8px', flexShrink: 0 }}>{label}</span>
       <span style={{ color: valueColor, flex: 1, textAlign: 'right' }}>{value}</span>
     </div>
   )
@@ -348,10 +327,10 @@ function Row({ label, value, valueColor = '#aabbdd' }) {
 function Bar({ value, color }) {
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
-      <div style={{ width: '80px', height: '6px', background: '#111', border: '1px solid #223' }}>
+      <div style={{ width: '80px', height: '6px', background: 'var(--bg-base)', border: '1px solid var(--border-faint)' }}>
         <div style={{ width: `${value}%`, height: '100%', background: color }} />
       </div>
-      <span style={{ fontSize: '10px', color: '#778899' }}>{Math.round(value)}</span>
+      <span style={{ fontSize: '10px', color: 'var(--text-body)' }}>{Math.round(value)}</span>
     </div>
   )
 }
@@ -377,32 +356,14 @@ function planetColor(type) {
   return map[type] ?? '#aaaaaa'
 }
 
-const zoomBtn = {
-  background: 'none',
-  border: '1px solid #335',
-  color: '#8899bb',
-  fontFamily: 'Courier New',
-  fontSize: '13px',
-  width: '22px',
-  height: '22px',
-  cursor: 'pointer',
-  lineHeight: 1,
-  padding: 0,
-}
 
 const orbitBarStyle = {
   position: 'absolute', bottom: '40px', left: '50%',
   transform: 'translateX(-50%)',
   display: 'flex', alignItems: 'center', gap: '12px',
-  background: 'rgba(4,4,18,0.88)', border: '1px solid #335',
-  padding: '6px 14px', fontSize: '11px', fontFamily: 'Courier New',
+  background: 'rgba(4,4,18,0.88)', border: '1px solid var(--border)',
+  padding: '6px 14px', fontSize: '11px', fontFamily: 'var(--font-mono)',
   whiteSpace: 'nowrap',
 }
 
-function orbitBtn(bg) {
-  return {
-    background: bg, color: '#d0d8f0', border: '1px solid #446',
-    padding: '4px 10px', fontFamily: 'Courier New', fontSize: '11px', cursor: 'pointer',
-  }
-}
 

@@ -19,6 +19,10 @@ async def lifespan(app: FastAPI):
     task = asyncio.create_task(tick_loop())
     yield
     task.cancel()
+    try:
+        await task
+    except asyncio.CancelledError:
+        pass
 
 
 app = FastAPI(title="TeamStarCrew Game Server", lifespan=lifespan)

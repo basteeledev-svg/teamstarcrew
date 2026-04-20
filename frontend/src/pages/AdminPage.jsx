@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { CONSOLES } from '../consoles.js'
+import { Btn } from '../components/ui'
 
 const W = 1280
 const H = 800
@@ -12,16 +13,16 @@ export default function AdminPage({ gameState, sendCommand, onExit, onObserver }
 
   return (
     <div style={{
-      width: W, height: H, background: '#050510',
+      width: W, height: H, background: 'var(--bg-base)',
       display: 'flex', flexDirection: 'column',
-      fontFamily: 'Courier New', color: '#8899cc', overflow: 'hidden',
+      fontFamily: 'var(--font-mono)', color: 'var(--text-body)', overflow: 'hidden',
     }}>
       {/* Header */}
       <div style={{
         height: 40, flexShrink: 0, display: 'flex', alignItems: 'center', gap: '0',
-        borderBottom: '1px solid #1a1a2e', background: '#050510',
+        borderBottom: '1px solid var(--border)', background: 'var(--bg-base)',
       }}>
-        <div style={{ padding: '0 20px', fontSize: '11px', color: '#334455', letterSpacing: '3px', borderRight: '1px solid #1a1a2e', height: '100%', display: 'flex', alignItems: 'center' }}>
+        <div style={{ padding: '0 20px', fontSize: '11px', color: 'var(--text-dim)', letterSpacing: '3px', borderRight: '1px solid var(--border)', height: '100%', display: 'flex', alignItems: 'center' }}>
           ★ ADMIN
         </div>
         {[
@@ -34,12 +35,12 @@ export default function AdminPage({ gameState, sendCommand, onExit, onObserver }
             onClick={() => setActiveTab(tab.id)}
             style={{
               height: '100%', padding: '0 22px',
-              background: activeTab === tab.id ? '#0a0a20' : 'transparent',
+              background: activeTab === tab.id ? 'var(--bg-raised)' : 'transparent',
               border: 'none',
-              borderRight: '1px solid #1a1a2e',
-              borderBottom: activeTab === tab.id ? '2px solid #00aaff' : '2px solid transparent',
-              color: activeTab === tab.id ? '#aabbdd' : '#334455',
-              fontFamily: 'Courier New', fontSize: '10px', letterSpacing: '2px',
+              borderRight: '1px solid var(--border)',
+              borderBottom: activeTab === tab.id ? '2px solid var(--accent)' : '2px solid transparent',
+              color: activeTab === tab.id ? 'var(--text-primary)' : 'var(--text-dim)',
+              fontFamily: 'var(--font-mono)', fontSize: '10px', letterSpacing: '2px',
               cursor: 'pointer',
             }}
           >
@@ -47,11 +48,11 @@ export default function AdminPage({ gameState, sendCommand, onExit, onObserver }
           </button>
         ))}
         <div style={{ marginLeft: 'auto', padding: '0 16px', display: 'flex', alignItems: 'center', gap: '12px' }}>
-          <span style={{ fontSize: '10px', color: '#1a2a3a' }}>TICK {gameState?.tick ?? '—'}</span>
+          <span style={{ fontSize: '10px', color: 'var(--text-ghost)' }}>TICK {gameState?.tick ?? '—'}</span>
           {onObserver && (
-            <button onClick={onObserver} style={{ ...exitBtn, color: '#00aaff', borderColor: '#003355' }}>OBSERVER VIEW</button>
+            <Btn onClick={onObserver} color="var(--accent)" borderColor="var(--tint-accent)" style={{ padding: '4px 12px', fontSize: '9px', letterSpacing: '1px' }}>OBSERVER VIEW</Btn>
           )}
-          <button onClick={onExit} style={exitBtn}>← BACK</button>
+          <Btn onClick={onExit} color="var(--text-dim)" borderColor="var(--text-ghost)" style={{ padding: '4px 12px', fontSize: '9px', letterSpacing: '1px' }}>← BACK</Btn>
         </div>
       </div>
 
@@ -88,8 +89,8 @@ function ShipStatusTab({ ship, system }) {
         <tbody>
           {rows.map(([label, val]) => (
             <tr key={label}>
-              <td style={{ padding: '6px 16px 6px 0', color: '#445566', letterSpacing: '1px', whiteSpace: 'nowrap' }}>{label.toUpperCase()}</td>
-              <td style={{ padding: '6px 0', color: '#aabbdd', fontFamily: 'Courier New' }}>{val}</td>
+              <td style={{ padding: '6px 16px 6px 0', color: 'var(--text-muted)', letterSpacing: '1px', whiteSpace: 'nowrap' }}>{label.toUpperCase()}</td>
+              <td style={{ padding: '6px 0', color: 'var(--text-primary)', fontFamily: 'var(--font-mono)' }}>{val}</td>
             </tr>
           ))}
         </tbody>
@@ -99,11 +100,11 @@ function ShipStatusTab({ ship, system }) {
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '8px 24px', maxWidth: 700 }}>
         {ship.system_health && Object.entries(ship.system_health).map(([key, val]) => (
           <div key={key} style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '10px' }}>
-            <span style={{ color: '#334455', flex: 1, letterSpacing: '1px' }}>{key.replace(/_/g, ' ').toUpperCase()}</span>
-            <div style={{ width: 80, height: 5, background: '#0a0a20', border: '1px solid #1a1a2e' }}>
-              <div style={{ width: `${val}%`, height: '100%', background: val > 50 ? '#00cc66' : val > 25 ? '#ffaa00' : '#cc3300' }} />
+            <span style={{ color: 'var(--text-dim)', flex: 1, letterSpacing: '1px' }}>{key.replace(/_/g, ' ').toUpperCase()}</span>
+            <div style={{ width: 80, height: 5, background: 'var(--bg-raised)', border: '1px solid var(--border)' }}>
+              <div style={{ width: `${val}%`, height: '100%', background: val > 50 ? 'var(--accent-green)' : val > 25 ? 'var(--accent-amber)' : 'var(--accent-red)' }} />
             </div>
-            <span style={{ color: '#556677', minWidth: 28, textAlign: 'right' }}>{Math.round(val)}</span>
+            <span style={{ color: 'var(--text-secondary)', minWidth: 28, textAlign: 'right' }}>{Math.round(val)}</span>
           </div>
         ))}
       </div>
@@ -119,12 +120,12 @@ function StationsTab({ sendCommand }) {
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '10px', maxWidth: 900 }}>
         {CONSOLES.map(c => (
           <div key={c.id} style={{
-            border: '1px solid #1a1a2e', padding: '12px 14px',
-            background: '#08081a', borderRadius: '3px',
+            border: '1px solid var(--border)', padding: '12px 14px',
+            background: 'var(--bg-card)', borderRadius: '3px',
           }}>
             <div style={{ fontSize: '18px', color: c.color, opacity: 0.7, marginBottom: '6px' }}>{c.icon}</div>
-            <div style={{ fontSize: '10px', color: '#8899aa', letterSpacing: '1px' }}>{c.name}</div>
-            <div style={{ fontSize: '9px', color: '#334455', marginTop: '4px', lineHeight: 1.4 }}>{c.desc}</div>
+            <div style={{ fontSize: '10px', color: 'var(--text-body)', letterSpacing: '1px' }}>{c.name}</div>
+            <div style={{ fontSize: '9px', color: 'var(--text-dim)', marginTop: '4px', lineHeight: 1.4 }}>{c.desc}</div>
           </div>
         ))}
       </div>
@@ -145,8 +146,8 @@ function GameControlTab({ gameState, sendCommand }) {
       <SectionHeading>GAME CONTROL</SectionHeading>
       <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', maxWidth: 400 }}>
         {/* Mode selector */}
-        <div style={{ padding: '12px 14px', border: '1px solid #1a1a2e', background: '#08081a', borderRadius: '3px' }}>
-          <div style={{ fontSize: '11px', color: '#8899aa', letterSpacing: '1px', marginBottom: 8 }}>UNIVERSE MODE</div>
+        <div style={{ padding: '12px 14px', border: '1px solid var(--border)', background: 'var(--bg-card)', borderRadius: '3px' }}>
+          <div style={{ fontSize: '11px', color: 'var(--text-body)', letterSpacing: '1px', marginBottom: 8 }}>UNIVERSE MODE</div>
           {[
             { id: 'empty', label: 'EMPTY UNIVERSE', desc: 'No NPCs or events — test ship systems and mechanics' },
             { id: 'full',  label: 'FULL UNIVERSE',  desc: 'NPC ships, factions, and initial messages (AI optional)' },
@@ -158,11 +159,11 @@ function GameControlTab({ gameState, sendCommand }) {
                 value={opt.id}
                 checked={mode === opt.id}
                 onChange={() => setMode(opt.id)}
-                style={{ accentColor: '#00aaff' }}
+                style={{ accentColor: 'var(--accent)' }}
               />
               <div>
-                <span style={{ fontSize: '10px', color: mode === opt.id ? '#aabbdd' : '#445566', letterSpacing: '1px' }}>{opt.label}</span>
-                <div style={{ fontSize: '9px', color: '#334455', marginTop: 1 }}>{opt.desc}</div>
+                <span style={{ fontSize: '10px', color: mode === opt.id ? 'var(--text-primary)' : 'var(--text-muted)', letterSpacing: '1px' }}>{opt.label}</span>
+                <div style={{ fontSize: '9px', color: 'var(--text-dim)', marginTop: 1 }}>{opt.desc}</div>
               </div>
             </label>
           ))}
@@ -189,7 +190,7 @@ function GameControlTab({ gameState, sendCommand }) {
         />
       </div>
 
-      <div style={{ marginTop: 32, fontSize: '10px', color: '#1a2a3a', lineHeight: 2 }}>
+      <div style={{ marginTop: 32, fontSize: '10px', color: 'var(--text-ghost)', lineHeight: 2 }}>
         <div>STATUS: {gameState?.status ?? '—'}</div>
         <div>TICK: {gameState?.tick ?? '—'}</div>
         <div>SYSTEMS: {gameState?.galaxy_systems?.length ?? '—'}</div>
@@ -200,10 +201,10 @@ function GameControlTab({ gameState, sendCommand }) {
 
 function AdminAction({ label, desc, color, onClick, testId }) {
   return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: '16px', padding: '12px 14px', border: '1px solid #1a1a2e', background: '#08081a', borderRadius: '3px' }}>
+    <div style={{ display: 'flex', alignItems: 'center', gap: '16px', padding: '12px 14px', border: '1px solid var(--border)', background: 'var(--bg-card)', borderRadius: '3px' }}>
       <div style={{ flex: 1 }}>
-        <div style={{ fontSize: '11px', color: '#8899aa', letterSpacing: '1px' }}>{label}</div>
-        <div style={{ fontSize: '9px', color: '#334455', marginTop: '3px' }}>{desc}</div>
+        <div style={{ fontSize: '11px', color: 'var(--text-body)', letterSpacing: '1px' }}>{label}</div>
+        <div style={{ fontSize: '9px', color: 'var(--text-dim)', marginTop: '3px' }}>{desc}</div>
       </div>
       <button
         data-testid={testId}
@@ -211,7 +212,7 @@ function AdminAction({ label, desc, color, onClick, testId }) {
         style={{
           background: 'transparent', border: `1px solid ${color}`,
           color, padding: '5px 14px',
-          fontFamily: 'Courier New', fontSize: '10px',
+          fontFamily: 'var(--font-mono)', fontSize: '10px',
           letterSpacing: '1px', cursor: 'pointer', borderRadius: '2px', whiteSpace: 'nowrap',
         }}
       >
@@ -224,7 +225,7 @@ function AdminAction({ label, desc, color, onClick, testId }) {
 /* ── Shared ── */
 function SectionHeading({ children, style }) {
   return (
-    <div style={{ fontSize: '9px', color: '#334455', letterSpacing: '3px', marginBottom: '14px', paddingBottom: '6px', borderBottom: '1px solid #0d0d22', ...style }}>
+    <div style={{ fontSize: '9px', color: 'var(--text-dim)', letterSpacing: '3px', marginBottom: '14px', paddingBottom: '6px', borderBottom: '1px solid var(--border-faint)', ...style }}>
       {children}
     </div>
   )
@@ -232,20 +233,9 @@ function SectionHeading({ children, style }) {
 
 function Placeholder({ text }) {
   return (
-    <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#1a2a3a', fontSize: '11px', letterSpacing: '3px' }}>
+    <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-ghost)', fontSize: '11px', letterSpacing: '3px' }}>
       {text}
     </div>
   )
 }
 
-const exitBtn = {
-  background: 'transparent',
-  border: '1px solid #1a2a3a',
-  color: '#334455',
-  padding: '4px 12px',
-  fontFamily: 'Courier New',
-  fontSize: '9px',
-  letterSpacing: '1px',
-  cursor: 'pointer',
-  borderRadius: '2px',
-}

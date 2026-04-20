@@ -1,0 +1,26 @@
+/* Shared keyframe animations for panel components */
+
+@keyframes commsVideoPulse {
+  0%, 100% { opacity: 0.7; }
+  50%       { opacity: 1;   }
+}
+
+@keyframes commsScanBeam {
+  0%   { top: -30%; }
+  100% { top: 110%; }
+}
+
+@keyframes srsSweep {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
+}
+
+@keyframes srsPulse {
+  0%, 100% { opacity: 0.6; }
+  50%       { opacity: 1.0; }
+}
+
+@keyframes lrsPulse {
+  0%, 100% { opacity: 0.7; }
+  50%       { opacity: 1.0; }
+}

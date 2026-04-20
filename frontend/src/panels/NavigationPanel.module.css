@@ -1,0 +1,408 @@
+/* NavigationPanel – extracted from inline styles */
+
+/* ── Main layout ────────────────────────────────────── */
+.container {
+  flex: 1;
+  display: flex;
+  background: var(--bg-label);
+  font-family: var(--font-mono);
+  overflow: hidden;
+}
+
+.mapColumn {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  position: relative;
+  border-right: 1px solid var(--border-faint);
+}
+
+.systemBar {
+  padding: 5px 10px;
+  background: var(--bg-base);
+  border-bottom: 1px solid var(--border-faint);
+  font-size: 10px;
+  color: var(--text-muted);
+  letter-spacing: 2px;
+  flex-shrink: 0;
+}
+
+.canvasWrap {
+  flex: 1;
+  position: relative;
+  overflow: hidden;
+}
+
+.canvas {
+  width: 100%;
+  height: 100%;
+  background: var(--bg-base);
+  cursor: crosshair;
+  display: block;
+}
+
+/* ── Zoom controls ──────────────────────────────────── */
+.zoomControls {
+  position: absolute;
+  bottom: 8px;
+  right: 8px;
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  background: rgba(5, 5, 16, 0.8);
+  border: 1px solid var(--border-faint);
+  padding: 4px 8px;
+  font-size: 10px;
+}
+
+.zoomText {
+  color: var(--text-body);
+  min-width: 44px;
+  text-align: center;
+}
+
+/* ── Orbit action bar ───────────────────────────────── */
+.orbitBar {
+  position: absolute;
+  bottom: 44px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: rgba(4, 4, 18, 0.9);
+  border: 1px solid var(--border-faint);
+  padding: 6px 14px;
+  font-size: 11px;
+  font-family: var(--font-mono);
+  white-space: nowrap;
+}
+
+/* ── Right column ───────────────────────────────────── */
+.rightColumn {
+  width: 240px;
+  display: flex;
+  flex-direction: column;
+  background: var(--bg-label);
+  flex-shrink: 0;
+}
+
+.tabHeader {
+  display: flex;
+  border-bottom: 1px solid var(--border-faint);
+  flex-shrink: 0;
+}
+
+.tabBtn {
+  flex: 1;
+  padding: 7px 0;
+  border: none;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 2px;
+  cursor: pointer;
+}
+
+.controlsScroll {
+  flex: 1;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+}
+
+/* ── Section ────────────────────────────────────────── */
+.section {
+  border-bottom: 1px solid var(--border-faint);
+  padding: 8px 10px;
+}
+
+.sectionLabel {
+  font-size: 9px;
+  color: var(--text-dim);
+  letter-spacing: 2px;
+  margin-bottom: 6px;
+}
+
+/* ── Readout ────────────────────────────────────────── */
+.readout {
+  display: flex;
+  justify-content: space-between;
+  font-size: 11px;
+  margin-bottom: 2px;
+}
+
+.readoutLabel {
+  color: var(--text-muted);
+}
+
+/* ── Compass ────────────────────────────────────────── */
+.compassCanvas {
+  background: var(--bg-base);
+  border: 1px solid var(--border-faint);
+  cursor: crosshair;
+  display: block;
+  margin: 0 auto;
+}
+
+.headingRow {
+  display: flex;
+  gap: 4px;
+  margin-top: 6px;
+}
+
+.numInput {
+  flex: 1;
+  background: var(--bg-base);
+  color: var(--accent-cyan);
+  border: 1px solid var(--border-faint);
+  padding: 4px 6px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  width: 0;
+}
+
+/* ── Engines section ────────────────────────────────── */
+.engineSpeedLabel {
+  font-size: 11px;
+  color: var(--text-dim);
+  margin-bottom: 4px;
+}
+
+.engineSpeedValue {
+  font-size: 22px;
+  font-family: var(--font-mono);
+  margin-bottom: 2px;
+}
+
+.engineSpeedUnit {
+  font-size: 10px;
+  color: var(--text-secondary);
+  margin-left: 4px;
+}
+
+.engineStatus {
+  font-size: 10px;
+  margin-bottom: 8px;
+  letter-spacing: 1px;
+}
+
+.btnRow {
+  display: flex;
+  gap: 6px;
+}
+
+/* ── Orbit section ──────────────────────────────────── */
+.orbitStatusText {
+  font-size: 10px;
+  margin-bottom: 6px;
+}
+
+.noPlanetText {
+  color: var(--text-dim);
+  font-size: 10px;
+}
+
+/* ── NPC Info ───────────────────────────────────────── */
+.npcHeader {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 6px;
+}
+
+.npcRace {
+  font-size: 12px;
+  letter-spacing: 1px;
+}
+
+.npcGrid {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 3px 10px;
+  font-size: 10px;
+}
+
+.npcGridLabel {
+  color: var(--text-muted);
+}
+
+.npcGridValue {
+  color: var(--text-primary);
+}
+
+/* ── Warp tab ───────────────────────────────────────── */
+.warpTabContainer {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.warpPanel {
+  padding: 10px 10px 8px;
+  border-bottom: 1px solid var(--border-faint);
+  background: #040a10;
+  flex-shrink: 0;
+}
+
+.warpSystemName {
+  font-size: 12px;
+  letter-spacing: 1px;
+  margin-bottom: 4px;
+  font-family: var(--font-mono);
+}
+
+.warpGrid {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 2px 10px;
+  font-size: 9px;
+  margin-bottom: 8px;
+  font-family: var(--font-mono);
+}
+
+.warpGridLabel {
+  color: var(--text-dim);
+}
+
+.warpInsufficient {
+  font-size: 9px;
+  color: var(--accent-red);
+  font-family: var(--font-mono);
+  margin-bottom: 6px;
+  letter-spacing: 0.5px;
+}
+
+.warpBtnRow {
+  display: flex;
+  gap: 6px;
+}
+
+.systemsList {
+  flex: 1;
+  overflow-y: auto;
+}
+
+.noGalaxyData {
+  padding: 20px;
+  text-align: center;
+  color: var(--text-ghost);
+  font-size: 10px;
+  font-family: var(--font-mono);
+}
+
+.systemItem {
+  padding: 7px 10px;
+  border-bottom: 1px solid var(--border);
+  cursor: pointer;
+  font-family: var(--font-mono);
+}
+
+.systemItemHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 2px;
+}
+
+.systemItemName {
+  font-size: 11px;
+}
+
+.visitedBadge {
+  font-size: 7px;
+  color: var(--tint-success);
+  letter-spacing: 1px;
+  border: 1px solid var(--tint-success);
+  padding: 0 3px;
+}
+
+.systemItemDetails {
+  display: flex;
+  justify-content: space-between;
+  font-size: 9px;
+}
+
+/* ── Planet info panel ──────────────────────────────── */
+.planetInfoPanel {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  background: rgba(4, 4, 18, 0.94);
+  border: 1px solid var(--border-faint);
+  padding: 10px 12px;
+  min-width: 200px;
+  font-size: 11px;
+  font-family: var(--font-mono);
+  max-height: 340px;
+  overflow-y: auto;
+}
+
+.planetInfoHeader {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+
+.planetInfoName {
+  color: #00ffcc;
+  letter-spacing: 1px;
+}
+
+.piRow {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 3px;
+}
+
+.piRowLabel {
+  color: var(--text-muted);
+  margin-right: 8px;
+}
+
+.orbitingStatus {
+  color: #00ffcc;
+  font-size: 10px;
+  margin-top: 6px;
+}
+
+/* ── MiniBar ────────────────────────────────────────── */
+.miniBar {
+  margin-bottom: 4px;
+}
+
+.miniBarHeader {
+  display: flex;
+  justify-content: space-between;
+  font-size: 10px;
+  margin-bottom: 2px;
+}
+
+.miniBarLabel {
+  color: var(--text-muted);
+}
+
+.miniBarTrack {
+  height: 5px;
+  background: var(--bg-base);
+  border: 1px solid var(--border-faint);
+}
+
+/* ── MiniBarInline ──────────────────────────────────── */
+.miniBarInline {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.miniBarInlineTrack {
+  width: 60px;
+  height: 5px;
+  background: var(--bg-base);
+  border: 1px solid var(--border-faint);
+}
+
+.miniBarInlineValue {
+  font-size: 10px;
+  color: var(--text-secondary);
+}

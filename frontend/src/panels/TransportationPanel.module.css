@@ -1,0 +1,285 @@
+/* TransportationPanel – extracted from inline styles */
+
+.container {
+  flex: 1;
+  display: flex;
+  background: var(--bg-label);
+  font-family: var(--font-mono);
+  color: var(--text-bright);
+  font-size: 11px;
+  overflow: hidden;
+}
+
+.noSignal {
+  flex: 1;
+  background: var(--bg-label);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-dim);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  letter-spacing: 4px;
+}
+
+/* ── Left: Bot fleet ─────────────────────────────────── */
+.fleet {
+  width: 260px;
+  border-right: 1px solid var(--border-faint);
+  display: flex;
+  flex-direction: column;
+  padding: 8px;
+  gap: 4px;
+  overflow-y: auto;
+}
+
+.fleetHeader {
+  margin-bottom: 4px;
+}
+
+.fleetTitle {
+  color: #ff88cc;
+  font-size: 10px;
+  letter-spacing: 3px;
+}
+
+.bayInfo {
+  font-size: 9px;
+  color: var(--text-secondary);
+  margin-top: 2px;
+}
+
+.botCard {
+  background: var(--bg-input);
+  border-radius: 4px;
+  padding: 6px 8px;
+}
+
+.botTop {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.botRight {
+  text-align: right;
+}
+
+.botStatus {
+  font-size: 9px;
+  letter-spacing: 1px;
+}
+
+.botLoc {
+  font-size: 8px;
+  color: var(--text-muted);
+  margin-top: 1px;
+}
+
+.botBars {
+  display: flex;
+  gap: 8px;
+  margin-top: 4px;
+  align-items: center;
+}
+
+.chargingSmall {
+  font-size: 8px;
+  color: var(--accent);
+}
+
+.jobWrap {
+  margin-top: 4px;
+  font-size: 9px;
+  color: var(--text-body);
+}
+
+.jobHeader {
+  display: flex;
+  justify-content: space-between;
+}
+
+.jobItem {
+  color: var(--text-primary);
+}
+
+.jobTrips {
+  color: var(--text-secondary);
+}
+
+.jobRoute {
+  color: var(--text-body);
+}
+
+.jobProgress {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-top: 2px;
+}
+
+.jobTrack {
+  flex: 1;
+  height: 3px;
+  background: var(--bg-base);
+  border-radius: 2px;
+}
+
+.jobFill {
+  height: 100%;
+  border-radius: 2px;
+  transition: width 0.3s;
+}
+
+.jobTicks {
+  font-size: 8px;
+  color: var(--text-dim);
+}
+
+.returnInfo {
+  margin-top: 4px;
+  font-size: 9px;
+  color: var(--accent);
+}
+
+/* ── Center: Dispatch form ───────────────────────────── */
+.dispatch {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  padding: 8px;
+  gap: 6px;
+  overflow-y: auto;
+  min-width: 0;
+}
+
+.dispatchTitle {
+  color: #ff88cc;
+  font-size: 10px;
+  letter-spacing: 3px;
+  margin-bottom: 2px;
+}
+
+.sectionLabel {
+  color: var(--text-secondary);
+  font-size: 9px;
+  letter-spacing: 2px;
+  margin-bottom: 3px;
+}
+
+.chipWrap {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.noItems {
+  color: var(--text-muted);
+  font-size: 10px;
+}
+
+.amountRow {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+
+.amountInput {
+  background: var(--bg-raised);
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  color: var(--accent-cyan);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  padding: 4px 8px;
+  width: 100px;
+  outline: none;
+}
+
+/* ── Right: Room inventories ─────────────────────────── */
+.inventories {
+  width: 240px;
+  border-left: 1px solid var(--border-faint);
+  display: flex;
+  flex-direction: column;
+  padding: 8px;
+  gap: 4px;
+  overflow-y: auto;
+}
+
+.invTitle {
+  color: #ff88cc;
+  font-size: 10px;
+  letter-spacing: 3px;
+  margin-bottom: 4px;
+}
+
+.roomCard {
+  background: var(--bg-input);
+  border-radius: 4px;
+  padding: 4px 6px;
+  border: 1px solid var(--border);
+}
+
+.roomName {
+  color: var(--text-body);
+  font-size: 9px;
+  letter-spacing: 2px;
+  margin-bottom: 2px;
+}
+
+.invRow {
+  display: flex;
+  justify-content: space-between;
+  padding: 1px 0;
+}
+
+.invItem {
+  color: var(--text-primary);
+}
+
+.invQty {
+  color: var(--accent-cyan);
+}
+
+.planetCard {
+  background: var(--bg-input);
+  border-radius: 4px;
+  padding: 4px 6px;
+  border: 1px solid #2a1a30;
+}
+
+.planetLabel {
+  color: #aa88ff;
+  font-size: 9px;
+  letter-spacing: 2px;
+  margin-bottom: 2px;
+}
+
+.planetQty {
+  color: #aa88ff;
+}
+
+/* ── MiniBar ─────────────────────────────────────────── */
+.miniBarWrap {
+  flex: 1;
+}
+
+.miniBarHeader {
+  display: flex;
+  justify-content: space-between;
+  font-size: 8px;
+  color: var(--text-secondary);
+}
+
+.miniBarTrack {
+  height: 3px;
+  background: var(--bg-base);
+  border-radius: 2px;
+  margin-top: 1px;
+}
+
+.miniBarFill {
+  height: 100%;
+  border-radius: 2px;
+}

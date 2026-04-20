@@ -1,0 +1,279 @@
+/* LifeSupportPanel – extracted from inline styles */
+
+.container {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  background: var(--bg-label);
+  padding: 12px;
+  gap: 10px;
+  font-family: var(--font-mono);
+  overflow-y: auto;
+}
+
+/* ── Header ──────────────────────────────────────────── */
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.headerLeft {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.headerIcon {
+  font-size: 22px;
+  color: #44ffcc;
+}
+
+.headerTitle {
+  font-size: 11px;
+  letter-spacing: 4px;
+  color: #44ffcc;
+}
+
+.statusBadge {
+  font-size: 10px;
+  letter-spacing: 2px;
+  padding: 2px 10px;
+  border-radius: 2px;
+}
+
+/* ── Grid ────────────────────────────────────────────── */
+.grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  flex: 1;
+}
+
+.col {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+/* ── Cards ───────────────────────────────────────────── */
+.card {
+  background: var(--bg-input);
+  border: 1px solid var(--border-faint);
+  border-radius: 3px;
+  padding: 10px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.cardTitle {
+  font-size: 8px;
+  letter-spacing: 3px;
+  color: var(--text-ghost);
+  font-family: var(--font-mono);
+}
+
+/* ── Bar ─────────────────────────────────────────────── */
+.barTrack {
+  flex: 1;
+  background: var(--bg-base);
+  border: 1px solid var(--border-faint);
+  border-radius: 2px;
+}
+
+.barFill {
+  height: 100%;
+  border-radius: 2px;
+  transition: width 0.4s ease;
+}
+
+/* ── Big gauge ───────────────────────────────────────── */
+.gaugeWrap {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.gaugeHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+}
+
+.gaugeLabel {
+  font-size: 9px;
+  color: var(--text-body);
+  font-family: var(--font-mono);
+  letter-spacing: 1px;
+}
+
+.gaugeValue {
+  font-size: 14px;
+  font-family: var(--font-mono);
+  font-weight: bold;
+}
+
+/* ── Rows ────────────────────────────────────────────── */
+.row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.rowLabel {
+  font-size: 9px;
+  color: var(--text-body);
+  font-family: var(--font-mono);
+}
+
+.rowValue {
+  font-size: 9px;
+  font-family: var(--font-mono);
+}
+
+/* ── Atmosphere hints ────────────────────────────────── */
+.divider {
+  border-top: 1px solid var(--border-faint);
+  padding-top: 8px;
+}
+
+.atmoHint {
+  font-size: 8px;
+  color: var(--text-ghost);
+  letter-spacing: 1px;
+  text-align: center;
+  margin-top: 2px;
+}
+
+/* ── Passengers ──────────────────────────────────────── */
+.passRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.passLabel {
+  font-size: 9px;
+  color: var(--text-body);
+}
+
+.passCount {
+  font-size: 28px;
+  color: #44ffcc;
+  letter-spacing: 3px;
+}
+
+.hullRow {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 4px;
+}
+
+.hullLabel {
+  font-size: 9px;
+  color: var(--text-body);
+}
+
+.hullValue {
+  font-size: 9px;
+}
+
+/* ── Power section ───────────────────────────────────── */
+.powerBlock {
+  padding-top: 4px;
+  border-top: 1px solid var(--border-faint);
+}
+
+.powerHeader {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 3px;
+}
+
+.powerMuted {
+  font-size: 8px;
+  color: var(--text-ghost);
+}
+
+.powerSmall {
+  font-size: 8px;
+}
+
+.gwRow {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 4px;
+}
+
+.gwLabel {
+  font-size: 9px;
+  color: var(--text-body);
+}
+
+.gwValue {
+  font-size: 9px;
+  color: #44ffcc;
+}
+
+.gwSlider {
+  width: 100%;
+  accent-color: #44ffcc;
+  height: 12px;
+}
+
+.gwHint {
+  font-size: 7px;
+  color: var(--text-ghost);
+  margin-top: 2px;
+}
+
+/* ── Scrubbers ───────────────────────────────────────── */
+.scrubberRow {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.scrubberLabel {
+  font-size: 9px;
+  color: var(--text-body);
+}
+
+.scrubberCount {
+  font-size: 22px;
+  letter-spacing: 2px;
+}
+
+.scrubberHealthRow {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 4px;
+}
+
+.scrubberHealthLabel {
+  font-size: 9px;
+  color: var(--text-body);
+}
+
+.scrubberHealthValue {
+  font-size: 9px;
+}
+
+.scrubberExtra {
+  border-top: 1px solid var(--border-faint);
+  padding-top: 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.warningBox {
+  font-size: 8px;
+  color: var(--accent-amber);
+  letter-spacing: 1px;
+  padding: 6px 8px;
+  border: 1px solid var(--border);
+  border-radius: 2px;
+  background: var(--bg-base);
+}

@@ -1,12 +1,11 @@
 import { useState } from 'react'
+import { Btn, ChipBtn } from '../components/ui'
+import { healthColor } from '../shared'
+import s from './TransportationPanel.module.css'
 
 // ── Style constants (match other panels) ──────────────────────────────────
-const BG      = '#070714'
-const CARD_BG = '#09091c'
 const ACCENT  = '#ff88cc'
-const ACCENT2 = '#00ffcc'
-const DIM     = '#334'
-const FONT    = 'Courier New'
+const ACCENT2 = 'var(--accent-cyan)'
 
 const ROOM_LABELS = {
   power_room:       'POWER ROOM',
@@ -30,16 +29,10 @@ const LARGE_ITEMS = new Set([
 
 function statusColor(state) {
   if (state === 'idle') return ACCENT2
-  if (state === 'pickup') return '#ffaa00'
+  if (state === 'pickup') return 'var(--accent-amber)'
   if (state === 'deliver') return ACCENT
-  if (state === 'returning') return '#00aaff'
+  if (state === 'returning') return 'var(--accent)'
   return DIM
-}
-
-function healthColor(hp) {
-  if (hp >= 70) return '#00ff88'
-  if (hp >= 40) return '#ffaa00'
-  return '#ff4444'
 }
 
 function fmtNum(n) {
@@ -68,9 +61,7 @@ export default function TransportationPanel({ gameState, sendCommand }) {
 
   if (!ship) {
     return (
-      <div style={{ flex: 1, background: BG, display: 'flex', alignItems: 'center',
-                    justifyContent: 'center', color: '#222', fontFamily: FONT,
-                    fontSize: '12px', letterSpacing: '4px' }}>
+      <div className={s.noSignal}>
         NO SIGNAL
       </div>
     )
@@ -78,9 +69,8 @@ export default function TransportationPanel({ gameState, sendCommand }) {
 
   // Planet stockpile (only available as source when orbiting)
   const planetStockpile = orbitingPlanet
-    ? gameState?.galaxy?.systems
-        ?.find(s => s.id === ship.current_system_id)
-        ?.planets?.find(p => p.id === orbitingPlanet)?.stockpile ?? null
+    ? gameState?.current_system?.planets
+        ?.find(p => p.id === orbitingPlanet)?.stockpile ?? null
     : null
 
   // Build source options: non-excluded rooms + planet
@@ -124,97 +114,94 @@ export default function TransportationPanel({ gameState, sendCommand }) {
 
   // ── Layout: left=bot fleet, center=dispatch form, right=room inventories ──
   return (
-    <div style={{ flex: 1, display: 'flex', background: BG, fontFamily: FONT, color: '#ccc',
-                  fontSize: '11px', overflow: 'hidden' }}>
+    <div className={s.container}>
 
       {/* ── LEFT: Bot Fleet ──────────────────────────────────────────────── */}
-      <div style={{ width: '260px', borderRight: '1px solid #111', display: 'flex',
-                    flexDirection: 'column', padding: '8px', gap: '4px', overflowY: 'auto' }}>
+      <div className={s.fleet}>
         {/* Fleet header + charging bay info */}
-        <div style={{ marginBottom: '4px' }}>
-          <div style={{ color: ACCENT, fontSize: '10px', letterSpacing: '3px' }}>
+        <div className={s.fleetHeader}>
+          <div className={s.fleetTitle}>
             TRANSPORT FLEET ({bots.length})
           </div>
           {(() => {
             const totalGw = ship.net_power_gw ?? 0
             const bayPct  = ship.power_allocation?.charging_bay ?? 0
             const bayGw   = totalGw * bayPct / 100
+            const chargeRate = gameState?.constants?.CHARGING_BAY_CHARGE_RATE_PER_GW ?? 2
             const allBots = [...bots, ...(ship.repair_bots ?? []), ...(ship.mining_bots_list ?? [])]
             const inBay   = allBots.filter(b => b.location === 'charging_bay' && b.state === 'idle').length
             return (
-              <div style={{ fontSize: '9px', color: '#555', marginTop: '2px' }}>
-                CHARGING BAY: <span style={{ color: '#00aaff' }}>{bayGw.toFixed(1)} GW</span>
-                {inBay > 0 && <span style={{ color: '#444' }}> ÷ {inBay} bot{inBay !== 1 ? 's' : ''} = <span style={{ color: '#00aaff' }}>{inBay > 0 ? (bayGw / inBay * 2).toFixed(1) : '0'} CHG/t</span></span>}
+              <div className={s.bayInfo}>
+                CHARGING BAY: <span style={{ color: 'var(--accent)' }}>{bayGw.toFixed(1)} GW</span>
+                {inBay > 0 && <span style={{ color: 'var(--text-muted)' }}> ÷ {inBay} bot{inBay !== 1 ? 's' : ''} = <span style={{ color: 'var(--accent)' }}>{inBay > 0 ? (bayGw / inBay * chargeRate).toFixed(1) : '0'} CHG/t</span></span>}
               </div>
             )
           })()}
         </div>
 
         {bots.map(bot => (
-          <div key={bot.id} style={{ background: CARD_BG, borderRadius: '4px', padding: '6px 8px',
-                                      border: `1px solid ${bot.state !== 'idle' ? ACCENT : '#151530'}` }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <div key={bot.id} className={s.botCard} style={{
+            border: `1px solid ${bot.state !== 'idle' ? ACCENT : 'var(--border)'}`,
+          }}>
+            <div className={s.botTop}>
               <span style={{ color: statusColor(bot.state), fontWeight: 'bold' }}>
                 TRANSPORT #{bot.id}
               </span>
-              <div style={{ textAlign: 'right' }}>
-                <span style={{ color: statusColor(bot.state), fontSize: '9px', letterSpacing: '1px' }}>
+              <div className={s.botRight}>
+                <span className={s.botStatus} style={{ color: statusColor(bot.state) }}>
                   {bot.state.toUpperCase()}
                 </span>
-                <div style={{ fontSize: '8px', color: '#444', marginTop: '1px' }}>
+                <div className={s.botLoc}>
                   @ {ROOM_LABELS[bot.location] ?? bot.location ?? '?'}
                 </div>
               </div>
             </div>
 
             {/* Health + Charge bars */}
-            <div style={{ display: 'flex', gap: '8px', marginTop: '4px', alignItems: 'center' }}>
+            <div className={s.botBars}>
               <MiniBar label="HP" value={bot.health} max={100} color={healthColor(bot.health)} />
               <MiniBar label="CHG" value={bot.charge} max={100} color="#00aaff" />
               {bot.state === 'idle' && bot.location !== 'charging_bay' && (
-                <button onClick={() => handleCharge(bot.id)}
-                        style={{ ...smallBtn, color: '#00aaff', borderColor: '#00aaff' }}>CHG</button>
+                <Btn small onClick={() => handleCharge(bot.id)} color="var(--accent)">CHG</Btn>
               )}
               {bot.state === 'idle' && bot.location === 'charging_bay' && bot.charge < 100 && (
-                <span style={{ fontSize: '8px', color: '#00aaff' }}>↑CHG</span>
+                <span className={s.chargingSmall}>↑CHG</span>
               )}
             </div>
 
             {/* Active job */}
             {bot.job && bot.state !== 'returning' && (
-              <div style={{ marginTop: '4px', fontSize: '9px', color: '#888' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                  <span style={{ color: '#aaa' }}>{fmtNum(bot.job.amount)} {bot.job.item}</span>
+              <div className={s.jobWrap}>
+                <div className={s.jobHeader}>
+                  <span className={s.jobItem}>{fmtNum(bot.job.amount)} {bot.job.item}</span>
                   {bot.job.trips_remaining !== undefined && (
-                    <span style={{ color: '#555' }}>
+                    <span className={s.jobTrips}>
                       {bot.job.trips_remaining === null ? '∞' : bot.job.trips_remaining}x
                     </span>
                   )}
                 </div>
-                <div style={{ color: '#777' }}>
+                <div className={s.jobRoute}>
                   {ROOM_LABELS[bot.job.source] ?? bot.job.source}
                   {' → '}{ROOM_LABELS[bot.job.dest] ?? bot.job.dest}
                 </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '4px', marginTop: '2px' }}>
-                  <div style={{ flex: 1, height: '3px', background: '#111', borderRadius: '2px' }}>
-                    <div style={{ width: `${((5 - bot.job.ticks_left) / 5) * 100}%`, height: '100%',
-                                  background: bot.state === 'pickup' ? '#ffaa00' : ACCENT,
-                                  borderRadius: '2px', transition: 'width 0.3s' }} />
+                <div className={s.jobProgress}>
+                  <div className={s.jobTrack}>
+                    <div className={s.jobFill} style={{
+                      width: `${((5 - bot.job.ticks_left) / 5) * 100}%`,
+                      background: bot.state === 'pickup' ? '#ffaa00' : ACCENT,
+                    }} />
                   </div>
-                  <span style={{ fontSize: '8px', color: '#666' }}>{bot.job.ticks_left}t</span>
-                  <button onClick={() => handleCancel(bot.id)}
-                          style={{ ...smallBtn, color: '#ff4444', borderColor: '#ff4444' }}>✕</button>
-                  <button onClick={() => handleCharge(bot.id)}
-                          style={{ ...smallBtn, color: '#00aaff', borderColor: '#00aaff' }}>CHG</button>
+                  <span className={s.jobTicks}>{bot.job.ticks_left}t</span>
+                  <Btn small onClick={() => handleCancel(bot.id)} color="var(--status-bad)">✕</Btn>
+                  <Btn small onClick={() => handleCharge(bot.id)} color="var(--accent)">CHG</Btn>
                 </div>
               </div>
             )}
             {/* Returning to charge */}
             {bot.state === 'returning' && (
-              <div style={{ marginTop: '4px', fontSize: '9px', color: '#00aaff' }}>
+              <div className={s.returnInfo}>
                 ⟵ CHARGING BAY ({bot.job?.ticks_left}t)
-                <button onClick={() => handleCancel(bot.id)}
-                        style={{ ...smallBtn, color: '#ff4444', borderColor: '#ff4444', marginLeft: '6px' }}>✕</button>
+                <Btn small onClick={() => handleCancel(bot.id)} color="var(--status-bad)" style={{ marginLeft: '6px' }}>✕</Btn>
               </div>
             )}
           </div>
@@ -223,20 +210,19 @@ export default function TransportationPanel({ gameState, sendCommand }) {
       </div>
 
       {/* ── CENTER: Dispatch Form ────────────────────────────────────────── */}
-      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', padding: '8px', gap: '6px',
-                    overflowY: 'auto', minWidth: 0 }}>
-        <div style={{ color: ACCENT, fontSize: '10px', letterSpacing: '3px', marginBottom: '2px' }}>
+      <div className={s.dispatch}>
+        <div className={s.dispatchTitle}>
           DISPATCH TRANSPORT
         </div>
 
         {/* Source selection */}
         <Section label="SOURCE">
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px' }}>
+          <div className={s.chipWrap}>
             {sourceKeys.map(k => (
-              <button key={k} data-testid={`src-${k}`} onClick={() => { setSelSource(k); setSelItem(null); setSelAmount('') }}
-                      style={{ ...chipBtn, ...(selSource === k ? chipActive : {}) }}>
+              <ChipBtn key={k} data-testid={`src-${k}`} onClick={() => { setSelSource(k); setSelItem(null); setSelAmount('') }}
+                       active={selSource === k} accentColor={ACCENT} activeBg="#1a0a18">
                 {ROOM_LABELS[k] ?? k}
-              </button>
+              </ChipBtn>
             ))}
           </div>
         </Section>
@@ -244,13 +230,13 @@ export default function TransportationPanel({ gameState, sendCommand }) {
         {/* Items at source */}
         {selSource && (
           <Section label="ITEM">
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px' }}>
-              {sourceItems.length === 0 && <span style={{ color: '#444', fontSize: '10px' }}>No items</span>}
+            <div className={s.chipWrap}>
+              {sourceItems.length === 0 && <span className={s.noItems}>No items</span>}
               {sourceItems.map(([item, qty]) => (
-                <button key={item} data-testid={`item-${item}`} onClick={() => { setSelItem(item); setSelAmount('') }}
-                        style={{ ...chipBtn, ...(selItem === item ? chipActive : {}) }}>
+                <ChipBtn key={item} data-testid={`item-${item}`} onClick={() => { setSelItem(item); setSelAmount('') }}
+                         active={selItem === item} accentColor={ACCENT} activeBg="#1a0a18">
                   {item} ({fmtNum(qty)})
-                </button>
+                </ChipBtn>
               ))}
             </div>
           </Section>
@@ -259,12 +245,12 @@ export default function TransportationPanel({ gameState, sendCommand }) {
         {/* Destination selection */}
         {selItem && (
           <Section label="DESTINATION">
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px' }}>
+            <div className={s.chipWrap}>
               {destKeys.map(k => (
-                <button key={k} data-testid={`dst-${k}`} onClick={() => setSelDest(k)}
-                        style={{ ...chipBtn, ...(selDest === k ? chipActive : {}) }}>
+                <ChipBtn key={k} data-testid={`dst-${k}`} onClick={() => setSelDest(k)}
+                         active={selDest === k} accentColor={ACCENT} activeBg="#1a0a18">
                   {ROOM_LABELS[k] ?? k}
-                </button>
+                </ChipBtn>
               ))}
             </div>
           </Section>
@@ -273,13 +259,12 @@ export default function TransportationPanel({ gameState, sendCommand }) {
         {/* Amount + trips */}
         {selDest && selItem && (
           <Section label={`AMOUNT (max ${fmtNum(maxAmt)}${LARGE_ITEMS.has(selItem) ? ' — large item' : ''})`}>
-            <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
+            <div className={s.amountRow}>
               <input data-testid="amount-input" type="number" min={1} max={maxAmt} step={LARGE_ITEMS.has(selItem) ? 1 : 100}
                      value={selAmount} placeholder={fmtNum(maxAmt)}
                      onChange={e => setSelAmount(e.target.value)}
-                     style={inputStyle} />
-              <button onClick={() => setSelAmount(String(maxAmt))}
-                      style={{ ...smallBtn, color: ACCENT2, borderColor: ACCENT2 }}>MAX</button>
+                     className={s.amountInput} />
+              <Btn small onClick={() => setSelAmount(String(maxAmt))} color={ACCENT2}>MAX</Btn>
             </div>
           </Section>
         )}
@@ -287,12 +272,12 @@ export default function TransportationPanel({ gameState, sendCommand }) {
         {/* Trips */}
         {selDest && selItem && (
           <Section label="TRIPS">
-            <div style={{ display: 'flex', gap: '4px' }}>
+            <div className={s.chipWrap}>
               {[1, 5, 10, null].map(t => (
-                <button key={String(t)} onClick={() => setSelTrips(t)}
-                        style={{ ...chipBtn, ...(selTrips === t ? { ...chipActive, borderColor: ACCENT2, color: ACCENT2, background: '#0a1a18' } : {}) }}>
+                <ChipBtn key={String(t)} onClick={() => setSelTrips(t)}
+                         active={selTrips === t} accentColor={ACCENT2} activeBg="var(--tint-success)">
                   {t === null ? '∞' : t}
-                </button>
+                </ChipBtn>
               ))}
             </div>
           </Section>
@@ -301,14 +286,13 @@ export default function TransportationPanel({ gameState, sendCommand }) {
         {/* Bot picker (optional) */}
         {selDest && selItem && idleBots.length > 1 && (
           <Section label="ASSIGN TRANSPORT (optional)">
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px' }}>
-              <button onClick={() => setSelBotId(null)}
-                      style={{ ...chipBtn, ...(!selBotId ? chipActive : {}) }}>AUTO</button>
+            <div className={s.chipWrap}>
+              <ChipBtn onClick={() => setSelBotId(null)} active={!selBotId} accentColor={ACCENT} activeBg="#1a0a18">AUTO</ChipBtn>
               {idleBots.map(b => (
-                <button key={b.id} onClick={() => setSelBotId(b.id)}
-                        style={{ ...chipBtn, ...(selBotId === b.id ? chipActive : {}) }}>
+                <ChipBtn key={b.id} onClick={() => setSelBotId(b.id)}
+                         active={selBotId === b.id} accentColor={ACCENT} activeBg="#1a0a18">
                   T-{b.id} (HP:{Math.floor(b.health)} CHG:{Math.floor(b.charge)})
-                </button>
+                </ChipBtn>
               ))}
             </div>
           </Section>
@@ -316,22 +300,20 @@ export default function TransportationPanel({ gameState, sendCommand }) {
 
         {/* Dispatch button */}
         {selDest && selItem && (
-          <button data-testid="dispatch-btn" onClick={handleDispatch} disabled={idleBots.length === 0}
-                  style={{ ...actionBtn, marginTop: '4px',
-                           borderColor: idleBots.length > 0 ? ACCENT2 : '#333',
-                           color: idleBots.length > 0 ? ACCENT2 : '#444',
-                           opacity: idleBots.length > 0 ? 1 : 0.4 }}>
+          <Btn data-testid="dispatch-btn" onClick={handleDispatch} disabled={idleBots.length === 0}
+               color={idleBots.length > 0 ? ACCENT2 : 'var(--text-muted)'}
+               borderColor={idleBots.length > 0 ? ACCENT2 : 'var(--border-faint)'}
+               style={{ marginTop: '4px', padding: '8px 12px', fontSize: '11px', letterSpacing: '1px', borderRadius: '4px', opacity: idleBots.length > 0 ? 1 : 0.4 }}>
             {idleBots.length > 0
               ? `DISPATCH: ${fmtNum(selAmount || maxAmt)} ${selItem}  →  ${ROOM_LABELS[selDest] ?? selDest}`
               : 'NO IDLE TRANSPORTS'}
-          </button>
+          </Btn>
         )}
       </div>
 
       {/* ── RIGHT: Room Inventories ──────────────────────────────────────── */}
-      <div style={{ width: '240px', borderLeft: '1px solid #111', display: 'flex',
-                    flexDirection: 'column', padding: '8px', gap: '4px', overflowY: 'auto' }}>
-        <div style={{ color: ACCENT, fontSize: '10px', letterSpacing: '3px', marginBottom: '4px' }}>
+      <div className={s.inventories}>
+        <div className={s.invTitle}>
           INVENTORIES
         </div>
 
@@ -340,15 +322,14 @@ export default function TransportationPanel({ gameState, sendCommand }) {
           const items = Object.entries(inv).filter(([, v]) => v > 0)
           if (items.length === 0) return null
           return (
-            <div key={roomKey} style={{ background: CARD_BG, borderRadius: '4px', padding: '4px 6px',
-                                         border: '1px solid #151530' }}>
-              <div style={{ color: '#888', fontSize: '9px', letterSpacing: '2px', marginBottom: '2px' }}>
+            <div key={roomKey} className={s.roomCard}>
+              <div className={s.roomName}>
                 {ROOM_LABELS[roomKey] ?? roomKey}
               </div>
               {items.map(([item, qty]) => (
-                <div key={item} style={{ display: 'flex', justifyContent: 'space-between', padding: '1px 0' }}>
-                  <span style={{ color: '#aaa' }}>{item}</span>
-                  <span style={{ color: ACCENT2 }}>{fmtNum(qty)}</span>
+                <div key={item} className={s.invRow}>
+                  <span className={s.invItem}>{item}</span>
+                  <span className={s.invQty}>{fmtNum(qty)}</span>
                 </div>
               ))}
             </div>
@@ -357,15 +338,14 @@ export default function TransportationPanel({ gameState, sendCommand }) {
 
         {/* Planet stockpile */}
         {planetStockpile && (
-          <div style={{ background: CARD_BG, borderRadius: '4px', padding: '4px 6px',
-                        border: '1px solid #2a1a30' }}>
-            <div style={{ color: '#aa88ff', fontSize: '9px', letterSpacing: '2px', marginBottom: '2px' }}>
+          <div className={s.planetCard}>
+            <div className={s.planetLabel}>
               PLANET
             </div>
             {Object.entries(planetStockpile).filter(([, v]) => v > 0).map(([item, qty]) => (
-              <div key={item} style={{ display: 'flex', justifyContent: 'space-between', padding: '1px 0' }}>
-                <span style={{ color: '#aaa' }}>{item}</span>
-                <span style={{ color: '#aa88ff' }}>{fmtNum(qty)}</span>
+              <div key={item} className={s.invRow}>
+                <span className={s.invItem}>{item}</span>
+                <span className={s.planetQty}>{fmtNum(qty)}</span>
               </div>
             ))}
           </div>
@@ -380,7 +360,7 @@ export default function TransportationPanel({ gameState, sendCommand }) {
 function Section({ label, children }) {
   return (
     <div>
-      <div style={{ color: '#555', fontSize: '9px', letterSpacing: '2px', marginBottom: '3px' }}>{label}</div>
+      <div className={s.sectionLabel}>{label}</div>
       {children}
     </div>
   )
@@ -389,38 +369,15 @@ function Section({ label, children }) {
 function MiniBar({ label, value, max, color }) {
   const pct = Math.min(100, (value / max) * 100)
   return (
-    <div style={{ flex: 1 }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '8px', color: '#666' }}>
+    <div className={s.miniBarWrap}>
+      <div className={s.miniBarHeader}>
         <span>{label}</span><span style={{ color }}>{Math.floor(value)}</span>
       </div>
-      <div style={{ height: '3px', background: '#111', borderRadius: '2px', marginTop: '1px' }}>
-        <div style={{ width: `${pct}%`, height: '100%', background: color, borderRadius: '2px' }} />
+      <div className={s.miniBarTrack}>
+        <div className={s.miniBarFill} style={{ width: `${pct}%`, background: color }} />
       </div>
     </div>
   )
 }
 
 // ── Style objects ────────────────────────────────────────────────────────────
-
-const chipBtn = {
-  background: 'transparent', border: '1px solid #333', borderRadius: '3px',
-  color: '#888', fontFamily: FONT, fontSize: '10px', padding: '3px 8px',
-  cursor: 'pointer', transition: 'all .15s',
-}
-const chipActive = {
-  borderColor: ACCENT, color: ACCENT, background: '#1a0a18',
-}
-const actionBtn = {
-  background: 'transparent', border: '1px solid #333', borderRadius: '4px',
-  color: '#888', fontFamily: FONT, fontSize: '11px', padding: '8px 12px',
-  cursor: 'pointer', letterSpacing: '1px',
-}
-const smallBtn = {
-  background: 'transparent', border: '1px solid #333', borderRadius: '3px',
-  fontFamily: FONT, fontSize: '9px', padding: '2px 6px', cursor: 'pointer',
-}
-const inputStyle = {
-  background: '#0a0a1a', border: '1px solid #333', borderRadius: '3px',
-  color: ACCENT2, fontFamily: FONT, fontSize: '12px', padding: '4px 8px',
-  width: '100px', outline: 'none',
-}

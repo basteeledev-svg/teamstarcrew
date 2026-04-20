@@ -96,12 +96,12 @@ export default function ShipControls({ gameState, sendCommand }) {
   const isRunning = gameState?.status === 'running'
 
   return (
-    <div style={{ padding: '10px', borderTop: '1px solid #223' }}>
+    <div style={{ padding: '10px', borderTop: '1px solid var(--border-faint)' }}>
       <div style={{ display: 'flex', gap: '20px', alignItems: 'center' }}>
 
         {/* Compass */}
         <div>
-          <div style={{ fontSize: '10px', color: '#557', marginBottom: '4px' }}>
+          <div style={{ fontSize: '10px', color: 'var(--text-dim)', marginBottom: '4px' }}>
             HEADING (click to steer)
           </div>
           <canvas
@@ -109,20 +109,20 @@ export default function ShipControls({ gameState, sendCommand }) {
             width={COMPASS_R * 2 + 4}
             height={COMPASS_R * 2 + 4}
             onClick={handleCompassClick}
-            style={{ background: '#050510', border: '1px solid #223', cursor: 'crosshair', display: 'block' }}
+            style={{ background: 'var(--bg-base)', border: '1px solid var(--border-faint)', cursor: 'crosshair', display: 'block' }}
           />
         </div>
 
         {/* Engine status */}
         <div style={{ flex: 1 }}>
           <div style={{ marginBottom: '8px' }}>
-            <div style={{ fontSize: '10px', color: '#557', marginBottom: '2px' }}>ENGINE SPEED</div>
-            <div style={{ fontFamily: 'Courier New', fontSize: '22px', color: engaged ? '#00ffcc' : '#445' }}>
+            <div style={{ fontSize: '10px', color: 'var(--text-dim)', marginBottom: '2px' }}>ENGINE SPEED</div>
+            <div style={{ fontFamily: 'var(--font-mono)', fontSize: '22px', color: engaged ? 'var(--accent-cyan)' : 'var(--text-dim)' }}>
               {(engineSpeed * 1000).toFixed(3)}
-              <span style={{ fontSize: '11px', color: '#557', marginLeft: '4px' }}>mAU/tk</span>
+              <span style={{ fontSize: '11px', color: 'var(--text-dim)', marginLeft: '4px' }}>mAU/tk</span>
             </div>
           </div>
-          <div style={{ fontSize: '10px', color: engaged ? '#00ffcc' : '#665544', marginBottom: '8px' }}>
+          <div style={{ fontSize: '10px', color: engaged ? 'var(--accent-cyan)' : 'var(--text-secondary)', marginBottom: '8px' }}>
             STATUS: {engaged ? '▶ ENGINES ENGAGED' : '■ ENGINES OFFLINE'}
           </div>
           <div style={{ display: 'flex', gap: '8px' }}>
@@ -148,20 +148,20 @@ export default function ShipControls({ gameState, sendCommand }) {
       <div style={{
         marginTop: '12px',
         padding: '10px',
-        border: '1px solid #335',
-        background: '#07070f',
+        border: '1px solid var(--border-faint)',
+        background: 'var(--bg-base)',
         display: 'flex',
         gap: '16px',
         flexWrap: 'wrap',
         alignItems: 'flex-end',
       }}>
-        <div style={{ fontSize: '10px', color: '#557', width: '100%', marginBottom: '2px' }}>
+        <div style={{ fontSize: '10px', color: 'var(--text-dim)', width: '100%', marginBottom: '2px' }}>
           DIRECT ENTRY
         </div>
 
         {/* Heading */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-          <label style={{ fontSize: '10px', color: '#557' }}>HEADING (0–360°)</label>
+          <label style={{ fontSize: '10px', color: 'var(--text-dim)' }}>HEADING (0–360°)</label>
           <div style={{ display: 'flex', gap: '6px' }}>
             <input
               type="number" min="0" max="360" step="1"
@@ -189,10 +189,10 @@ export default function ShipControls({ gameState, sendCommand }) {
 function btnStyle(bg) {
   return {
     background: bg,
-    color: '#d0d8f0',
-    border: '1px solid #335',
+    color: 'var(--text-bright)',
+    border: '1px solid var(--border-faint)',
     padding: '6px 12px',
-    fontFamily: 'Courier New',
+    fontFamily: 'var(--font-mono)',
     fontSize: '11px',
     cursor: 'pointer',
   }
@@ -200,10 +200,10 @@ function btnStyle(bg) {
 
 const inputStyle = {
   width: '70px',
-  background: '#050510',
-  color: '#00ffcc',
-  border: '1px solid #335',
+  background: 'var(--bg-base)',
+  color: 'var(--accent-cyan)',
+  border: '1px solid var(--border-faint)',
   padding: '5px 8px',
-  fontFamily: 'Courier New',
+  fontFamily: 'var(--font-mono)',
   fontSize: '12px',
 }

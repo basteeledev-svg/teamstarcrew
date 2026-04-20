@@ -1,7 +1,92 @@
+# Ship Design
+
+## Overview
+
+The ship is a cooperative vessel operated by **13 console stations** across **8 functional rooms**. Each station runs on a physical tablet (1280×800 px). Players can control 1–4 stations each; minimum ~4 players recommended.
+
+## 13 Console Stations
+
+| # | Station | Description |
+|---|---------|-------------|
+| 1 | Navigation | Set heading, control thrust, initiate warp jumps, enter/leave orbit |
+| 2 | Short Range Scanning | Scan nearby planets and ships within the current system |
+| 3 | Long Range Scanning | Scan distant star systems across the galaxy |
+| 4 | Weapons (Tactical) | Lock targets, fire offense lasers and missiles, allocate weapon power per hull section |
+| 5 | Shields | Install/manage defense lasers and shield batteries, allocate shield power per hull section |
+| 6 | Repairs | Dispatch repair bots to damaged systems, hull sections, bots, and items |
+| 7 | Transportation | Command transport bots to move items/people between rooms and planet |
+| 8 | Manufacturing | Set production allocation for items and bots from raw materials |
+| 9 | Power | Control 4 reactors, distribute power across 12 systems, manage battery |
+| 10 | Engines | Set individual engine outputs (2 electric, 2 fuel) |
+| 11 | Life Support | Monitor air, crew, life support power requirements |
+| 12 | Communications | Send/receive messages to/from contacts in range |
+| 13 | Mining | Assign mining bots to extract resources from orbited planets |
+
+## 8 Rooms
+
+| Room | Capacity | Accepted Items |
+|------|----------|----------------|
+| Power Room | 10,000 | fuel, radioactive, power_batteries |
+| Engine Room | 10,000 | fuel |
+| Weapons Room | 10,000 | lasers, missiles |
+| Shields Room | 10,000 | shield_batteries, lasers |
+| Living Quarters | 10,000 | air_scrubbers, people |
+| Cargo Bay | 100,000 | everything |
+| Manufacturing | 100,000 | everything |
+| Charging Bay | 0 | bots only (no item transport) |
+
+## 6 Hull Sides
+
+Front, Back, Port, Starboard, Above, Below — each has installed components (defense lasers, offense lasers, shield batteries; max 5 of each type per side) and independent outer hull health.
+
+## Resources & Items
+
+**Raw materials** (consumable, 1000 per transport trip):
+- metals, rare_earth, radioactive, hydrocarbons, fuel, people
+
+**Equipment** (large, 1 per transport trip):
+- lasers, missiles, shield_batteries, power_batteries, air_scrubbers, transport_bots, repair_bots
+
+## 3 Bot Types
+
+All bots are entity-tracked with individual `id`, `charge`, `health`, `location`, and `state`.
+
+### Transport Bots
+- Move items between rooms or to/from an orbited planet
+- Consume charge per trip; lose health per trip; destroyed at 0 health
+- Planet trips take **double** normal travel time (10 ticks vs 5)
+- Charged in the Charging Bay from `charging_bay` power allocation
+
+### Repair Bots
+- Dispatched to fix systems, room hull, outer hull, bots, or items
+- Travel to target, repair at REPAIR_BOT_REPAIR_RATE per tick, return when done
+- Require active power (REPAIR_BOT_POWER_PER_BOT GW from charging_bay allocation)
+- Destroyed at 0 health
+
+### Mining Bots
+- Assigned to a resource type while orbiting a planet
+- Each mining bot extracts `richness / 100` units per tick
+- Consume charge while mining; recalled to charging bay when depleted
+- Destroyed at 0 health
+- Max bots per resource: MINING_BOTS_MAX (20)
+
+## Manufacturing
+
+9 hardcoded recipes consume raw materials from the Manufacturing room:
+- **Rate-based**: fuel (continuous production)
+- **Progress-based**: transport_bot, mining_bot, repair_bot, lasers, missiles, shield_batteries, power_batteries, air_scrubbers (accumulate GW toward completion threshold)
+
+Manufacturing GW is split by the player's allocation percentages. Blocked recipes (missing materials) redistribute their GW to other active recipes.
+
+## Component Installation
+
+Installing or uninstalling hull components (defense lasers, offense lasers, shield batteries) is **not instant**. Each job costs 1 GW per percent of progress. GW comes from the relevant station's power allocation (shields or weapons), split evenly among all active jobs for that station.
+
+Example: 60 GW to weapons, 3 install jobs → each progresses at 20%/tick → done in 5 ticks.
 # 02 — Ship
 
 ## Overview
-The ship is the players' vessel and home base throughout a session. All onboard systems are operated via automated bots commanded from the **Command Deck**. Players interact with the ship through physical tablet stations, each controlling a specific ship system.
+The ship is the players' vessel and home base throughout a session. All onboard systems are operated via automated bots commanded from tablet stations. Players interact with the ship through physical tablet stations, each controlling a specific ship system.
 
 The ship has **6 sides**: Front, Back, Port, Starboard, Above, Below.
 Scanning and communication hardware is mounted externally and requires no dedicated internal room.
@@ -12,7 +97,6 @@ Scanning and communication hardware is mounted externally and requires no dedica
 
 | Room | Purpose |
 |---|---|
-| Command Deck | Houses all 13 player stations; the nerve center of the ship |
 | Living Quarters | Crew habitat; stores air scrubbers |
 | Weapons Room | Manages offensive systems; stores lasers and missiles |
 | Shields Room | Manages defensive systems; stores shield batteries and lasers |
@@ -21,17 +105,16 @@ Scanning and communication hardware is mounted externally and requires no dedica
 | Charging Bay (`charging_bay`) | Where bots dock, recharge, and are dispatched; bots-only — no item transport |
 | Manufacturing Facility | Fabricates items from raw materials; stores all non-bot resources (see capacity below) |
 | General Cargo Bay | General purpose storage for all non-bot items |
-| Travel Tunnels | Connecting corridors — how bots move between rooms (modelled as travel ticks, not a tracked room) |
 
 > **Note:** "Manufacturing Facility" and "Factory" are used interchangeably throughout the design docs. They refer to the same room.
 
-> **Implementation status:** The backend `ship.rooms` dict implements: `power_room`, `engine_room`, `weapons_room`, `shields_room`, `living_quarters`, `cargo_bay`, `manufacturing`, `charging_bay`. Travel Tunnels are not a tracked room.
+> **Implementation status:** The backend `ship.rooms` dict implements: `power_room`, `engine_room`, `weapons_room`, `shields_room`, `living_quarters`, `cargo_bay`, `manufacturing`, `charging_bay`. Bot travel between rooms is modelled as travel ticks, not as a separate room.
 
 ---
 
 ## Stations (13 Total)
 
-All stations are located on the Command Deck. Players select 1–4 stations each. With 13 stations, a minimum of ~4 players is needed to cover all stations (13 ÷ 4 = 3.25). Stations may be left unmanned; unmanned systems still function but cannot be actively directed.
+All stations are accessible via tablet devices. Players select 1–4 stations each. With 13 stations, a minimum of ~4 players is needed to cover all stations (13 ÷ 4 = 3.25). Stations may be left unmanned; unmanned systems still function but cannot be actively directed.
 
 | # | Station | Controls | Frontend Panel |
 |---|---|---|---|

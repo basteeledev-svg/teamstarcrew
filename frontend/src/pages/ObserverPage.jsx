@@ -31,19 +31,19 @@ export default function ObserverPage({ gameState, sendCommand, onExit }) {
       {/* Header */}
       <div style={headerStyle}>
         <span style={{ letterSpacing: '3px', fontSize: '14px' }}>★ TEAM STAR CREW</span>
-        <span style={{ fontSize: '10px', color: '#334455', letterSpacing: '2px' }}>OBSERVER</span>
-        <span style={{ fontSize: '11px', color: '#445577' }}>
+        <span style={{ fontSize: '10px', color: 'var(--text-dim)', letterSpacing: '2px' }}>OBSERVER</span>
+        <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
           {!isRunning
             ? null
             : `TICK ${gameState.tick} · ${gameState.galaxy_systems?.length} SYSTEMS`
           }
         </span>
         {!isRunning && (
-          <button onClick={handleStartGame} disabled={starting} style={btnStyle('#004422')}>
+          <button onClick={handleStartGame} disabled={starting} style={btnStyle('var(--tint-success)')}>
             {starting ? 'GENERATING GALAXY…' : 'START NEW GAME'}
           </button>
         )}
-        <button onClick={onExit} style={{ ...btnStyle('#0a0a20'), marginLeft: 'auto', color: '#445566' }}>
+        <button onClick={onExit} style={{ ...btnStyle('var(--bg-raised)'), marginLeft: 'auto', color: 'var(--text-muted)' }}>
           ← BACK
         </button>
       </div>
@@ -52,18 +52,18 @@ export default function ObserverPage({ gameState, sendCommand, onExit }) {
       <div style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
 
         {/* Left: Galaxy map */}
-        <div style={{ display: 'flex', flexDirection: 'column', borderRight: '1px solid #1a1a2e' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', borderRight: '1px solid var(--border)' }}>
           <SectionLabel>GALAXY MAP</SectionLabel>
           <GalaxyMap gameState={gameState} onSelectSystem={setSelectedSystem} />
           {selectedSystem && (
-            <div style={{ padding: '8px', borderTop: '1px solid #223', fontSize: '11px' }}>
-              <div style={{ color: '#aabbdd', marginBottom: '6px' }}>
+            <div style={{ padding: '8px', borderTop: '1px solid var(--border-faint)', fontSize: '11px' }}>
+              <div style={{ color: 'var(--text-primary)', marginBottom: '6px' }}>
                 ► {selectedSystem.name}
-                <span style={{ color: '#445577', marginLeft: '8px' }}>
+                <span style={{ color: 'var(--text-muted)', marginLeft: '8px' }}>
                   ({selectedSystem.star_type}-type · {selectedSystem.planet_count} planets)
                 </span>
               </div>
-              <button onClick={handleWarp} disabled={!isRunning} style={btnStyle('#002244')}>
+              <button onClick={handleWarp} disabled={!isRunning} style={btnStyle('var(--tint-accent)')}>
                 INITIATE WARP JUMP
               </button>
             </div>
@@ -74,7 +74,7 @@ export default function ObserverPage({ gameState, sendCommand, onExit }) {
         <div style={{ display: 'flex', flexDirection: 'column', flex: 1, overflowY: 'auto' }}>
           <SectionLabel>
             CURRENT SYSTEM: {gameState?.current_system?.name ?? '—'}
-            <span style={{ color: '#445577', marginLeft: '8px', fontSize: '10px' }}>
+            <span style={{ color: 'var(--text-muted)', marginLeft: '8px', fontSize: '10px' }}>
               ({gameState?.current_system?.star_type ?? '?'}-type star)
             </span>
           </SectionLabel>
@@ -92,10 +92,10 @@ function SectionLabel({ children }) {
     <div style={{
       padding: '6px 10px',
       fontSize: '10px',
-      color: '#334466',
+      color: 'var(--text-dim)',
       letterSpacing: '2px',
-      borderBottom: '1px solid #1a1a2e',
-      background: '#070714',
+      borderBottom: '1px solid var(--border)',
+      background: 'var(--bg-label)',
     }}>
       {children}
     </div>
@@ -107,18 +107,18 @@ const headerStyle = {
   alignItems: 'center',
   gap: '20px',
   padding: '8px 16px',
-  background: '#050510',
-  borderBottom: '1px solid #1a1a2e',
-  color: '#8899cc',
+  background: 'var(--bg-base)',
+  borderBottom: '1px solid var(--border)',
+  color: 'var(--text-body)',
 }
 
 function btnStyle(bg) {
   return {
     background: bg,
-    color: '#d0d8f0',
-    border: '1px solid #335',
+    color: 'var(--text-bright)',
+    border: '1px solid var(--border-faint)',
     padding: '5px 14px',
-    fontFamily: 'Courier New',
+    fontFamily: 'var(--font-mono)',
     fontSize: '11px',
     cursor: 'pointer',
     letterSpacing: '1px',

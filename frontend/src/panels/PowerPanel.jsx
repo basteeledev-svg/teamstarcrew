@@ -1,4 +1,6 @@
 import { useState, useEffect, useCallback } from 'react'
+import { healthColor, heatColor } from '../shared'
+import s from './PowerPanel.module.css'
 
 // ── Static maps ────────────────────────────────────────────────────────────
 const REACTOR_KEYS = ['reactor_1_fuel', 'reactor_2_fuel', 'reactor_3_rad', 'reactor_4_rad']
@@ -11,7 +13,7 @@ const REACTOR_LABELS = {
 const SLIDER_KEYS = [
   'engines', 'shields', 'weapons',
   'short_range_scanner', 'long_range_scanner', 'comms', 'life_support',
-  'general_systems', 'manufacturing', 'repairs',
+  'general_systems', 'manufacturing', 'charging_bay',
 ]
 // All 12 keys the server tracks
 const ALL_ALLOC_KEYS = [...SLIDER_KEYS, 'warp_drive', 'battery']
@@ -19,26 +21,12 @@ const ALLOC_LABELS = {
   engines: 'ENGINES', shields: 'SHIELDS', weapons: 'WEAPONS',
   short_range_scanner: 'SHORT SCAN', long_range_scanner: 'LONG SCAN',
   comms: 'COMMS', life_support: 'LIFE SUPPORT',
-  general_systems: 'GENERAL SYS', manufacturing: 'MANUFACTURE', repairs: 'REPAIRS',
+  general_systems: 'GENERAL SYS', manufacturing: 'MANUFACTURE', charging_bay: 'CHARGING BAY',
 }
 
-const ACCENT   = '#ffaa00'
-const ACCENT2  = '#00ffcc'
-const BG       = '#070714'
-const CARD_BG  = '#09091c'
-const MAX_REACTOR_GW = 1000  // matches backend constant
-
-// ── Colour helpers ─────────────────────────────────────────────────────────
-function healthColor(pct) {
-  if (pct >= 70) return '#00ff88'
-  if (pct >= 40) return ACCENT
-  return '#ff4444'
-}
-function heatColor(pct) {
-  if (pct < 50) return '#00ff88'
-  if (pct < 80) return ACCENT
-  return '#ff4444'
-}
+const ACCENT   = 'var(--accent-amber)'
+const ACCENT2  = 'var(--accent-cyan)'
+const MAX_REACTOR_GW = 1000  // fallback; overridden by server
 
 // ── Normalise allocations so sum stays at exactly 100 % ───────────────────
 // `station` is one of SLIDER_KEYS; redistributes delta among other unlocked SLIDER_KEYS.
@@ -144,7 +132,7 @@ export default function PowerPanel({ gameState, sendCommand }) {
   const lsMinGW        = ship?.life_support_min_gw ?? 5
   const lsActualGW     = ((curAlloc.life_support ?? 0) / 100) * totalPowerGW
   const lsBelowMin     = lsActualGW < lsMinGW - 0.01
-  const powerRoom      = ship?.rooms?.power_room ?? { fuel: 0, radioactive_material: 0 }
+  const powerRoom      = ship?.rooms?.power_room ?? { fuel: 0, radioactive: 0 }
 
   // ── Reactor output change ─────────────────────────────────────────────────
   function handleReactorOutput(reactor, rawValue) {
@@ -219,9 +207,7 @@ export default function PowerPanel({ gameState, sendCommand }) {
 
   if (!ship) {
     return (
-      <div style={{ flex: 1, background: BG, display: 'flex', alignItems: 'center',
-                    justifyContent: 'center', color: '#222', fontFamily: 'Courier New',
-                    fontSize: '12px', letterSpacing: '4px' }}>
+      <div className={s.noSignal}>
         NO SIGNAL
       </div>
     )
@@ -231,38 +217,32 @@ export default function PowerPanel({ gameState, sendCommand }) {
   const totalAllocSum = allocSum + (curAlloc.warp_drive ?? 0)
 
   return (
-    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', background: BG,
-                  fontFamily: 'Courier New', color: '#ccc', overflow: 'hidden', userSelect: 'none' }}>
+    <div className={s.container}>
 
       {/* ── Header ── */}
-      <div style={{ padding: '5px 14px', background: '#070712',
-                    borderBottom: `1px solid ${ACCENT}33`,
-                    display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-                    flexShrink: 0 }}>
-        <span style={{ color: ACCENT, fontWeight: 'bold', fontSize: '12px', letterSpacing: '3px' }}>
+      <div className={s.header} style={{ borderBottom: `1px solid ${ACCENT}33` }}>
+        <span className={s.headerTitle} style={{ color: ACCENT }}>
           ⚡ POWER MANAGEMENT
         </span>
-        <div style={{ display: 'flex', gap: '20px', fontSize: '11px' }}>
+        <div className={s.headerStats}>
           <span style={{ color: ACCENT2 }}>OUTPUT <b>{totalPowerGW.toFixed(0)}</b> GW</span>
-          <span style={{ color: totalAllocSum.toFixed(1) === '100.0' ? '#555' : '#ff4444', fontSize: '10px' }}>
+          <span className={s.headerSigma} style={{ color: totalAllocSum.toFixed(1) === '100.0' ? 'var(--text-secondary)' : 'var(--status-bad)' }}>
             Σ {totalAllocSum.toFixed(1)}%
           </span>
         </div>
       </div>
 
       {/* ── Power Room Inventory ── */}
-      <div style={{ padding: '4px 10px', background: '#09091a',
-                    borderBottom: `1px solid ${ACCENT}22`, flexShrink: 0,
-                    display: 'flex', gap: '12px', alignItems: 'center' }}>
-        <span style={{ fontSize: '9px', color: '#555', letterSpacing: '2px', flexShrink: 0 }}>
+      <div className={s.powerRoom} style={{ borderBottom: `1px solid ${ACCENT}22` }}>
+        <span className={s.powerRoomLabel}>
           POWER ROOM
         </span>
         <FuelBar label="FUEL" value={powerRoom.fuel} max={10000} color="#ffaa00" />
-        <FuelBar label="RAD" value={powerRoom.radioactive_material} max={10000} color="#aa44ff" />
+        <FuelBar label="RAD" value={powerRoom.radioactive} max={10000} color="#aa44ff" />
       </div>
 
       {/* ── Reactors ── */}
-      <div style={{ display: 'flex', gap: '8px', padding: '8px 10px', flexShrink: 0 }}>
+      <div className={s.reactorRow}>
         {REACTOR_KEYS.map(key => (
           <ReactorCard
             key={key}
@@ -278,7 +258,7 @@ export default function PowerPanel({ gameState, sendCommand }) {
       </div>
 
       {/* ── Battery ── */}
-      <div style={{ padding: '0 10px 6px', flexShrink: 0 }}>
+      <div className={s.batterySection}>
         <BatteryBar
           energy={batteryEnergy}
           capacity={batteryCap}
@@ -295,23 +275,21 @@ export default function PowerPanel({ gameState, sendCommand }) {
 
       {/* ── Life support warning ── */}
       {lsBelowMin && (
-        <div style={{ margin: '0 10px 4px', padding: '4px 10px', background: '#ff000022',
-                      border: '1px solid #ff4444', borderRadius: '4px',
-                      color: '#ff4444', fontSize: '10px', letterSpacing: '1px', flexShrink: 0 }}>
+        <div className={s.lsWarning}>
           ⚠ LIFE SUPPORT BELOW MINIMUM ({lsActualGW.toFixed(0)} GW &lt; {lsMinGW.toFixed(0)} GW REQ)
         </div>
       )}
 
       {/* ── Allocation label ── */}
-      <div style={{ padding: '0 10px 3px', flexShrink: 0 }}>
-        <div style={{ fontSize: '9px', color: ACCENT, letterSpacing: '2px' }}>
+      <div className={s.allocLabel}>
+        <div className={s.allocLabelText} style={{ color: ACCENT }}>
           POWER DISTRIBUTION — {totalPowerGW.toFixed(0)} GW AVAILABLE
         </div>
       </div>
 
       {/* ── Allocation sliders ── */}
-      <div style={{ flex: 1, overflow: 'auto', padding: '0 10px 8px' }}>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '4px' }}>
+      <div className={s.allocScroll}>
+        <div className={s.allocGrid}>
           {SLIDER_KEYS.map(key => (
             <AllocSlider
               key={key}
@@ -340,43 +318,37 @@ export default function PowerPanel({ gameState, sendCommand }) {
 // ══════════════════════════════════════════════════════════════════════════════
 function ReactorCard({ label, reactorKey, output, health, heat, shutdown, onOutput }) {
   const outputGW = output * (health / 100) * MAX_REACTOR_GW
-  const borderCol = shutdown ? '#ff4444' : heat >= 90 ? '#ff6600' : `${ACCENT}33`
+  const borderCol = shutdown ? 'var(--status-bad)' : heat >= 90 ? 'var(--accent-amber)' : `${ACCENT}33`
 
   return (
-    <div style={{ flex: 1, background: CARD_BG, border: `1px solid ${borderCol}`,
-                  borderRadius: '6px', padding: '8px', display: 'flex',
-                  flexDirection: 'column', gap: '3px',
+    <div className={s.reactorCard} style={{ border: `1px solid ${borderCol}`,
                   opacity: shutdown ? 0.75 : 1 }}>
-      <div style={{ color: shutdown ? '#ff4444' : ACCENT,
-                    fontSize: '11px', letterSpacing: '2px', fontWeight: 'bold' }}>
+      <div className={s.reactorLabel} style={{ color: shutdown ? 'var(--status-bad)' : ACCENT }}>
         {label}
       </div>
 
       {/* Shutdown banner */}
       {shutdown && (
-        <div style={{ fontSize: '9px', color: '#ff4444', background: '#3a000011',
-                      border: '1px solid #ff444433', borderRadius: '3px',
-                      padding: '2px 5px', letterSpacing: '1px', textAlign: 'center' }}>
+        <div className={s.reactorShutdownBanner}>
           ⚠ MELTDOWN — COOLING…
         </div>
       )}
 
       {/* Health + Heat */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '10px' }}>
+      <div className={s.reactorHealthHeat}>
         <span style={{ color: healthColor(health) }}>HP {health.toFixed(1)}%</span>
         <span style={{ color: heatColor(heat) }}>HEAT {heat.toFixed(0)}%</span>
       </div>
 
       {/* Heat bar */}
-      <div style={{ height: '3px', background: '#111', borderRadius: '2px', overflow: 'hidden' }}>
-        <div style={{ width: `${heat}%`, height: '100%', background: heatColor(heat),
-                      transition: 'width 0.6s linear', borderRadius: '2px' }} />
+      <div className={s.reactorHeatBar}>
+        <div className={s.reactorHeatFill} style={{ width: `${heat}%`, background: heatColor(heat) }} />
       </div>
 
       {/* Output label */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '10px', marginTop: '2px' }}>
-        <span style={{ color: '#666' }}>OUTPUT</span>
-        <span style={{ color: shutdown ? '#ff4444' : ACCENT }}>
+      <div className={s.reactorOutputRow}>
+        <span className={s.reactorOutputLabel}>OUTPUT</span>
+        <span style={{ color: shutdown ? 'var(--status-bad)' : ACCENT }}>
           {shutdown ? 'OFFLINE' : `${(output * 100).toFixed(0)}%`}
         </span>
       </div>
@@ -394,7 +366,7 @@ function ReactorCard({ label, reactorKey, output, health, heat, shutdown, onOutp
       />
 
       {/* GW output */}
-      <div style={{ fontSize: '10px', color: ACCENT2, textAlign: 'right' }}>
+      <div className={s.reactorGw} style={{ color: ACCENT2 }}>
         {outputGW.toFixed(0)} GW
       </div>
     </div>
@@ -415,41 +387,32 @@ function BatteryChargeSlider({ pct, batteryFull, batteryEmpty, onChange }) {
   const accentColor   = isDischarging ? '#ff6644' : ACCENT2
 
   return (
-    <div style={{ marginTop: '5px', background: '#0a0a1e',
-                  border: `1px solid ${isDischarging ? '#ff664433' : isCharging ? `${ACCENT2}33` : '#ffffff11'}`,
-                  borderRadius: '5px', padding: '5px 10px' }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-                    marginBottom: '4px' }}>
-        <span style={{ fontSize: '9px', color: '#666', letterSpacing: '2px' }}>BATTERY CHARGE</span>
-        <div style={{ display: 'flex', gap: '10px', alignItems: 'center', fontSize: '9px' }}>
-          <span style={{ color: '#444' }}>DISCH ◄</span>
-          <span style={{ color: accentColor, minWidth: '36px', textAlign: 'center' }}>
+    <div className={s.batteryChargeWrapper} style={{
+                  border: `1px solid ${isDischarging ? '#ff664433' : isCharging ? `${ACCENT2}33` : '#ffffff11'}` }}>
+      <div className={s.batteryChargeHeader}>
+        <span className={s.batteryChargeLabel}>BATTERY CHARGE</span>
+        <div className={s.batteryChargeDisplay}>
+          <span className={s.batteryDirLabel}>DISCH ◄</span>
+          <span className={s.batteryChargeValue} style={{ color: accentColor }}>
             {isDischarging ? `▼ ${displayPct}%` : isCharging ? `▲ ${displayPct}%` : '— OFF'}
           </span>
-          <span style={{ color: '#444' }}>► CHRG</span>
+          <span className={s.batteryDirLabel}>► CHRG</span>
         </div>
       </div>
       {/* Bipolar track: centre = 0, left half = discharge, right half = charge */}
-      <div style={{ position: 'relative', height: '8px', background: '#111',
-                    borderRadius: '4px', overflow: 'hidden', marginBottom: '3px' }}>
+      <div className={s.batteryTrack}>
         {isDischarging ? (
-          <div style={{
-            position: 'absolute',
-            right: '50%',
+          <div className={s.batteryDischargeFill} style={{
             width: `${(Math.abs(clampedPct) / 100) * 50}%`,
-            height: '100%', background: '#ff6644', borderRadius: '4px 0 0 4px',
           }} />
         ) : isCharging ? (
-          <div style={{
-            position: 'absolute',
-            left: '50%',
+          <div className={s.batteryChargeFill} style={{
             width: `${(clampedPct / 100) * 50}%`,
-            height: '100%', background: ACCENT2, borderRadius: '0 4px 4px 0',
+            background: ACCENT2,
           }} />
         ) : null}
         {/* Centre mark */}
-        <div style={{ position: 'absolute', left: '50%', top: 0, bottom: 0,
-                      width: '1px', background: '#333' }} />
+        <div className={s.batteryCentreMark} />
       </div>
       <input
         type="range" min={rangeMin} max={rangeMax} step="0.5"
@@ -458,8 +421,7 @@ function BatteryChargeSlider({ pct, batteryFull, batteryEmpty, onChange }) {
         style={{ width: '100%', accentColor: accentColor, margin: 0, cursor: 'pointer' }}
       />
       {(batteryFull || batteryEmpty) && (
-        <div style={{ fontSize: '8px', color: batteryFull ? ACCENT2 : '#ff6644',
-                      textAlign: 'center', letterSpacing: '1px', marginTop: '2px' }}>
+        <div className={s.batteryLimitNote} style={{ color: batteryFull ? ACCENT2 : '#ff6644' }}>
           {batteryFull ? 'BATTERY FULL — DISCHARGE ONLY' : 'BATTERY EMPTY — CHARGE ONLY'}
         </div>
       )}
@@ -472,26 +434,24 @@ function BatteryChargeSlider({ pct, batteryFull, batteryEmpty, onChange }) {
 // ══════════════════════════════════════════════════════════════════════════════
 function BatteryBar({ energy, capacity, charging, discharging }) {
   const pct   = capacity > 0 ? Math.min(100, (energy / capacity) * 100) : 0
-  const color = pct < 20 ? '#ff4444' : pct < 50 ? ACCENT : '#00ff88'
+  const color = pct < 20 ? 'var(--status-bad)' : pct < 50 ? ACCENT : 'var(--status-good)'
   const statusLabel = charging ? '▲ CHARGING' : discharging ? '▼ DISCHARGING' : '— STANDBY'
-  const statusColor = charging ? ACCENT2 : discharging ? ACCENT : '#555'
+  const statusColor = charging ? ACCENT2 : discharging ? ACCENT : 'var(--text-secondary)'
 
   return (
-    <div style={{ background: CARD_BG, border: `1px solid ${ACCENT}33`,
-                  borderRadius: '6px', padding: '7px 10px' }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '10px', marginBottom: '4px' }}>
-        <span style={{ color: ACCENT, letterSpacing: '2px' }}>⚡ BATTERY BANK</span>
-        <div style={{ display: 'flex', gap: '12px' }}>
-          <span style={{ color: statusColor, fontSize: '9px' }}>{statusLabel}</span>
+    <div className={s.batteryBar} style={{ border: `1px solid ${ACCENT}33` }}>
+      <div className={s.batteryBarHeader}>
+        <span className={s.batteryBankLabel} style={{ color: ACCENT }}>⚡ BATTERY BANK</span>
+        <div className={s.batteryBarStats}>
+          <span className={s.batteryBarStatus} style={{ color: statusColor }}>{statusLabel}</span>
           <span style={{ color: ACCENT2 }}>
             {energy.toFixed(0)} / {capacity.toFixed(0)} GW
           </span>
-          <span style={{ color: '#777' }}>{pct.toFixed(1)}%</span>
+          <span style={{ color: 'var(--text-body)' }}>{pct.toFixed(1)}%</span>
         </div>
       </div>
-      <div style={{ height: '10px', background: '#111', borderRadius: '5px', overflow: 'hidden' }}>
-        <div style={{ width: `${pct}%`, height: '100%', background: color,
-                      transition: 'width 0.8s ease', borderRadius: '5px' }} />
+      <div className={s.batteryBarTrack}>
+        <div className={s.batteryBarFill} style={{ width: `${pct}%`, background: color }} />
       </div>
     </div>
   )
@@ -502,18 +462,17 @@ function BatteryBar({ energy, capacity, charging, discharging }) {
 // ══════════════════════════════════════════════════════════════════════════════
 function FuelBar({ label, value, max, color }) {
   const pct = max > 0 ? Math.min(100, (value / max) * 100) : 0
-  const barColor = pct < 15 ? '#ff4444' : pct < 35 ? ACCENT : color
+  const barColor = pct < 15 ? 'var(--status-bad)' : pct < 35 ? ACCENT : color
 
   return (
-    <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: '5px' }}>
-      <span style={{ fontSize: '8px', color: '#666', letterSpacing: '1px', flexShrink: 0, width: '22px' }}>
+    <div className={s.fuelBar}>
+      <span className={s.fuelBarLabel}>
         {label}
       </span>
-      <div style={{ flex: 1, height: '5px', background: '#111', borderRadius: '3px', overflow: 'hidden' }}>
-        <div style={{ width: `${pct}%`, height: '100%', background: barColor,
-                      transition: 'width 0.8s ease', borderRadius: '3px' }} />
+      <div className={s.fuelBarTrack}>
+        <div className={s.fuelBarFill} style={{ width: `${pct}%`, background: barColor }} />
       </div>
-      <span style={{ fontSize: '8px', color: barColor, flexShrink: 0, textAlign: 'right', minWidth: '34px' }}>
+      <span className={s.fuelBarValue} style={{ color: barColor }}>
         {Math.round(value).toLocaleString()}
       </span>
     </div>
@@ -536,26 +495,24 @@ function AllocSlider({
   let lockLabel, lockColor
   if (gwLocked)   { lockLabel = '🔒GW'; lockColor = isLifeSupport ? '#00ccff88' : '#00ccff' }
   else if (pctLocked)  { lockLabel = '🔒%';  lockColor = ACCENT }
-  else                 { lockLabel = '🔓';   lockColor = '#444' }
+  else                 { lockLabel = '🔓';   lockColor = 'var(--text-dim)' }
 
   return (
-    <div style={{ background: CARD_BG, border: `1px solid ${borderColor}`,
-                  borderRadius: '4px', padding: '5px 7px' }}>
+    <div className={s.allocCard} style={{ border: `1px solid ${borderColor}` }}>
 
       {/* Label row */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-                    marginBottom: '2px' }}>
-        <span style={{ fontSize: '9px', letterSpacing: '1px',
-                       color: gwLocked ? '#00ccff' : pctLocked ? ACCENT : '#999' }}>{label}</span>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+      <div className={s.allocCardLabel}>
+        <span className={s.allocStationName}
+              style={{ color: gwLocked ? '#00ccff' : pctLocked ? ACCENT : 'var(--text-body)' }}>{label}</span>
+        <div className={s.allocCardRight}>
           {isLifeSupport && lsMinGW !== undefined && (
-            <span style={{ fontSize: '8px', color: '#555' }}>MIN {lsMinGW.toFixed(0)}GW</span>
+            <span className={s.allocLsMin}>MIN {lsMinGW.toFixed(0)}GW</span>
           )}
-          <span style={{ fontSize: '10px', color: ACCENT2 }}>
+          <span className={s.allocPct} style={{ color: ACCENT2 }}>
             {pct.toFixed(1)}%
           </span>
           {/* Show GW target when GW-locked, otherwise show actual flowing GW */}
-          <span style={{ fontSize: '9px', color: gwLocked ? '#00ccff' : '#ccc' }}>
+          <span className={s.allocGw} style={{ color: gwLocked ? '#00ccff' : 'var(--text-bright)' }}>
             {gwLocked
               ? `🟴${(gwTarget ?? 0).toFixed(0)}GW`
               : `${Math.abs(actualGW).toFixed(0)}GW`
@@ -564,11 +521,9 @@ function AllocSlider({
           <button
             onClick={onLockCycle}
             disabled={isLifeSupport}
-            style={{ background: 'none', border: 'none',
-                     cursor: isLifeSupport ? 'default' : 'pointer',
-                     fontSize: '10px', padding: '0 2px',
-                     color: lockColor, opacity: isLifeSupport ? 0.5 : 1,
-                     lineHeight: 1, fontFamily: 'Courier New', fontWeight: 'bold' }}
+            className={s.lockButton}
+            style={{ cursor: isLifeSupport ? 'default' : 'pointer',
+                     color: lockColor, opacity: isLifeSupport ? 0.5 : 1 }}
           >
             {lockLabel}
           </button>
@@ -576,10 +531,8 @@ function AllocSlider({
       </div>
 
       {/* Fill bar */}
-      <div style={{ height: '3px', background: '#111', borderRadius: '2px',
-                    marginBottom: '2px', overflow: 'hidden' }}>
-        <div style={{ width: `${barPct}%`, height: '100%', background: barColor,
-                      transition: 'width 0.3s', borderRadius: '2px' }} />
+      <div className={s.allocFillBar}>
+        <div className={s.allocFill} style={{ width: `${barPct}%`, background: barColor }} />
       </div>
 
       {/* Slider */}

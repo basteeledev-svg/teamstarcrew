@@ -1,0 +1,352 @@
+/* ShortRangePanel – extracted from inline styles */
+
+/* ── Main layout ───────────────────────────────────── */
+.container {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  background: var(--bg-label);
+  overflow: hidden;
+}
+
+.header {
+  padding: 7px 14px;
+  border-bottom: 1px solid #0a2a1a;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-shrink: 0;
+}
+
+.headerTitle {
+  font-size: 11px;
+  letter-spacing: 3px;
+  font-family: var(--font-mono);
+  color: #44ffaa;
+  font-weight: bold;
+}
+
+.headerGw {
+  font-size: 9px;
+  letter-spacing: 1px;
+  font-family: var(--font-mono);
+  color: #1a4433;
+}
+
+.headerSystem {
+  font-size: 9px;
+  letter-spacing: 1px;
+  font-family: var(--font-mono);
+  color: #2a5a3a;
+}
+
+.headerLegend {
+  margin-left: auto;
+  display: flex;
+  gap: 12px;
+}
+
+.legendItem {
+  font-size: 8px;
+  font-family: var(--font-mono);
+  letter-spacing: 1px;
+}
+
+.body {
+  flex: 1;
+  display: flex;
+  overflow: hidden;
+}
+
+.radarPane {
+  flex-shrink: 0;
+  border-right: 1px solid #0a2a1a;
+  overflow: hidden;
+}
+
+.detailPane {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  background: #050d08;
+}
+
+/* ── Radar ─────────────────────────────────────────── */
+.radarContainer {
+  position: relative;
+  flex-shrink: 0;
+}
+
+.radarSvg {
+  background: #020a06;
+  display: block;
+}
+
+/* ── Resource bars ─────────────────────────────────── */
+.resourceBarRow {
+  display: grid;
+  grid-template-columns: 90px 1fr 60px;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 4px;
+}
+
+.resourceExactRow {
+  display: grid;
+  grid-template-columns: 90px 1fr 44px;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 4px;
+}
+
+.resourceLabel {
+  font-size: 9px;
+  color: #557766;
+  font-family: var(--font-mono);
+  letter-spacing: 0.5px;
+}
+
+.barTrack {
+  height: 6px;
+  background: #0a1a10;
+  border-radius: 2px;
+}
+
+.barFill {
+  height: 6px;
+  border-radius: 2px;
+}
+
+.resourceBarValue {
+  font-size: 9px;
+  font-family: var(--font-mono);
+  letter-spacing: 1px;
+}
+
+.resourceExactValue {
+  font-size: 9px;
+  font-family: var(--font-mono);
+  text-align: right;
+}
+
+/* ── Section head ──────────────────────────────────── */
+.sectionHead {
+  font-size: 8px;
+  letter-spacing: 2px;
+  color: #1a4433;
+  font-family: var(--font-mono);
+  margin-bottom: 8px;
+  margin-top: 14px;
+  border-bottom: 1px solid #0a2a1a;
+  padding-bottom: 4px;
+}
+
+/* ── Tier badge ────────────────────────────────────── */
+.tierBadge {
+  display: flex;
+  gap: 3px;
+  margin-top: 6px;
+}
+
+.tierBar {
+  width: 22px;
+  height: 4px;
+  border-radius: 1px;
+}
+
+.tierLabel {
+  font-size: 8px;
+  color: #1a4433;
+  font-family: var(--font-mono);
+  margin-left: 4px;
+  line-height: 4px;
+}
+
+/* ── Next tier hint ────────────────────────────────── */
+.nextTierHint {
+  margin-top: 10px;
+  padding: 8px 10px;
+  background: #040d08;
+  border: 1px solid #0a2a1a;
+  font-size: 9px;
+  font-family: var(--font-mono);
+}
+
+.nextTierPrefix {
+  color: #1a4433;
+}
+
+.nextTierName {
+  color: #447766;
+}
+
+.nextTierNeeded {
+  color: #224433;
+}
+
+/* ── Detail panels ─────────────────────────────────── */
+.detailContent {
+  padding: 16px;
+  overflow-y: auto;
+  flex: 1;
+}
+
+.detailHeader {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.planetDotIcon {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.detailName {
+  font-size: 13px;
+  font-family: var(--font-mono);
+  letter-spacing: 1px;
+}
+
+.detailSubtitle {
+  font-size: 9px;
+  color: #1a4433;
+  font-family: var(--font-mono);
+  letter-spacing: 1px;
+  margin-top: 2px;
+}
+
+.scanDataGrid {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 4px 12px;
+  margin-bottom: 8px;
+}
+
+.scanDataKey {
+  font-size: 9px;
+  color: #1a4433;
+  font-family: var(--font-mono);
+  letter-spacing: 1px;
+}
+
+.scanDataValue {
+  font-size: 9px;
+  color: #668877;
+  font-family: var(--font-mono);
+}
+
+.populationBadge {
+  display: inline-block;
+  padding: 3px 10px;
+  font-size: 9px;
+  font-family: var(--font-mono);
+  letter-spacing: 2px;
+}
+
+/* ── NPC ship detail ───────────────────────────────── */
+.shipTriangle {
+  width: 0;
+  height: 0;
+  border-left: 7px solid transparent;
+  border-right: 7px solid transparent;
+  flex-shrink: 0;
+}
+
+.factionBadge {
+  display: inline-block;
+  padding: 4px 12px;
+  font-size: 10px;
+  font-family: var(--font-mono);
+  letter-spacing: 2px;
+}
+
+.hullBarGrid {
+  display: grid;
+  grid-template-columns: 1fr 46px;
+  align-items: center;
+  gap: 8px;
+}
+
+.hullTrack {
+  height: 8px;
+  background: #0a1a10;
+  border-radius: 2px;
+}
+
+.hullFill {
+  height: 8px;
+  border-radius: 2px;
+}
+
+.hullValue {
+  font-size: 10px;
+  color: #668877;
+  font-family: var(--font-mono);
+  text-align: right;
+}
+
+/* ── Empty detail ──────────────────────────────────── */
+.emptyDetail {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  padding: 24px;
+}
+
+.emptyIcon {
+  font-size: 42px;
+  opacity: 0.08;
+  color: #44ffaa;
+}
+
+.emptyTitle {
+  color: #1a4433;
+  font-size: 10px;
+  letter-spacing: 3px;
+  font-family: var(--font-mono);
+}
+
+.emptyStats {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 8px;
+  width: 100%;
+  max-width: 220px;
+}
+
+.emptyStatRow {
+  display: flex;
+  justify-content: space-between;
+  font-size: 9px;
+  font-family: var(--font-mono);
+}
+
+.emptyStatLabel {
+  color: #1a4433;
+}
+
+.emptyStatValue {
+  color: #668877;
+}
+
+.emptyStatAccent {
+  color: #44ffaa;
+}
+
+.emptyLegend {
+  font-size: 8px;
+  color: #0a3020;
+  font-family: var(--font-mono);
+  letter-spacing: 1px;
+  text-align: center;
+  margin-top: 4px;
+}

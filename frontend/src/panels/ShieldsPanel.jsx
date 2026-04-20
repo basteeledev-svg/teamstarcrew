@@ -1,47 +1,27 @@
 import { useState, useMemo } from 'react'
+import { Btn, Slider } from '../components/ui'
+import { healthColor } from '../shared'
+import s from './ShieldsPanel.module.css'
 
 // ── Theme ─────────────────────────────────────────────────────────────────────
-const BG     = '#070714'
-const CARD   = '#09091c'
-const MUTED  = '#1a2a3a'
+const MUTED  = 'var(--text-ghost)'
 const ACCENT = '#00ccff'   // cyan
 
 const SIDES = ['front', 'back', 'port', 'starboard', 'above', 'below']
 const SIDE_LABELS = { front: 'Front', back: 'Back', port: 'Port', starboard: 'Starboard', above: 'Above', below: 'Below' }
 const SIDE_ICON   = { front: '▲', back: '▼', port: '◄', starboard: '►', above: '△', below: '▽' }
 
-function healthColor(h) {
-  if (h >= 80) return '#00ff88'
-  if (h >= 50) return '#ffaa00'
-  if (h >= 25) return '#ff8800'
-  return '#ff3333'
-}
 function HealthBar({ value, width = '100%', height = 4 }) {
   return (
-    <div style={{ width, height, background: '#111', border: '1px solid #223', flexShrink: 0 }}>
+    <div className={s.barOuter} style={{ width, height }}>
       <div style={{ width: `${Math.max(0, Math.min(100, value ?? 0))}%`, height: '100%', background: healthColor(value ?? 0) }} />
     </div>
   )
 }
 function PowerBar({ value, width = '100%', height = 4 }) {
   return (
-    <div style={{ width, height, background: '#111', border: '1px solid #223', flexShrink: 0 }}>
-      <div style={{ width: `${Math.max(0, Math.min(100, value ?? 0))}%`, height: '100%', background: ACCENT, opacity: 0.7 }} />
-    </div>
-  )
-}
-
-// ── Compact slider ─────────────────────────────────────────────────────────────
-function Slider({ label, value, onChange, min = 0, max = 100 }) {
-  return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4 }}>
-      <span style={{ fontSize: 8, color: MUTED, width: 60, flexShrink: 0, fontFamily: 'Courier New', letterSpacing: 0.5 }}>{label}</span>
-      <input type="range" min={min} max={max} step={1} value={Math.round(value ?? 0)}
-        onChange={e => onChange(parseFloat(e.target.value))}
-        style={{ flex: 1, accentColor: ACCENT, height: 12 }} />
-      <span style={{ fontSize: 8, color: ACCENT, width: 32, textAlign: 'right', fontFamily: 'Courier New' }}>
-        {Math.round(value ?? 0)}%
-      </span>
+    <div className={s.barOuter} style={{ width, height }}>
+      <div className={s.powerBarFill} style={{ width: `${Math.max(0, Math.min(100, value ?? 0))}%` }} />
     </div>
   )
 }
@@ -50,27 +30,28 @@ function Slider({ label, value, onChange, min = 0, max = 100 }) {
 function CompRow({ comp, role, section, weight, totalWeight, onWeightChange, onUninstall }) {
   const pct = totalWeight > 0 ? Math.round((weight / totalWeight) * 100) : Math.round(100 / 1)
   const roleLabel = { defense_laser: 'DEF LASER', shield_battery: 'SHIELD BAT' }[role] ?? role
-  const roleColor = role === 'defense_laser' ? '#ffaa00' : ACCENT
+  const roleColor = role === 'defense_laser' ? 'var(--accent-amber)' : ACCENT
   return (
-    <div style={{ padding: '6px 8px', borderBottom: '1px solid #0a0a18', fontFamily: 'Courier New' }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 3 }}>
-        <span style={{ fontSize: 9, color: roleColor }}>{roleLabel} #{comp.id}</span>
-        <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
-          <span style={{ fontSize: 8, color: healthColor(comp.health) }}>{Math.round(comp.health)}% HP</span>
-          <button onClick={() => onUninstall(section, role, comp.id)}
-            style={{ padding: '1px 5px', fontSize: 7, background: '#1a0505', border: '1px solid #440000', color: '#ff4444', cursor: 'pointer', fontFamily: 'Courier New' }}>
+    <div className={s.compRow}>
+      <div className={s.compRowHead}>
+        <span className={s.compRowRoleLabel} style={{ color: roleColor }}>{roleLabel} #{comp.id}</span>
+        <div className={s.compRowStats}>
+          <span className={s.compRowHp} style={{ color: healthColor(comp.health) }}>{Math.round(comp.health)}% HP</span>
+          <Btn small onClick={() => onUninstall(section, role, comp.id)}
+            bg="var(--tint-danger)" color="var(--status-bad)" borderColor="var(--accent-red)"
+            style={{ padding: '1px 5px', fontSize: 7 }}>
             ✕
-          </button>
+          </Btn>
         </div>
       </div>
       <HealthBar value={comp.health} height={3} />
-      <div style={{ marginTop: 4 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-          <span style={{ fontSize: 7, color: MUTED, width: 36 }}>PWR</span>
+      <div className={s.compRowPower}>
+        <div className={s.compRowPowerRow}>
+          <span className={s.compRowPwrLabel}>PWR</span>
           <input type="range" min={0} max={100} step={1} value={weight ?? 50}
             onChange={e => onWeightChange(comp.id, parseFloat(e.target.value))}
-            style={{ flex: 1, accentColor: roleColor, height: 10 }} />
-          <span style={{ fontSize: 7, color: roleColor, width: 24, textAlign: 'right' }}>{pct}%</span>
+            className={s.compRowSlider} style={{ accentColor: roleColor }} />
+          <span className={s.compRowPct} style={{ color: roleColor }}>{pct}%</span>
         </div>
       </div>
     </div>
@@ -114,53 +95,53 @@ function SectionDetail({ section, ship, sendCommand, shipGw, threats }) {
   })
 
   return (
-    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+    <div className={s.sectionDetail}>
       {/* Section header */}
-      <div style={{ padding: '6px 12px', borderBottom: '1px solid #0a1020', flexShrink: 0, background: '#040a10' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <span style={{ fontSize: 13, color: ACCENT, letterSpacing: 2, fontFamily: 'Courier New' }}>
+      <div className={s.sectionHeader}>
+        <div className={s.sectionHeaderRow}>
+          <span className={s.sectionTitle}>
             {SIDE_ICON[section]} {SIDE_LABELS[section].toUpperCase()}
           </span>
-          <div style={{ textAlign: 'right', fontFamily: 'Courier New' }}>
-            <div style={{ fontSize: 9, color: MUTED }}>HULL</div>
-            <div style={{ fontSize: 11, color: healthColor(hullH) }}>{Math.round(hullH)}%</div>
+          <div className={s.sectionHullWrap}>
+            <div className={s.sectionHullLabel}>HULL</div>
+            <div className={s.sectionHullVal} style={{ color: healthColor(hullH) }}>{Math.round(hullH)}%</div>
           </div>
         </div>
-        <div style={{ display: 'flex', gap: 16, marginTop: 4 }}>
-          <div style={{ fontFamily: 'Courier New', fontSize: 8 }}>
-            <span style={{ color: MUTED }}>SECTION GW </span>
-            <span style={{ color: ACCENT }}>{sectionGw.toFixed(1)}</span>
+        <div className={s.sectionStats}>
+          <div className={s.stat}>
+            <span className={s.statLabel}>SECTION GW </span>
+            <span className={s.statAccent}>{sectionGw.toFixed(1)}</span>
           </div>
-          <div style={{ fontFamily: 'Courier New', fontSize: 8 }}>
-            <span style={{ color: MUTED }}>REDUCTION </span>
-            <span style={{ color: '#00ccff' }}>{Math.round(reduction * 100)}%</span>
+          <div className={s.stat}>
+            <span className={s.statLabel}>REDUCTION </span>
+            <span className={s.statAccent}>{Math.round(reduction * 100)}%</span>
           </div>
-          <div style={{ fontFamily: 'Courier New', fontSize: 8 }}>
-            <span style={{ color: MUTED }}>DEF RANGE </span>
-            <span style={{ color: '#ffaa00' }}>{defInfo?.range_au?.toFixed(2) ?? '0.00'} AU</span>
+          <div className={s.stat}>
+            <span className={s.statLabel}>DEF RANGE </span>
+            <span className={s.statAmber}>{defInfo?.range_au?.toFixed(2) ?? '0.00'} AU</span>
           </div>
         </div>
       </div>
 
       {/* Active threats */}
       {threatHere.length > 0 && (
-        <div style={{ padding: '4px 12px', background: '#1a0505', borderBottom: '1px solid #440000', flexShrink: 0 }}>
+        <div className={s.threatBar}>
           {threatHere.map(t => (
-            <div key={t.id} style={{ display: 'flex', justifyContent: 'space-between', fontFamily: 'Courier New', fontSize: 8 }}>
-              <span style={{ color: '#ff4444' }}>⚠ {t.type.toUpperCase()} {t.size ? `(${t.size})` : ''}</span>
-              <span style={{ color: '#ff8800' }}>{t.health?.toFixed(0)}/{t.max_health?.toFixed(0)} HP</span>
+            <div key={t.id} className={s.threatRow}>
+              <span className={s.threatLabel}>⚠ {t.type.toUpperCase()} {t.size ? `(${t.size})` : ''}</span>
+              <span className={s.threatHp}>{t.health?.toFixed(0)}/{t.max_health?.toFixed(0)} HP</span>
             </div>
           ))}
         </div>
       )}
 
-      <div style={{ flex: 1, overflowY: 'auto' }}>
+      <div className={s.scrollArea}>
         {/* Defense lasers */}
-        <div style={{ padding: '4px 10px', fontSize: 7, color: '#ffaa00', letterSpacing: 2, borderBottom: '1px solid #0a0a18', fontFamily: 'Courier New' }}>
+        <div className={s.groupHeader} style={{ color: 'var(--accent-amber)' }}>
           DEFENSE LASERS ({defLasers.length} / 5)
         </div>
         {defLasers.length === 0 && (
-          <div style={{ padding: '8px 12px', color: MUTED, fontSize: 9, fontFamily: 'Courier New' }}>None installed</div>
+          <div className={s.emptyMsg}>None installed</div>
         )}
         {defLasers.map(c => (
           <CompRow key={c.id} comp={c} role="defense_laser" section={section}
@@ -168,20 +149,21 @@ function SectionDetail({ section, ship, sendCommand, shipGw, threats }) {
             onWeightChange={setCompWeight} onUninstall={uninstallComp} />
         ))}
         {defLasers.length < 5 && uninstalled_lasers > 0 && (
-          <div style={{ padding: '4px 10px' }}>
-            <button data-testid="install-def-laser-btn" onClick={() => installComp('defense_laser')} style={{
-              padding: '4px 10px', fontFamily: 'Courier New', fontSize: 8, letterSpacing: 1,
-              background: '#0a1000', border: '1px solid #ffaa00', color: '#ffaa00', cursor: 'pointer',
-            }}>+ INSTALL DEF LASER ({uninstalled_lasers} avail)</button>
+          <div className={s.installWrap}>
+            <Btn data-testid="install-def-laser-btn" onClick={() => installComp('defense_laser')}
+              color="var(--accent-amber)" bg="var(--tint-success)"
+              style={{ padding: '4px 10px', fontSize: 8, letterSpacing: 1 }}>
+              + INSTALL DEF LASER ({uninstalled_lasers} avail)
+            </Btn>
           </div>
         )}
 
         {/* Shield batteries */}
-        <div style={{ padding: '4px 10px', fontSize: 7, color: ACCENT, letterSpacing: 2, borderBottom: '1px solid #0a0a18', fontFamily: 'Courier New' }}>
+        <div className={s.groupHeader} style={{ color: ACCENT }}>
           SHIELD BATTERIES ({shields.length} / 5)
         </div>
         {shields.length === 0 && (
-          <div style={{ padding: '8px 12px', color: MUTED, fontSize: 9, fontFamily: 'Courier New' }}>None installed</div>
+          <div className={s.emptyMsg}>None installed</div>
         )}
         {shields.map(c => (
           <CompRow key={c.id} comp={c} role="shield_battery" section={section}
@@ -189,11 +171,12 @@ function SectionDetail({ section, ship, sendCommand, shipGw, threats }) {
             onWeightChange={setCompWeight} onUninstall={uninstallComp} />
         ))}
         {shields.length < 5 && uninstalled_batteries > 0 && (
-          <div style={{ padding: '4px 10px' }}>
-            <button data-testid="install-shield-bat-btn" onClick={() => installComp('shield_battery')} style={{
-              padding: '4px 10px', fontFamily: 'Courier New', fontSize: 8, letterSpacing: 1,
-              background: '#000a1a', border: `1px solid ${ACCENT}`, color: ACCENT, cursor: 'pointer',
-            }}>+ INSTALL SHIELD BAT ({uninstalled_batteries} avail)</button>
+          <div className={s.installWrap}>
+            <Btn data-testid="install-shield-bat-btn" onClick={() => installComp('shield_battery')}
+              color={ACCENT} bg="var(--tint-accent)"
+              style={{ padding: '4px 10px', fontSize: 8, letterSpacing: 1 }}>
+              + INSTALL SHIELD BAT ({uninstalled_batteries} avail)
+            </Btn>
           </div>
         )}
       </div>
@@ -206,7 +189,7 @@ function SectionOverview({ ship, shipGw, onSelect, pendingSectionAlloc, onSectio
   const hullH = ship.outer_hull_health ?? {}
 
   return (
-    <div style={{ flex: 1, overflowY: 'auto', padding: '8px' }}>
+    <div className={s.overviewScroll}>
       {SIDES.map(side => {
         const secData = ship.hull_sections?.[side] ?? {}
         const defLasers = secData.defense_lasers ?? []
@@ -218,31 +201,26 @@ function SectionOverview({ ship, shipGw, onSelect, pendingSectionAlloc, onSectio
         const hullPct   = hullH[side] ?? 100
 
         return (
-          <div key={side} style={{
-            background: CARD, border: '1px solid #0a1828', marginBottom: 6, padding: '8px',
-          }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6, alignItems: 'center' }}>
-              <button data-testid={`sec-btn-${side}`} onClick={() => onSelect(side)} style={{
-                background: 'none', border: 'none', cursor: 'pointer',
-                color: ACCENT, fontSize: 11, fontFamily: 'Courier New', letterSpacing: 2,
-              }}>
+          <div key={side} className={s.overviewCard}>
+            <div className={s.overviewCardHead}>
+              <button data-testid={`sec-btn-${side}`} onClick={() => onSelect(side)} className={s.sectionBtn}>
                 {SIDE_ICON[side]} {SIDE_LABELS[side].toUpperCase()} →
               </button>
-              <div style={{ display: 'flex', gap: 10, fontFamily: 'Courier New', fontSize: 8 }}>
-                <span style={{ color: MUTED }}>DEF: <span style={{ color: '#ffaa00' }}>{defLasers.length}</span></span>
-                <span style={{ color: MUTED }}>SHD: <span style={{ color: ACCENT }}>{shields.length}</span></span>
-                <span style={{ color: MUTED }}>HULL: <span style={{ color: healthColor(hullPct) }}>{Math.round(hullPct)}%</span></span>
+              <div className={s.overviewStats}>
+                <span className={s.statLabel}>DEF: <span className={s.statAmber}>{defLasers.length}</span></span>
+                <span className={s.statLabel}>SHD: <span className={s.statAccent}>{shields.length}</span></span>
+                <span className={s.statLabel}>HULL: <span style={{ color: healthColor(hullPct) }}>{Math.round(hullPct)}%</span></span>
               </div>
             </div>
             <HealthBar value={hullPct} height={3} />
-            <div style={{ marginTop: 6 }}>
-              <Slider label="PWR %" value={allPct}
+            <div className={s.sliderWrap}>
+              <Slider label="PWR %" value={allPct} accent={ACCENT}
                 onChange={v => onSectionAllocChange(side, v)} />
             </div>
-            <div style={{ display: 'flex', gap: 12, marginTop: 4, fontFamily: 'Courier New', fontSize: 8 }}>
-              <span style={{ color: MUTED }}>GW: <span style={{ color: ACCENT }}>{secGw.toFixed(1)}</span></span>
-              <span style={{ color: MUTED }}>REDUCE: <span style={{ color: ACCENT }}>{Math.round(reduction * 100)}%</span></span>
-              <span style={{ color: MUTED }}>RANGE: <span style={{ color: '#ffaa00' }}>{defInfo?.range_au?.toFixed(2) ?? '0.00'}</span> AU</span>
+            <div className={s.overviewFooter}>
+              <span className={s.statLabel}>GW: <span className={s.statAccent}>{secGw.toFixed(1)}</span></span>
+              <span className={s.statLabel}>REDUCE: <span className={s.statAccent}>{Math.round(reduction * 100)}%</span></span>
+              <span className={s.statLabel}>RANGE: <span className={s.statAmber}>{defInfo?.range_au?.toFixed(2) ?? '0.00'}</span> AU</span>
             </div>
           </div>
         )
@@ -297,49 +275,46 @@ export default function ShieldsPanel({ gameState, sendCommand }) {
   const hasPending = Object.keys(pendingSectionAlloc).length > 0
 
   return (
-    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', background: BG, overflow: 'hidden', fontFamily: 'Courier New' }}>
+    <div className={s.container}>
       {/* Header */}
-      <div style={{ padding: '7px 14px', borderBottom: '1px solid #001a2a', flexShrink: 0, display: 'flex', alignItems: 'center', gap: 12 }}>
-        <span style={{ fontSize: 11, color: ACCENT, letterSpacing: 3, fontWeight: 'bold' }}>⬡ SHIELDS</span>
-        <span style={{ fontSize: 9, color: MUTED, letterSpacing: 1 }}>
+      <div className={s.header}>
+        <span className={s.headerTitle}>⬡ SHIELDS</span>
+        <span className={s.headerInfo}>
           {totalInstalled} COMPONENTS · {threats.length} THREAT{threats.length !== 1 ? 'S' : ''}
         </span>
-        <span style={{ marginLeft: 'auto', fontSize: 9, color: shipGw > 0 ? ACCENT : '#334455' }}>
+        <span className={s.headerGw} style={{ color: shipGw > 0 ? ACCENT : 'var(--text-dim)' }}>
           {shipGw.toFixed(1)} GW
         </span>
       </div>
 
       {/* Body */}
-      <div style={{ flex: 1, display: 'flex', overflow: 'hidden' }}>
+      <div className={s.body}>
         {/* Left: inventory + back button */}
-        <div style={{ width: 160, display: 'flex', flexDirection: 'column', borderRight: '1px solid #0a0a18', flexShrink: 0 }}>
+        <div className={s.sidebar}>
           {selectedSection && (
-            <button onClick={() => setSelectedSection(null)} style={{
-              padding: '6px 8px', background: '#040a10', border: 'none', borderBottom: '1px solid #0a1020',
-              color: ACCENT, fontFamily: 'Courier New', fontSize: 8, cursor: 'pointer', letterSpacing: 1, textAlign: 'left',
-            }}>← ALL SECTIONS</button>
+            <button onClick={() => setSelectedSection(null)} className={s.backBtn}>← ALL SECTIONS</button>
           )}
-          <div style={{ padding: '5px 8px', fontSize: 7, color: MUTED, letterSpacing: 2, borderBottom: '1px solid #0a0a18' }}>SHIELDS ROOM</div>
-          <div style={{ padding: '8px 10px', borderBottom: '1px solid #0a0a18' }}>
-            <div style={{ fontSize: 9, color: ACCENT, marginBottom: 4 }}>Shield Batteries</div>
-            <div style={{ fontSize: 13, color: uninstalledBatteries > 0 ? '#00ff88' : MUTED }}>{uninstalledBatteries}</div>
-            <div style={{ fontSize: 8, color: MUTED }}>uninstalled</div>
+          <div className={s.sidebarLabel}>SHIELDS ROOM</div>
+          <div className={s.inventoryBlock}>
+            <div className={s.inventoryTitle} style={{ color: ACCENT }}>Shield Batteries</div>
+            <div className={s.inventoryCount} style={{ color: uninstalledBatteries > 0 ? 'var(--status-good)' : MUTED }}>{uninstalledBatteries}</div>
+            <div className={s.inventorySubtext}>uninstalled</div>
           </div>
-          <div style={{ padding: '8px 10px', borderBottom: '1px solid #0a0a18' }}>
-            <div style={{ fontSize: 9, color: '#ffaa00', marginBottom: 4 }}>Defense Lasers</div>
-            <div style={{ fontSize: 13, color: uninstalledLasers > 0 ? '#00ff88' : MUTED }}>{uninstalledLasers}</div>
-            <div style={{ fontSize: 8, color: MUTED }}>uninstalled</div>
+          <div className={s.inventoryBlock}>
+            <div className={s.inventoryTitle} style={{ color: 'var(--accent-amber)' }}>Defense Lasers</div>
+            <div className={s.inventoryCount} style={{ color: uninstalledLasers > 0 ? 'var(--status-good)' : MUTED }}>{uninstalledLasers}</div>
+            <div className={s.inventorySubtext}>uninstalled</div>
           </div>
           {/* Active threats */}
           {threats.length > 0 && (
             <>
-              <div style={{ padding: '4px 8px', fontSize: 7, color: '#ff4444', letterSpacing: 2, borderBottom: '1px solid #0a0a18' }}>THREATS</div>
-              <div style={{ overflowY: 'auto', flex: 1 }}>
+              <div className={s.threatsLabel}>THREATS</div>
+              <div className={s.threatsList}>
                 {threats.map(t => (
-                  <div key={t.id} style={{ padding: '5px 8px', borderBottom: '1px solid #0a0a18' }}>
-                    <div style={{ fontSize: 8, color: '#ff6666' }}>{t.type.toUpperCase()} {t.size ? `(${t.size})` : ''}</div>
+                  <div key={t.id} className={s.threatItem}>
+                    <div className={s.threatItemLabel}>{t.type.toUpperCase()} {t.size ? `(${t.size})` : ''}</div>
                     <HealthBar value={(t.health / t.max_health) * 100} height={3} />
-                    <div style={{ fontSize: 7, color: MUTED, marginTop: 2 }}>
+                    <div className={s.threatItemSides}>
                       {[...(t.from_sides ?? []), t.vert_side].filter(Boolean).join(', ')}
                     </div>
                   </div>
@@ -359,14 +334,13 @@ export default function ShieldsPanel({ gameState, sendCommand }) {
             threats={threats}
           />
         ) : (
-          <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+          <div className={s.mainArea}>
             {hasPending && (
-              <div style={{ padding: '4px 12px', borderBottom: '1px solid #0a1828', background: '#001a08', flexShrink: 0, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <span style={{ fontSize: 8, color: '#44ff88', fontFamily: 'Courier New' }}>Unsaved section allocation changes</span>
-                <button onClick={applyAlloc} style={{
-                  padding: '3px 10px', fontFamily: 'Courier New', fontSize: 8,
-                  background: '#002211', border: '1px solid #44ff88', color: '#44ff88', cursor: 'pointer',
-                }}>APPLY</button>
+              <div className={s.pendingBar}>
+                <span className={s.pendingLabel}>Unsaved section allocation changes</span>
+                <Btn onClick={applyAlloc}
+                  color="var(--status-good)" bg="var(--tint-success)"
+                  style={{ padding: '3px 10px', fontSize: 8 }}>APPLY</Btn>
               </div>
             )}
             <SectionOverview

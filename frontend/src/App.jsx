@@ -4,11 +4,12 @@ import ConsoleSelectPage from './pages/ConsoleSelectPage.jsx'
 import GamePage          from './pages/GamePage.jsx'
 import AdminPage         from './pages/AdminPage.jsx'
 import ObserverPage      from './pages/ObserverPage.jsx'
+import StyleLabPage      from './pages/StyleLabPage.jsx'
 
 // Samsung Galaxy Tab S9 11" landscape: 1280 × 800 CSS px
 // The outer div pins the viewport to exactly those dimensions.
 export default function App() {
-  const { gameState, connected, sendCommand } = useGameSocket()
+  const { gameState, connected, sendCommand, lastError, lastAck } = useGameSocket()
   // page: 'select' | 'game' | 'admin' | 'observer'
   const [page, setPage]       = useState('select')
   const [consoles, setConsoles] = useState([])
@@ -29,26 +30,31 @@ export default function App() {
       width: 1280, height: 800,
       overflow: 'hidden',
       position: 'relative',
-      background: '#050510',
+      background: 'var(--bg-base)',
     }}>
       {/* Connection indicator — top-right corner, always visible */}
       <div style={{
         position: 'absolute', top: 6, right: page === 'select' ? 16 : 70,
-        fontSize: '9px', color: connected ? '#00cc66' : '#cc3300',
-        fontFamily: 'Courier New', zIndex: 100, pointerEvents: 'none',
+        fontSize: '9px', color: connected ? 'var(--accent-green)' : 'var(--accent-red)',
+        fontFamily: 'var(--font-mono)', zIndex: 100, pointerEvents: 'none',
         letterSpacing: '1px',
       }}>
         {connected ? '● LIVE' : '○ OFFLINE'}
       </div>
 
       {page === 'select' && (
-        <ConsoleSelectPage onEnter={handleEnter} />
+        <ConsoleSelectPage onEnter={handleEnter} onStyle={() => setPage('styleLab')} />
+      )}
+      {page === 'styleLab' && (
+        <StyleLabPage onBack={() => setPage('select')} />
       )}
       {page === 'game' && (
         <GamePage
           consoles={consoles}
           gameState={gameState}
           sendCommand={sendCommand}
+          lastError={lastError}
+          lastAck={lastAck}
           onExit={() => setPage('select')}
         />
       )}

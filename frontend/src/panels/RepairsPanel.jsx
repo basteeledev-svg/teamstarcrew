@@ -1,10 +1,9 @@
 import { useState, useMemo } from 'react'
-
+import { healthColor } from '../shared'
+import s from './RepairsPanel.module.css'
 // ── Theme ─────────────────────────────────────────────────────────────────────
-const BG    = '#070714'
-const CARD  = '#09091c'
-const MUTED = '#1a2a3a'
-const ACCENT = '#ffaa00'   // amber — distinct from navigation green and LRS cyan
+const MUTED  = 'var(--text-ghost)'
+const ACCENT = 'var(--accent-amber)'
 
 // ── Static label maps ─────────────────────────────────────────────────────────
 const SYSTEM_LABELS = {
@@ -48,19 +47,12 @@ const ITEM_LABELS = {
 }
 const BOT_TYPE_LABELS = { transport: 'Transport Bot', repair: 'Repair Bot', mining: 'Mining Bot' }
 
-function healthColor(h) {
-  if (h >= 80) return '#00ff88'
-  if (h >= 50) return ACCENT
-  if (h >= 25) return '#ff8800'
-  return '#ff3333'
-}
-
 // ── Health bar ────────────────────────────────────────────────────────────────
 function HealthBar({ value, width = '100%', height = 4 }) {
   const color = healthColor(value)
   return (
-    <div style={{ width, height, background: '#111', border: '1px solid #223', flexShrink: 0 }}>
-      <div style={{ width: `${Math.max(0, Math.min(100, value))}%`, height: '100%', background: color }} />
+    <div className={s.barTrack} style={{ width, height }}>
+      <div className={s.barFill} style={{ width: `${Math.max(0, Math.min(100, value))}%`, background: color }} />
     </div>
   )
 }
@@ -68,8 +60,8 @@ function HealthBar({ value, width = '100%', height = 4 }) {
 // ── Charge bar ────────────────────────────────────────────────────────────────
 function ChargeBar({ value, width = '100%', height = 4 }) {
   return (
-    <div style={{ width, height, background: '#111', border: '1px solid #223', flexShrink: 0 }}>
-      <div style={{ width: `${Math.max(0, Math.min(100, value))}%`, height: '100%', background: '#2288ff' }} />
+    <div className={s.barTrack} style={{ width, height }}>
+      <div className={s.chargeBarFill} style={{ width: `${Math.max(0, Math.min(100, value))}%` }} />
     </div>
   )
 }
@@ -78,57 +70,56 @@ function ChargeBar({ value, width = '100%', height = 4 }) {
 function BotList({ bots, selectedId, setSelected }) {
   if (bots.length === 0) {
     return (
-      <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-        <div style={{ color: MUTED, fontSize: 10, letterSpacing: 2, fontFamily: 'Courier New' }}>
+      <div className={s.botListEmpty}>
+        <div className={s.botListEmptyText}>
           NO REPAIR BOTS
         </div>
       </div>
     )
   }
   return (
-    <div style={{ flex: 1, overflowY: 'auto' }}>
+    <div className={s.botListScroll}>
       {bots.map(bot => {
         const isSel  = bot.id === selectedId
         const stateColor = {
-          idle:      '#334455',
+          idle:      'var(--text-dim)',
           traveling: ACCENT,
           repairing: '#44ff88',
           returning: '#4488ff',
-        }[bot.state] ?? '#334455'
+        }[bot.state] ?? 'var(--text-dim)'
         return (
           <div key={bot.id}
             data-testid={`rep-bot-${bot.id}`}
             onClick={() => setSelected(isSel ? null : bot.id)}
+            className={s.botListEntry}
             style={{
-              padding: '10px 10px', borderBottom: '1px solid #0a0a18',
-              background: isSel ? '#0a1420' : 'transparent',
+              background: isSel ? 'var(--bg-raised)' : 'transparent',
               borderLeft: `3px solid ${isSel ? ACCENT : 'transparent'}`,
-              cursor: 'pointer', fontFamily: 'Courier New',
             }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
-              <span style={{ fontSize: 11, color: isSel ? ACCENT : '#8899bb' }}>
+            <div className={s.botEntryHeader}>
+              <span className={s.botEntryName} style={{ color: isSel ? ACCENT : 'var(--text-body)' }}>
                 ✦ BOT #{bot.id}
               </span>
-              <span style={{ fontSize: 9, color: stateColor, letterSpacing: 1 }}>
+              <span className={s.botEntryState} style={{ color: stateColor }}>
                 {bot.state.toUpperCase()}
               </span>
             </div>
-            <div style={{ display: 'flex', gap: 6, alignItems: 'center', marginBottom: 3 }}>
-              <span style={{ fontSize: 8, color: '#334455', width: 36 }}>HLTH</span>
+            <div className={s.barRow} style={{ marginBottom: 3 }}>
+              <span className={s.barLabel}>HLTH</span>
               <HealthBar value={bot.health} width="100%" />
-              <span style={{ fontSize: 8, color: healthColor(bot.health), minWidth: 28, textAlign: 'right' }}>
+              <span className={s.barValue} style={{ color: healthColor(bot.health) }}>
                 {Math.round(bot.health)}%
               </span>
             </div>
-            <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
-              <span style={{ fontSize: 8, color: '#334455', width: 36 }}>CHG</span>
+            <div className={s.barRow}>
+              <span className={s.barLabel}>CHG</span>
               <ChargeBar value={bot.charge} width="100%" />
-              <span style={{ fontSize: 8, color: '#5588aa', minWidth: 28, textAlign: 'right' }}>
+              <span className={s.barValue}>
                 {Math.round(bot.charge)}%
               </span>
             </div>
             {bot.job?.target && (
-              <div style={{ fontSize: 8, color: '#3a5566', marginTop: 4, letterSpacing: 0.5 }}>
+              <div className={s.botEntryTarget}>
                 → {bot.job.target.type}: {
                   bot.job.target.key ?? bot.job.target.room ?? bot.job.target.side ?? bot.job.target.item ??
                   (bot.job.target.bot_type ? `${bot.job.target.bot_type} #${bot.job.target.id}` : '?')
@@ -153,19 +144,18 @@ function TargetRow({ label, health, target, selectedTarget, onSelect }) {
   return (
     <div
       onClick={() => needsRepair && onSelect(isSel ? null : target)}
+      className={s.targetRow}
       style={{
-        padding: '7px 10px', borderBottom: '1px solid #0a0a18',
-        background: isSel ? '#10180a' : 'transparent',
+        background: isSel ? 'var(--bg-raised)' : 'transparent',
         borderLeft: `3px solid ${isSel ? '#44ff88' : 'transparent'}`,
         cursor: needsRepair ? 'pointer' : 'default',
         opacity: needsRepair ? 1 : 0.4,
-        fontFamily: 'Courier New',
       }}
       data-testid={`rep-target-${target.type}-${_testKey}`}
       >
-      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 3 }}>
-        <span style={{ fontSize: 10, color: isSel ? '#44ff88' : '#7799aa' }}>{label}</span>
-        <span style={{ fontSize: 9, color: healthColor(health) }}>{Math.round(health)}%</span>
+      <div className={s.targetRowHeader}>
+        <span className={s.targetRowLabel} style={{ color: isSel ? '#44ff88' : 'var(--text-body)' }}>{label}</span>
+        <span className={s.targetRowHealth} style={{ color: healthColor(health) }}>{Math.round(health)}%</span>
       </div>
       <HealthBar value={health} />
     </div>
@@ -201,7 +191,7 @@ function TargetList({ ship, cat, selectedTarget, setTarget }) {
   }
   if (cat === 'BOTS') {
     if (bots.length === 0) {
-      return <div style={{ padding: 16, color: MUTED, fontSize: 10, fontFamily: 'Courier New' }}>No bots aboard</div>
+      return <div className={s.noBotsMsg}>No bots aboard</div>
     }
     return bots.map(b => (
       <TargetRow key={`${b.bot_type}-${b.id}`}
@@ -255,103 +245,95 @@ function DispatchCard({ ship, selectedBotId, selectedTarget, isRunning, sendComm
   const targetHealth = currentTargetHealth(ship, selectedTarget)
 
   return (
-    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+    <div className={s.dispatchCol}>
       {/* Power indicator */}
-      <div style={{ padding: '8px 12px', borderBottom: '1px solid #0a1020', flexShrink: 0 }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 9, fontFamily: 'Courier New' }}>
-          <span style={{ color: MUTED }}>REPAIRS POWER</span>
-          <span style={{ color: repairsGw > 0 ? ACCENT : '#334455' }}>{repairsGw.toFixed(1)} GW</span>
+      <div className={s.powerSection}>
+        <div className={s.powerHeader}>
+          <span className={s.powerLabel}>REPAIRS POWER</span>
+          <span style={{ color: repairsGw > 0 ? ACCENT : 'var(--text-dim)' }}>{repairsGw.toFixed(1)} GW</span>
         </div>
-        <div style={{ marginTop: 4, height: 3, background: '#0a1020', border: '1px solid #0d1a28' }}>
-          <div style={{ width: `${Math.min(100, repairsGw)}%`, height: '100%', background: ACCENT, opacity: 0.6 }} />
+        <div className={s.powerBarTrack}>
+          <div className={s.powerBarFill} style={{ width: `${Math.min(100, repairsGw)}%` }} />
         </div>
         {repairsGw < 1 && (
-          <div style={{ fontSize: 8, color: '#664400', fontFamily: 'Courier New', marginTop: 4, letterSpacing: 0.5 }}>
+          <div className={s.powerWarning}>
             ⚠ Allocate REPAIRS power to operate bots
           </div>
         )}
       </div>
 
-      <div style={{ flex: 1, overflowY: 'auto', padding: '12px 12px' }}>
+      <div className={s.dispatchScroll}>
         {/* Selected bot */}
-        <div style={{ fontSize: 8, color: MUTED, letterSpacing: 2, fontFamily: 'Courier New', marginBottom: 6 }}>
+        <div className={s.sectionLabel}>
           REPAIR BOT
         </div>
         {bot ? (
-          <div style={{
-            padding: '8px 10px', background: '#040a10', border: `1px solid ${ACCENT}33`,
-            fontFamily: 'Courier New', marginBottom: 14,
-          }}>
-            <div style={{ fontSize: 11, color: ACCENT, marginBottom: 6 }}>✦ BOT #{bot.id}</div>
-            <div style={{ display: 'flex', gap: 6, alignItems: 'center', marginBottom: 3 }}>
-              <span style={{ fontSize: 8, color: MUTED, width: 36 }}>HLTH</span>
+          <div className={s.botCard} style={{ border: `1px solid ${ACCENT}33` }}>
+            <div className={s.botCardName} style={{ color: ACCENT }}>✦ BOT #{bot.id}</div>
+            <div className={s.barRow} style={{ marginBottom: 3 }}>
+              <span className={s.barLabel} style={{ color: 'var(--text-ghost)' }}>HLTH</span>
               <HealthBar value={bot.health} width="100%" />
-              <span style={{ fontSize: 8, color: healthColor(bot.health), minWidth: 28, textAlign: 'right' }}>
-                {Math.round(bot.health)}%
-              </span>
-            </div>
-            <div style={{ display: 'flex', gap: 6, alignItems: 'center', marginBottom: 6 }}>
-              <span style={{ fontSize: 8, color: MUTED, width: 36 }}>CHG</span>
-              <ChargeBar value={bot.charge} width="100%" />
-              <span style={{ fontSize: 8, color: '#5588aa', minWidth: 28, textAlign: 'right' }}>
+              <span className={s.barValue}>
                 {Math.round(bot.charge)}%
               </span>
             </div>
-            <div style={{ fontSize: 9, color: {
-              idle: '#334455', traveling: ACCENT, repairing: '#44ff88', returning: '#4488ff',
-            }[bot.state] ?? '#334455', letterSpacing: 1 }}>
+            <div className={s.barRow} style={{ marginBottom: 6 }}>
+              <span className={s.barLabel} style={{ color: 'var(--text-ghost)' }}>CHG</span>
+              <ChargeBar value={bot.charge} width="100%" />
+              <span className={s.barValue}>
+                {Math.round(bot.charge)}%
+              </span>
+            </div>
+            <div className={s.botCardState} style={{ color: {
+              idle: 'var(--text-dim)', traveling: ACCENT, repairing: '#44ff88', returning: '#4488ff',
+            }[bot.state] ?? 'var(--text-dim)' }}>
               {bot.state.toUpperCase()}
             </div>
           </div>
         ) : (
-          <div style={{ padding: '8px 10px', background: '#040a10', border: '1px solid #0a1828',
-            color: MUTED, fontSize: 10, fontFamily: 'Courier New', marginBottom: 14 }}>
+          <div className={s.selectPrompt}>
             Select a repair bot ←
           </div>
         )}
 
         {/* Selected target */}
-        <div style={{ fontSize: 8, color: MUTED, letterSpacing: 2, fontFamily: 'Courier New', marginBottom: 6 }}>
+        <div className={s.sectionLabel}>
           TARGET
         </div>
         {selectedTarget ? (
-          <div style={{
-            padding: '8px 10px', background: '#040a10', border: '1px solid #1a3a1a',
-            fontFamily: 'Courier New', marginBottom: 14,
-          }}>
-            <div style={{ fontSize: 11, color: '#44ff88', marginBottom: 4 }}>
+          <div className={s.targetCard}>
+            <div className={s.targetCardName}>
               {targetLabel(selectedTarget)}
             </div>
-            <div style={{ fontSize: 9, color: MUTED, marginBottom: 6 }}>
+            <div className={s.targetCardType}>
               {selectedTarget.type.replace('_', ' ').toUpperCase()}
             </div>
             {targetHealth !== null && (
-              <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+              <div className={s.healthRow}>
                 <HealthBar value={targetHealth} width="100%" />
-                <span style={{ fontSize: 8, color: healthColor(targetHealth), minWidth: 28, textAlign: 'right' }}>
+                <span className={s.barValue} style={{ color: healthColor(targetHealth) }}>
                   {Math.round(targetHealth)}%
                 </span>
               </div>
             )}
           </div>
         ) : (
-          <div style={{ padding: '8px 10px', background: '#040a10', border: '1px solid #0a1828',
-            color: MUTED, fontSize: 10, fontFamily: 'Courier New', marginBottom: 14 }}>
+          <div className={s.selectPrompt}>
             Select a target →
           </div>
         )}
 
         {/* Action buttons */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+        <div className={s.actionButtons}>
           <button
             data-testid="rep-dispatch-btn"
             disabled={!canDispatch}
             onClick={() => sendCommand({ type: 'dispatch_repair_bot', bot_id: selectedBotId, target: selectedTarget })}
+            className={s.actionBtn}
             style={{
-              padding: '8px', fontFamily: 'Courier New', fontSize: 10, letterSpacing: 1,
-              background: canDispatch ? '#002211' : '#0a0a0a',
-              border: `1px solid ${canDispatch ? '#44ff88' : '#1a1a1a'}`,
-              color: canDispatch ? '#44ff88' : '#334455',
+              background: canDispatch ? 'var(--tint-success)' : 'var(--bg-base)',
+              border: `1px solid ${canDispatch ? '#44ff88' : 'var(--border)'}`,
+              color: canDispatch ? '#44ff88' : 'var(--text-dim)',
               cursor: canDispatch ? 'pointer' : 'not-allowed',
             }}>
             ▶ DISPATCH BOT
@@ -359,11 +341,11 @@ function DispatchCard({ ship, selectedBotId, selectedTarget, isRunning, sendComm
           <button
             disabled={!canRecall}
             onClick={() => sendCommand({ type: 'recall_repair_bot', bot_id: selectedBotId })}
+            className={s.actionBtn}
             style={{
-              padding: '8px', fontFamily: 'Courier New', fontSize: 10, letterSpacing: 1,
-              background: canRecall ? '#221100' : '#0a0a0a',
-              border: `1px solid ${canRecall ? ACCENT : '#1a1a1a'}`,
-              color: canRecall ? ACCENT : '#334455',
+              background: canRecall ? '#221100' : 'var(--bg-base)',
+              border: `1px solid ${canRecall ? ACCENT : 'var(--border)'}`,
+              color: canRecall ? ACCENT : 'var(--text-dim)',
               cursor: canRecall ? 'pointer' : 'not-allowed',
             }}>
             ◀ RECALL BOT
@@ -372,7 +354,7 @@ function DispatchCard({ ship, selectedBotId, selectedTarget, isRunning, sendComm
 
         {/* Repair rate hint */}
         {canDispatch && (
-          <div style={{ marginTop: 10, fontSize: 8, color: '#335533', fontFamily: 'Courier New', letterSpacing: 0.5 }}>
+          <div className={s.rateHint}>
             Rate: +0.5 HP/tick · ~{Math.ceil((100 - (targetHealth ?? 100)) / 0.5)} ticks
           </div>
         )}
@@ -392,7 +374,7 @@ export default function RepairsPanel({ gameState, sendCommand }) {
   const isRunning = gameState?.status === 'running'
 
   const repairsGw = ship
-    ? (ship.net_power_gw ?? 0) * ((ship.power_allocation?.repairs ?? 0) / 100)
+    ? (ship.net_power_gw ?? 0) * ((ship.power_allocation?.charging_bay ?? 0) / 100)
     : 0
 
   // Summary counts for header
@@ -404,62 +386,60 @@ export default function RepairsPanel({ gameState, sendCommand }) {
   const damagedTotal = damagedSystems + damagedRooms
 
   return (
-    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', background: BG, overflow: 'hidden', fontFamily: 'Courier New' }}>
+    <div className={s.container}>
 
       {/* Header */}
-      <div style={{
-        padding: '7px 14px', borderBottom: '1px solid #1a1a0a', flexShrink: 0,
-        display: 'flex', alignItems: 'center', gap: 12,
-      }}>
-        <span style={{ fontSize: 11, color: ACCENT, letterSpacing: 3, fontWeight: 'bold' }}>
+      <div className={s.header}>
+        <span className={s.headerTitle} style={{ color: ACCENT }}>
           ✦ REPAIRS
         </span>
-        <span style={{ fontSize: 9, color: MUTED, letterSpacing: 1 }}>
+        <span className={s.headerSummary}>
           {bots.length} BOT{bots.length !== 1 ? 'S' : ''} · {damagedTotal} COMPONENT{damagedTotal !== 1 ? 'S' : ''} DAMAGED
         </span>
-        <span style={{ marginLeft: 'auto', fontSize: 9, color: repairsGw > 0 ? ACCENT : '#334455' }}>
+        <span className={s.headerPower} style={{ color: repairsGw > 0 ? ACCENT : 'var(--text-dim)' }}>
           {repairsGw.toFixed(1)} GW
         </span>
       </div>
 
       {/* Body */}
-      <div style={{ flex: 1, display: 'flex', overflow: 'hidden' }}>
+      <div className={s.body}>
 
         {/* Left: bot list */}
-        <div style={{ width: 180, display: 'flex', flexDirection: 'column', borderRight: '1px solid #0a0a18', flexShrink: 0 }}>
-          <div style={{ padding: '5px 10px', fontSize: 8, color: MUTED, letterSpacing: 2, borderBottom: '1px solid #0a0a18', flexShrink: 0 }}>
+        <div className={s.leftCol}>
+          <div className={s.colTitle}>
             REPAIR BOTS
           </div>
           <BotList bots={bots} selectedId={selectedBotId} setSelected={setSelectedBotId} />
         </div>
 
         {/* Middle: target categories + list */}
-        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', borderRight: '1px solid #0a0a18', overflow: 'hidden' }}>
+        <div className={s.middleCol}>
           {/* Category tabs */}
-          <div style={{ display: 'flex', borderBottom: '1px solid #0a0a18', flexShrink: 0 }}>
+          <div className={s.catTabs}>
             {CAT_TABS.map(tab => (
-              <button key={tab} data-testid={`rep-tab-${tab.toLowerCase()}`} onClick={() => setCat(tab)} style={{
-                flex: 1, padding: '6px 2px', background: cat === tab ? '#0a1020' : 'transparent',
-                color: cat === tab ? ACCENT : MUTED,
-                border: 'none', borderBottom: cat === tab ? `2px solid ${ACCENT}` : '2px solid transparent',
-                fontFamily: 'Courier New', fontSize: 8, letterSpacing: 1, cursor: 'pointer',
-              }}>
+              <button key={tab} data-testid={`rep-tab-${tab.toLowerCase()}`} onClick={() => setCat(tab)}
+                className={s.catTab}
+                style={{
+                  background: cat === tab ? '#0a1020' : 'transparent',
+                  color: cat === tab ? ACCENT : MUTED,
+                  borderBottom: cat === tab ? `2px solid ${ACCENT}` : '2px solid transparent',
+                }}>
                 {tab}
               </button>
             ))}
           </div>
-          <div style={{ flex: 1, overflowY: 'auto' }}>
+          <div className={s.targetScroll}>
             {ship ? (
               <TargetList ship={ship} cat={cat} selectedTarget={selectedTarget} setTarget={setSelectedTarget} />
             ) : (
-              <div style={{ padding: 20, color: MUTED, fontSize: 10 }}>No game data</div>
+              <div className={s.noData}>No game data</div>
             )}
           </div>
         </div>
 
         {/* Right: dispatch controls */}
-        <div style={{ width: 220, display: 'flex', flexDirection: 'column', flexShrink: 0 }}>
-          <div style={{ padding: '5px 10px', fontSize: 8, color: MUTED, letterSpacing: 2, borderBottom: '1px solid #0a0a18', flexShrink: 0 }}>
+        <div className={s.rightCol}>
+          <div className={s.colTitle}>
             DISPATCH
           </div>
           <DispatchCard

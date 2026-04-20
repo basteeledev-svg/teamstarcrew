@@ -1,0 +1,432 @@
+/* TacticalPanel – extracted from inline styles */
+
+/* ── HealthBar ─────────────────────────────────────── */
+.healthBarTrack {
+  flex: 1;
+  background: var(--bg-base);
+  border: 1px solid var(--border-faint);
+}
+
+.healthBarFill {
+  height: 100%;
+}
+
+/* ── LaserRow ──────────────────────────────────────── */
+.laserRow {
+  padding: 6px 8px;
+  border-bottom: 1px solid var(--border);
+  font-family: var(--font-mono);
+}
+
+.laserRowHeader {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 3px;
+}
+
+.laserRowLabel {
+  font-size: 9px;
+  color: var(--status-bad);
+}
+
+.laserRowActions {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+
+.laserRowHp {
+  font-size: 8px;
+}
+
+.laserRowControls {
+  margin-top: 4px;
+}
+
+.laserRowSliderRow {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.laserRowPwrLabel {
+  font-size: 7px;
+  color: var(--text-ghost);
+  width: 36px;
+}
+
+.laserRowSlider {
+  flex: 1;
+  height: 10px;
+}
+
+.laserRowPct {
+  font-size: 7px;
+  color: var(--status-bad);
+  width: 24px;
+  text-align: right;
+}
+
+/* ── SectionDetail ─────────────────────────────────── */
+.sectionDetail {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.sectionDetailHeader {
+  padding: 6px 12px;
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+  background: var(--bg-base);
+}
+
+.sectionDetailHeaderRow {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.sectionDetailTitle {
+  font-size: 13px;
+  color: var(--status-bad);
+  letter-spacing: 2px;
+  font-family: var(--font-mono);
+}
+
+.sectionDetailGw {
+  font-family: var(--font-mono);
+  font-size: 9px;
+}
+
+.sectionDetailScroll {
+  flex: 1;
+  overflow-y: auto;
+}
+
+.sectionDetailSubheader {
+  padding: 4px 10px;
+  font-size: 7px;
+  color: var(--status-bad);
+  letter-spacing: 2px;
+  border-bottom: 1px solid var(--border);
+  font-family: var(--font-mono);
+}
+
+.sectionDetailEmpty {
+  padding: 8px 12px;
+  color: var(--text-ghost);
+  font-size: 9px;
+  font-family: var(--font-mono);
+}
+
+.installRow {
+  padding: 4px 10px;
+}
+
+/* ── SectionOverview ───────────────────────────────── */
+.sectionOverview {
+  flex: 1;
+  overflow-y: auto;
+  padding: 8px;
+}
+
+.sectionCard {
+  background: var(--bg-input);
+  border: 1px solid var(--border);
+  margin-bottom: 6px;
+  padding: 8px;
+}
+
+.sectionCardHeader {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 6px;
+  align-items: center;
+}
+
+.sectionCardBtn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--status-bad);
+  font-size: 11px;
+  font-family: var(--font-mono);
+  letter-spacing: 2px;
+}
+
+.sectionCardMeta {
+  font-family: var(--font-mono);
+  font-size: 8px;
+}
+
+.sectionCardGw {
+  font-family: var(--font-mono);
+  font-size: 8px;
+}
+
+/* ── TargetCard ────────────────────────────────────── */
+.targetCard {
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--border-faint);
+  font-family: var(--font-mono);
+}
+
+.targetCardHeader {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 4px;
+}
+
+.targetCardName {
+  font-size: 10px;
+}
+
+.targetCardDist {
+  font-size: 8px;
+  color: var(--text-ghost);
+}
+
+.targetCardHullRow {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  margin-bottom: 4px;
+}
+
+.targetCardHullLabel {
+  font-size: 7px;
+  color: var(--text-ghost);
+  width: 28px;
+}
+
+.targetCardHullValue {
+  font-size: 7px;
+  width: 28px;
+  text-align: right;
+}
+
+.targetCardActions {
+  display: flex;
+  gap: 6px;
+}
+
+/* ── Main Panel ────────────────────────────────────── */
+.container {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  background: var(--bg-label);
+  overflow: hidden;
+  font-family: var(--font-mono);
+}
+
+.header {
+  padding: 7px 14px;
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.headerTitle {
+  font-size: 11px;
+  color: var(--status-bad);
+  letter-spacing: 3px;
+  font-weight: bold;
+}
+
+.headerSummary {
+  font-size: 9px;
+  color: var(--text-ghost);
+  letter-spacing: 1px;
+}
+
+.headerGw {
+  margin-left: auto;
+  font-size: 9px;
+}
+
+.body {
+  flex: 1;
+  display: flex;
+  overflow: hidden;
+}
+
+.leftCol {
+  width: 170px;
+  display: flex;
+  flex-direction: column;
+  border-right: 1px solid var(--border-faint);
+  flex-shrink: 0;
+  overflow-y: auto;
+}
+
+.backBtn {
+  padding: 6px 8px;
+  background: var(--bg-base);
+  border: none;
+  border-bottom: 1px solid var(--border);
+  color: var(--status-bad);
+  font-family: var(--font-mono);
+  font-size: 8px;
+  cursor: pointer;
+  letter-spacing: 1px;
+  text-align: left;
+}
+
+.tabBar {
+  display: flex;
+  border-bottom: 1px solid var(--border-faint);
+  flex-shrink: 0;
+}
+
+.tabBtn {
+  flex: 1;
+  padding: 5px 2px;
+  border: none;
+  font-family: var(--font-mono);
+  font-size: 7px;
+  letter-spacing: 1px;
+  cursor: pointer;
+}
+
+.controlsArea {
+  padding: 8px;
+  flex-shrink: 0;
+}
+
+.sectionLabel {
+  font-size: 7px;
+  color: var(--text-ghost);
+  letter-spacing: 2px;
+  margin-bottom: 4px;
+}
+
+.statsLine {
+  font-size: 8px;
+  margin-top: 2px;
+}
+
+.mutedText {
+  color: var(--text-ghost);
+}
+
+.accentText {
+  color: var(--status-bad);
+}
+
+.amberText {
+  color: var(--accent-amber);
+}
+
+.missilesArea {
+  padding: 4px 8px 8px;
+  flex-shrink: 0;
+  border-top: 1px solid var(--border-faint);
+}
+
+.missileSubtext {
+  font-size: 8px;
+  color: var(--text-ghost);
+}
+
+.inFlightArea {
+  padding: 4px 8px;
+  border-top: 1px solid var(--border-faint);
+}
+
+.inFlightLabel {
+  font-size: 7px;
+  color: #ff8800;
+  letter-spacing: 2px;
+  margin-bottom: 4px;
+}
+
+.missileItem {
+  margin-bottom: 4px;
+}
+
+.missileTarget {
+  font-size: 7px;
+  color: var(--text-ghost);
+}
+
+.missileHealthRow {
+  display: flex;
+  gap: 4px;
+  align-items: center;
+}
+
+.missileHealthPct {
+  font-size: 7px;
+  color: #ff8800;
+}
+
+.rightCol {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.contactsHeader {
+  padding: 4px 10px;
+  font-size: 7px;
+  color: var(--text-ghost);
+  letter-spacing: 2px;
+  border-bottom: 1px solid var(--border-faint);
+  flex-shrink: 0;
+}
+
+.noContactsCenter {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.noContactsText {
+  text-align: center;
+  font-family: var(--font-mono);
+}
+
+.noContactsTitle {
+  font-size: 11px;
+  color: var(--text-ghost);
+  margin-bottom: 8px;
+}
+
+.noContactsRange {
+  font-size: 8px;
+  color: var(--text-ghost);
+}
+
+.noContactsHint {
+  font-size: 8px;
+  color: var(--accent-amber);
+  margin-top: 4px;
+}
+
+.contactsList {
+  flex: 1;
+  overflow-y: auto;
+}
+
+.pendingBar {
+  padding: 4px 12px;
+  background: var(--tint-danger);
+  border-bottom: 1px solid var(--accent-red);
+  flex-shrink: 0;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.pendingText {
+  font-size: 8px;
+  color: var(--status-bad);
+  font-family: var(--font-mono);
+}

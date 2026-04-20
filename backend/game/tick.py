@@ -31,7 +31,7 @@ def _compute_sides(ship_direction: dict, dx: float, dz: float) -> list:
         sides.append("front" if fwd_frac > 0 else "back")
     if abs(right_frac) >= 0.5:
         sides.append("starboard" if right_frac > 0 else "port")
-    return sides if sides else ("front" if fwd_frac >= 0 else ["back"])
+    return sides if sides else (["front"] if fwd_frac >= 0 else ["back"])
 
 
 def _spawn_meteor(gs) -> None:
@@ -103,6 +103,11 @@ def update_combat(gs) -> None:
             to_remove.append(obj["id"])
             continue
 
+        # ── Too far from ship? Remove to prevent unbounded list growth ────────
+        if dist > METEOR_SPAWN_RADIUS_AU * 3:
+            to_remove.append(obj["id"])
+            continue
+
         # ── Player missile: steer + check hit on NPC ─────────────────────────
         if obj["type"] == "player_missile":
             target_id = obj.get("target_npc_id")
@@ -125,23 +130,6 @@ def update_combat(gs) -> None:
                 to_remove.append(obj["id"])
             continue
 
-        # ── Offense lasers fire at locked NPC target ──────────────────────────
-        locked_id = ship.weapons_locked_target_id
-        if locked_id:
-            npc = next((n for n in gs.npc_ships if n["id"] == locked_id), None)
-            if npc and npc["system_id"] == ship.current_system_id:
-                ndx = npc["position"]["x"] - ship_pos["x"]
-                ndz = npc["position"]["z"] - ship_pos["z"]
-                nd = math.sqrt(ndx * ndx + ndz * ndz)
-                if nd <= ship.targeting_range_au():
-                    npc_sides = _compute_sides(ship_dir, ndx, ndz) + [random.choice(["above", "below"])]
-                    dps = ship.fire_offense_lasers_at(npc_sides, nd)
-                    if dps > 0:
-                        npc["hull_health"] = round(max(0.0, npc["hull_health"] - dps), 1)
-                        if npc["hull_health"] <= 0:
-                            gs.npc_ships = [n for n in gs.npc_ships if n["id"] != locked_id]
-                            ship.weapons_locked_target_id = None
-
         # ── Meteor hits ship ──────────────────────────────────────────────────
         if dist <= METEOR_HIT_RADIUS_AU:
             all_sides = list(obj.get("from_sides") or ["front"]) + (
@@ -157,6 +145,23 @@ def update_combat(gs) -> None:
             to_remove.append(obj["id"])
 
     gs.dynamic_objects = [o for o in gs.dynamic_objects if o["id"] not in to_remove]
+
+    # ── Offense lasers fire at locked NPC target (once per tick) ──────────────
+    locked_id = ship.weapons_locked_target_id
+    if locked_id:
+        npc = next((n for n in gs.npc_ships if n["id"] == locked_id), None)
+        if npc and npc["system_id"] == ship.current_system_id:
+            ndx = npc["position"]["x"] - ship_pos["x"]
+            ndz = npc["position"]["z"] - ship_pos["z"]
+            nd = math.sqrt(ndx * ndx + ndz * ndz)
+            if nd <= ship.targeting_range_au():
+                npc_sides = _compute_sides(ship_dir, ndx, ndz) + [random.choice(["above", "below"])]
+                dps = ship.fire_offense_lasers_at(npc_sides, nd)
+                if dps > 0:
+                    npc["hull_health"] = round(max(0.0, npc["hull_health"] - dps), 1)
+                    if npc["hull_health"] <= 0:
+                        gs.npc_ships = [n for n in gs.npc_ships if n["id"] != locked_id]
+                        ship.weapons_locked_target_id = None
 
 
 async def tick_loop() -> None:
@@ -187,9 +192,19 @@ async def tick_loop() -> None:
             ship.consume_reactor_fuel()  # deduct fuel/rad from Power Room, shut off starved reactors
             ship.update_gw_locks()   # recalculate GW-locked station percentages
             ship.update_battery()
-            ship.update_transport()   # advance transport bot jobs
+            ship.update_life_support()  # kill people if LS power insufficient
+            # Resolve planet stockpile for transport bot deliveries
+            transport_planet_stockpile = None
+            if ship.orbiting_planet_id and current:
+                orbited = current.get_planet(ship.orbiting_planet_id)
+                if orbited:
+                    transport_planet_stockpile = orbited.stockpile
+            ship.update_transport(planet_stockpile=transport_planet_stockpile)   # advance transport bot jobs
             ship.update_repair_bots() # advance repair bot jobs
+            ship.update_item_health() # destroy items at 0% health
+            ship.update_mining_bots() # consume mining bot charge
             ship.update_manufacturing()  # run manufacturing production
+            ship.update_component_jobs() # advance component install/uninstall
 
             update_combat(game_state)    # meteors, missiles, laser fire, damage
 
@@ -197,10 +212,11 @@ async def tick_loop() -> None:
             if current and not current.visited:
                 current.visited = True
 
-            # Mining: if orbiting with any bots deployed, accumulate resources
-            if ship.orbiting_planet_id and any(v > 0 for v in ship.mining_bots.values()) and current:
+            # Mining: if orbiting with any bots assigned, accumulate resources
+            mining_counts = ship.mining_bot_counts()
+            if ship.orbiting_planet_id and any(v > 0 for v in mining_counts.values()) and current:
                 planet = current.get_planet(ship.orbiting_planet_id)
                 if planet:
-                    planet.mine_tick(ship.mining_bots)
+                    planet.mine_tick(mining_counts)
 
             await manager.broadcast(game_state.to_dict())

@@ -1,0 +1,348 @@
+/* EnginesPanel – extracted from inline styles */
+
+.container {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  background: var(--bg-label);
+  font-family: var(--font-mono);
+  color: var(--text-bright);
+  overflow: hidden;
+  user-select: none;
+}
+
+.noSignal {
+  flex: 1;
+  background: var(--bg-label);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-dim);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  letter-spacing: 4px;
+}
+
+/* ── Header ──────────────────────────────────────────── */
+.header {
+  padding: 5px 14px;
+  background: var(--bg-label);
+  border-bottom: 1px solid #ffaa0033;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-shrink: 0;
+}
+
+.headerTitle {
+  color: #ffaa00;
+  font-weight: bold;
+  font-size: 12px;
+  letter-spacing: 3px;
+}
+
+.headerStats {
+  display: flex;
+  gap: 24px;
+  font-size: 11px;
+}
+
+.thrustReadout {
+  color: #00ffcc;
+}
+
+.headerStatSmall {
+  font-size: 10px;
+}
+
+/* ── Engine Room Strip ───────────────────────────────── */
+.engineRoomStrip {
+  padding: 4px 10px;
+  background: var(--bg-input);
+  border-bottom: 1px solid #ffaa0022;
+  flex-shrink: 0;
+  display: flex;
+  gap: 16px;
+  align-items: center;
+}
+
+.engineRoomLabel {
+  font-size: 9px;
+  color: var(--text-secondary);
+  letter-spacing: 2px;
+  flex-shrink: 0;
+}
+
+.fuelBarContainer {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.fuelLabel {
+  font-size: 8px;
+  color: var(--text-secondary);
+  flex-shrink: 0;
+  width: 26px;
+}
+
+.fuelBarTrack {
+  flex: 1;
+  height: 5px;
+  background: var(--bg-base);
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.fuelBarFill {
+  height: 100%;
+  transition: width 0.8s ease;
+  border-radius: 3px;
+}
+
+.fuelValue {
+  font-size: 8px;
+  color: #ffaa00;
+  flex-shrink: 0;
+  min-width: 58px;
+  text-align: right;
+}
+
+.allocDivider {
+  font-size: 8px;
+  color: var(--text-secondary);
+  flex-shrink: 0;
+}
+
+.allocSection {
+  display: flex;
+  gap: 6px;
+  font-size: 9px;
+  align-items: center;
+  padding-left: 8px;
+  border-left: 1px solid #ffffff11;
+}
+
+.allocLabel {
+  color: var(--text-secondary);
+}
+
+/* ── Power Budget ────────────────────────────────────── */
+.budgetSection {
+  padding: 4px 10px;
+  background: var(--bg-base);
+  border-bottom: 1px solid #ffaa0011;
+  flex-shrink: 0;
+}
+
+.budgetHeader {
+  display: flex;
+  justify-content: space-between;
+  font-size: 8px;
+  margin-bottom: 2px;
+  color: var(--text-dim);
+}
+
+.budgetBar {
+  height: 6px;
+  background: var(--bg-base);
+  border-radius: 3px;
+  overflow: hidden;
+  display: flex;
+}
+
+.budgetBarSegment {
+  height: 100%;
+  transition: width 0.3s;
+}
+
+.budgetOverflow {
+  flex: 1;
+  height: 100%;
+  background: #ff444488;
+}
+
+.budgetLegend {
+  display: flex;
+  gap: 12px;
+  margin-top: 2px;
+  font-size: 7px;
+  color: var(--text-dim);
+}
+
+/* ── Engine Cards ────────────────────────────────────── */
+.engineCards {
+  display: flex;
+  gap: 8px;
+  padding: 8px 10px;
+  flex-shrink: 0;
+}
+
+/* ── Warp Section ────────────────────────────────────── */
+.warpSection {
+  padding: 0 10px 10px;
+  flex: 1;
+}
+
+/* ── EngineCard Component ────────────────────────────── */
+.engineCard {
+  flex: 1;
+  background: var(--bg-input);
+  border-radius: 6px;
+  padding: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.engineCardLabel {
+  font-size: 10px;
+  letter-spacing: 2px;
+  font-weight: bold;
+}
+
+.engineCardStats {
+  display: flex;
+  justify-content: space-between;
+  font-size: 9px;
+}
+
+.healthBar {
+  height: 2px;
+  background: var(--bg-base);
+  border-radius: 1px;
+  overflow: hidden;
+}
+
+.healthBarFill {
+  height: 100%;
+  transition: width 0.6s;
+}
+
+.engineOutputRow {
+  display: flex;
+  justify-content: space-between;
+  font-size: 10px;
+  margin-top: 2px;
+}
+
+.engineOutputLabel {
+  color: var(--text-secondary);
+}
+
+.powerCapNote {
+  font-size: 8px;
+  color: var(--text-dim);
+  text-align: right;
+  letter-spacing: 1px;
+}
+
+.engineConsumption {
+  font-size: 9px;
+  color: var(--text-secondary);
+  text-align: right;
+}
+
+/* ── WarpCapacitorSection Component ──────────────────── */
+.warpCard {
+  background: var(--bg-input);
+  border: 1px solid #aa44ff33;
+  border-radius: 6px;
+  padding: 10px;
+  height: 100%;
+  box-sizing: border-box;
+}
+
+.warpTitleRow {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.warpTitle {
+  color: #aa44ff;
+  font-size: 11px;
+  letter-spacing: 3px;
+  font-weight: bold;
+}
+
+.warpTitleStats {
+  display: flex;
+  gap: 16px;
+  font-size: 9px;
+  align-items: center;
+}
+
+.warpLeakLabel {
+  color: var(--text-dim);
+}
+
+.warpCapPct {
+  color: var(--text-body);
+}
+
+.capacitorBar {
+  height: 16px;
+  background: var(--bg-base);
+  border-radius: 8px;
+  overflow: hidden;
+  margin-bottom: 6px;
+}
+
+.capacitorBarFill {
+  height: 100%;
+  transition: width 0.8s ease;
+  border-radius: 8px;
+}
+
+.capacitorStatus {
+  font-size: 8px;
+  text-align: center;
+  letter-spacing: 1px;
+  margin-bottom: 8px;
+}
+
+.chargingCard {
+  background: var(--bg-base);
+  border: 1px solid #aa44ff22;
+  border-radius: 4px;
+  padding: 8px 10px;
+  margin-top: 8px;
+}
+
+.chargingHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 4px;
+}
+
+.chargingLabel {
+  font-size: 9px;
+  color: var(--text-secondary);
+  letter-spacing: 2px;
+}
+
+.chargingValues {
+  display: flex;
+  gap: 12px;
+  font-size: 9px;
+}
+
+.chargingGW {
+  color: var(--text-secondary);
+}
+
+.warpMaxNote {
+  font-size: 8px;
+  color: var(--text-dim);
+  text-align: right;
+}
+
+.warpInfoText {
+  font-size: 8px;
+  color: var(--text-dim);
+  text-align: center;
+}

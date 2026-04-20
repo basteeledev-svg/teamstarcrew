@@ -9,7 +9,7 @@ export default function ShipStatus({ gameState }) {
   const power = ship.effective_power_gw?.toFixed(0) ?? '—'
 
   return (
-    <div style={{ padding: '8px 10px', borderTop: '1px solid #223', fontSize: '11px', lineHeight: '1.7' }}>
+    <div style={{ padding: '8px 10px', borderTop: '1px solid var(--border-faint)', fontSize: '11px', lineHeight: '1.7' }}>
       <Row label="SYSTEM"   value={sys?.name ?? '—'} />
       <Row label="POSITION" value={`(${pos.x.toFixed(2)}, ${pos.y.toFixed(2)}, ${pos.z.toFixed(2)}) AU`} />
       <Row label="DIST★"    value={`${dist} AU`} />
@@ -25,18 +25,18 @@ export default function ShipStatus({ gameState }) {
 function Row({ label, value }) {
   return (
     <div style={{ display: 'flex', gap: '8px' }}>
-      <span style={{ color: '#445577', minWidth: '80px' }}>{label}</span>
-      <span style={{ color: '#aabbdd' }}>{value}</span>
+      <span style={{ color: 'var(--text-muted)', minWidth: '80px' }}>{label}</span>
+      <span style={{ color: 'var(--text-primary)' }}>{value}</span>
     </div>
   )
 }
 
 function HealthBar({ value }) {
-  const color = value > 60 ? '#00cc66' : value > 30 ? '#ffaa00' : '#ff3300'
+  const color = value > 60 ? 'var(--accent-green)' : value > 30 ? 'var(--accent-amber)' : 'var(--accent-red)'
   return (
     <span>
       <span style={{ color }}>{value.toFixed(0)}%</span>
-      <span style={{ marginLeft: '6px', color: '#223344' }}>
+      <span style={{ marginLeft: '6px', color: 'var(--text-ghost)' }}>
         {'█'.repeat(Math.round(value / 10))}{'░'.repeat(10 - Math.round(value / 10))}
       </span>
     </span>

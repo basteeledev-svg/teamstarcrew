@@ -1,0 +1,349 @@
+/* RepairsPanel – extracted from inline styles */
+
+/* ── Bar components ─────────────────────────────────── */
+.barTrack {
+  background: var(--bg-base);
+  border: 1px solid var(--border-faint);
+  flex-shrink: 0;
+}
+
+.barFill {
+  height: 100%;
+}
+
+.chargeBarFill {
+  height: 100%;
+  background: #2288ff;
+}
+
+/* ── BotList ─────────────────────────────────────────── */
+.botListEmpty {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.botListEmptyText {
+  color: var(--text-ghost);
+  font-size: 10px;
+  letter-spacing: 2px;
+  font-family: var(--font-mono);
+}
+
+.botListScroll {
+  flex: 1;
+  overflow-y: auto;
+}
+
+.botListEntry {
+  padding: 10px;
+  border-bottom: 1px solid var(--border);
+  cursor: pointer;
+  font-family: var(--font-mono);
+}
+
+.botEntryHeader {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 4px;
+}
+
+.botEntryName {
+  font-size: 11px;
+}
+
+.botEntryState {
+  font-size: 9px;
+  letter-spacing: 1px;
+}
+
+.barRow {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+
+.barLabel {
+  font-size: 8px;
+  color: var(--text-dim);
+  width: 36px;
+}
+
+.barValue {
+  font-size: 8px;
+  color: var(--text-muted);
+  min-width: 28px;
+  text-align: right;
+}
+
+.botEntryTarget {
+  font-size: 8px;
+  color: var(--text-dim);
+  margin-top: 4px;
+  letter-spacing: 0.5px;
+}
+
+/* ── TargetRow ───────────────────────────────────────── */
+.targetRow {
+  padding: 7px 10px;
+  border-bottom: 1px solid var(--border);
+  font-family: var(--font-mono);
+}
+
+.targetRowHeader {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 3px;
+}
+
+.targetRowLabel {
+  font-size: 10px;
+}
+
+.targetRowHealth {
+  font-size: 9px;
+}
+
+/* ── TargetList ──────────────────────────────────────── */
+.noBotsMsg {
+  padding: 16px;
+  color: var(--text-ghost);
+  font-size: 10px;
+  font-family: var(--font-mono);
+}
+
+/* ── DispatchCard ────────────────────────────────────── */
+.dispatchCol {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.powerSection {
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+
+.powerHeader {
+  display: flex;
+  justify-content: space-between;
+  font-size: 9px;
+  font-family: var(--font-mono);
+}
+
+.powerLabel {
+  color: var(--text-ghost);
+}
+
+.powerBarTrack {
+  margin-top: 4px;
+  height: 3px;
+  background: var(--bg-raised);
+  border: 1px solid var(--border);
+}
+
+.powerBarFill {
+  height: 100%;
+  background: var(--accent-amber);
+  opacity: 0.6;
+}
+
+.powerWarning {
+  font-size: 8px;
+  color: var(--accent-amber);
+  font-family: var(--font-mono);
+  margin-top: 4px;
+  letter-spacing: 0.5px;
+}
+
+.dispatchScroll {
+  flex: 1;
+  overflow-y: auto;
+  padding: 12px;
+}
+
+.sectionLabel {
+  font-size: 8px;
+  color: var(--text-ghost);
+  letter-spacing: 2px;
+  font-family: var(--font-mono);
+  margin-bottom: 6px;
+}
+
+.botCard {
+  padding: 8px 10px;
+  background: var(--bg-base);
+  font-family: var(--font-mono);
+  margin-bottom: 14px;
+}
+
+.botCardName {
+  font-size: 11px;
+  margin-bottom: 6px;
+}
+
+.botCardState {
+  font-size: 9px;
+  letter-spacing: 1px;
+}
+
+.selectPrompt {
+  padding: 8px 10px;
+  background: var(--bg-base);
+  border: 1px solid var(--border);
+  color: var(--text-ghost);
+  font-size: 10px;
+  font-family: var(--font-mono);
+  margin-bottom: 14px;
+}
+
+.targetCard {
+  padding: 8px 10px;
+  background: var(--bg-base);
+  border: 1px solid var(--tint-success);
+  font-family: var(--font-mono);
+  margin-bottom: 14px;
+}
+
+.targetCardName {
+  font-size: 11px;
+  color: #44ff88;
+  margin-bottom: 4px;
+}
+
+.targetCardType {
+  font-size: 9px;
+  color: var(--text-ghost);
+  margin-bottom: 6px;
+}
+
+.healthRow {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+
+.actionButtons {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.actionBtn {
+  padding: 8px;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 1px;
+}
+
+.rateHint {
+  margin-top: 10px;
+  font-size: 8px;
+  color: var(--text-dim);
+  font-family: var(--font-mono);
+  letter-spacing: 0.5px;
+}
+
+/* ── Main panel ──────────────────────────────────────── */
+.container {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  background: var(--bg-label);
+  overflow: hidden;
+  font-family: var(--font-mono);
+}
+
+.header {
+  padding: 7px 14px;
+  border-bottom: 1px solid var(--border-faint);
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.headerTitle {
+  font-size: 11px;
+  letter-spacing: 3px;
+  font-weight: bold;
+}
+
+.headerSummary {
+  font-size: 9px;
+  color: var(--text-ghost);
+  letter-spacing: 1px;
+}
+
+.headerPower {
+  margin-left: auto;
+  font-size: 9px;
+}
+
+.body {
+  flex: 1;
+  display: flex;
+  overflow: hidden;
+}
+
+.leftCol {
+  width: 180px;
+  display: flex;
+  flex-direction: column;
+  border-right: 1px solid #0a0a18;
+  flex-shrink: 0;
+}
+
+.colTitle {
+  padding: 5px 10px;
+  font-size: 8px;
+  color: var(--text-ghost);
+  letter-spacing: 2px;
+  border-bottom: 1px solid #0a0a18;
+  flex-shrink: 0;
+}
+
+.middleCol {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  border-right: 1px solid #0a0a18;
+  overflow: hidden;
+}
+
+.catTabs {
+  display: flex;
+  border-bottom: 1px solid #0a0a18;
+  flex-shrink: 0;
+}
+
+.catTab {
+  flex: 1;
+  padding: 6px 2px;
+  border: none;
+  font-family: var(--font-mono);
+  font-size: 8px;
+  letter-spacing: 1px;
+  cursor: pointer;
+}
+
+.targetScroll {
+  flex: 1;
+  overflow-y: auto;
+}
+
+.noData {
+  padding: 20px;
+  color: var(--text-ghost);
+  font-size: 10px;
+}
+
+.rightCol {
+  width: 220px;
+  display: flex;
+  flex-direction: column;
+  flex-shrink: 0;
+}

@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { CONSOLES } from '../consoles.js'
+import { Btn } from '../components/ui'
 
 // Samsung Galaxy Tab S9 11" landscape: 1280 × 800 CSS px
 const W = 1280
@@ -7,7 +8,7 @@ const H = 800
 
 const MAX_SELECTION = 4
 
-export default function ConsoleSelectPage({ onEnter }) {
+export default function ConsoleSelectPage({ onEnter, onStyle }) {
   const [selected, setSelected] = useState([])
 
   function toggle(id) {
@@ -20,29 +21,29 @@ export default function ConsoleSelectPage({ onEnter }) {
 
   return (
     <div style={{
-      width: W, height: H, background: '#050510',
+      width: W, height: H, background: 'var(--bg-base)',
       display: 'flex', flexDirection: 'column',
-      fontFamily: 'Courier New', color: '#8899cc', overflow: 'hidden',
+      fontFamily: 'var(--font-mono)', color: 'var(--text-body)', overflow: 'hidden',
     }}>
       {/* Header */}
       <div style={{
         padding: '18px 32px 12px',
-        borderBottom: '1px solid #1a1a2e',
+        borderBottom: '1px solid var(--border)',
         display: 'flex', alignItems: 'baseline', gap: '24px',
       }}>
-        <span style={{ fontSize: '20px', letterSpacing: '4px', color: '#aabbdd' }}>
+        <span style={{ fontSize: '20px', letterSpacing: '4px', color: 'var(--text-primary)' }}>
           ★ TEAM STAR CREW
         </span>
-        <span style={{ fontSize: '12px', color: '#334455', letterSpacing: '2px' }}>
+        <span style={{ fontSize: '12px', color: 'var(--text-dim)', letterSpacing: '2px' }}>
           STATION SELECTION
         </span>
-        <span style={{ marginLeft: 'auto', fontSize: '11px', color: selected.length === MAX_SELECTION ? '#ffcc44' : '#445566' }}>
+        <span style={{ marginLeft: 'auto', fontSize: '11px', color: selected.length === MAX_SELECTION ? 'var(--accent-amber)' : 'var(--text-muted)' }}>
           {selected.length} / {MAX_SELECTION} STATIONS SELECTED
         </span>
       </div>
 
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column', padding: '20px 32px 16px' }}>
-        <p style={{ fontSize: '11px', color: '#334455', marginBottom: '20px', letterSpacing: '1px' }}>
+        <p style={{ fontSize: '11px', color: 'var(--text-dim)', marginBottom: '20px', letterSpacing: '1px' }}>
           SELECT 1–{MAX_SELECTION} STATIONS FOR THIS TABLET. TAP TO TOGGLE.
         </p>
 
@@ -63,8 +64,8 @@ export default function ConsoleSelectPage({ onEnter }) {
                 onClick={() => toggle(c.id)}
                 disabled={isDisabled}
                 style={{
-                  background: isSelected ? `${c.color}18` : '#08081a',
-                  border: `1px solid ${isSelected ? c.color : '#1a1a2e'}`,
+                  background: isSelected ? `${c.color}18` : 'var(--bg-card)',
+                  border: `1px solid ${isSelected ? c.color : 'var(--border)'}`,
                   borderRadius: '4px',
                   padding: '16px 12px',
                   cursor: isDisabled ? 'not-allowed' : 'pointer',
@@ -75,14 +76,14 @@ export default function ConsoleSelectPage({ onEnter }) {
                 }}
               >
                 <div style={{ display: 'flex', alignItems: 'center', gap: '10px', width: '100%' }}>
-                  <span style={{ fontSize: '22px', color: isSelected ? c.color : '#334455' }}>
+                  <span style={{ fontSize: '22px', color: isSelected ? c.color : 'var(--text-dim)' }}>
                     {c.icon}
                   </span>
                   {isSelected && (
                     <span style={{
                       marginLeft: 'auto',
                       background: c.color,
-                      color: '#050510',
+                      color: 'var(--bg-base)',
                       fontSize: '9px',
                       fontWeight: 'bold',
                       padding: '2px 5px',
@@ -93,10 +94,10 @@ export default function ConsoleSelectPage({ onEnter }) {
                     </span>
                   )}
                 </div>
-                <div style={{ fontSize: '11px', color: isSelected ? c.color : '#556677', letterSpacing: '1.5px' }}>
+                <div style={{ fontSize: '11px', color: isSelected ? c.color : 'var(--text-secondary)', letterSpacing: '1.5px' }}>
                   {c.name}
                 </div>
-                <div style={{ fontSize: '9px', color: '#334455', lineHeight: 1.4 }}>
+                <div style={{ fontSize: '9px', color: 'var(--text-dim)', lineHeight: 1.4 }}>
                   {c.desc}
                 </div>
               </button>
@@ -107,7 +108,7 @@ export default function ConsoleSelectPage({ onEnter }) {
         {/* Footer */}
         <div style={{
           display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-          marginTop: '16px', paddingTop: '16px', borderTop: '1px solid #1a1a2e',
+          marginTop: '16px', paddingTop: '16px', borderTop: '1px solid var(--border)',
         }}>
           <div style={{ display: 'flex', gap: '8px' }}>
             {selected.map(id => {
@@ -125,31 +126,36 @@ export default function ConsoleSelectPage({ onEnter }) {
           </div>
 
           <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
-            <button
+            <Btn
+              onClick={onStyle}
+              color="var(--accent-cyan)" borderColor="var(--border)"
+              style={{ padding: '8px 16px', letterSpacing: '2px' }}
+            >
+              ✦ STYLE LAB
+            </Btn>
+            <span style={{ width: 1, height: 24, background: 'var(--border)' }} />
+            <Btn
               onClick={() => onEnter({ role: 'observer' })}
-              style={ghostBtn}
+              color="var(--text-muted)" borderColor="var(--text-dim)" style={{ padding: '8px 20px', letterSpacing: '2px' }}
             >
               OBSERVER
-            </button>
-            <button
+            </Btn>
+            <Btn
               data-testid="admin-btn"
               onClick={() => onEnter({ role: 'admin' })}
-              style={ghostBtn}
+              color="var(--text-muted)" borderColor="var(--text-dim)" style={{ padding: '8px 20px', letterSpacing: '2px' }}
             >
               ADMIN
-            </button>
-            <button
+            </Btn>
+            <Btn
               data-testid="enter-btn"
               disabled={selected.length === 0}
               onClick={() => onEnter({ role: 'crew', consoles: selected })}
-              style={{
-                ...primaryBtn,
-                opacity: selected.length === 0 ? 0.3 : 1,
-                cursor: selected.length === 0 ? 'not-allowed' : 'pointer',
-              }}
+              color="var(--accent-green)" bg="var(--tint-success)"
+              style={{ padding: '8px 28px', letterSpacing: '2px', fontSize: '12px', opacity: selected.length === 0 ? 0.3 : 1, cursor: selected.length === 0 ? 'not-allowed' : 'pointer' }}
             >
               ENTER SHIP →
-            </button>
+            </Btn>
           </div>
         </div>
       </div>
@@ -157,25 +163,3 @@ export default function ConsoleSelectPage({ onEnter }) {
   )
 }
 
-const ghostBtn = {
-  background: 'transparent',
-  border: '1px solid #334455',
-  color: '#445566',
-  padding: '8px 20px',
-  fontFamily: 'Courier New',
-  fontSize: '11px',
-  letterSpacing: '2px',
-  cursor: 'pointer',
-  borderRadius: '2px',
-}
-
-const primaryBtn = {
-  background: '#003322',
-  border: '1px solid #00cc66',
-  color: '#00cc66',
-  padding: '8px 28px',
-  fontFamily: 'Courier New',
-  fontSize: '12px',
-  letterSpacing: '2px',
-  borderRadius: '2px',
-}

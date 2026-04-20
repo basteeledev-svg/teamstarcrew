@@ -7,6 +7,8 @@ const RECONNECT_MS = 2000
 export function useGameSocket() {
   const [gameState, setGameState] = useState(null)
   const [connected, setConnected] = useState(false)
+  const [lastError, setLastError] = useState(null)
+  const [lastAck, setLastAck] = useState(null)
   const wsRef = useRef(null)
   const reconnectTimer = useRef(null)
 
@@ -30,6 +32,8 @@ export function useGameSocket() {
       try {
         const data = JSON.parse(e.data)
         if (data.type === 'state') setGameState(data)
+        else if (data.type === 'error') setLastError(data)
+        else if (data.type === 'ack') setLastAck(data)
       } catch (_) { /* ignore malformed messages */ }
     }
   }, [])
@@ -48,5 +52,5 @@ export function useGameSocket() {
     }
   }, [])
 
-  return { gameState, connected, sendCommand }
+  return { gameState, connected, sendCommand, lastError, lastAck }
 }

@@ -1,22 +1,20 @@
 import { useEffect, useRef, useState, useMemo } from 'react'
+import { Btn, IconBtn } from '../components/ui'
+import { RACE_COLORS } from '../shared'
+import s from './NavigationPanel.module.css'
 
 const STAR_RADIUS = 10
 const COMPASS_R   = 56
 
-// Warp cost formula (mirrors backend constants)
-const WARP_COST_BASE     = 100.0
-const WARP_COST_EXPONENT = 1.3
-
-const RACE_COLORS = {
-  'Human':     '#4488ff',
-  'Ssysrian':  '#44ff88',
-  'Unitarian': '#ffcc44',
-  'Fulborg':   '#ff4455',
-  'Klackin':   '#cc44ff',
-}
+// Warp cost formula (fallback; overridden by server-sent constants)
+const _WARP_COST_BASE     = 100.0
+const _WARP_COST_EXPONENT = 1.3
 
 // ── Main panel ────────────────────────────────────────────────────────────────
 export default function NavigationPanel({ gameState, sendCommand }) {
+  const C = gameState?.constants ?? {}
+  const WARP_COST_BASE     = C.WARP_COST_BASE ?? _WARP_COST_BASE
+  const WARP_COST_EXPONENT = C.WARP_COST_EXPONENT ?? _WARP_COST_EXPONENT
   const canvasRef  = useRef(null)
   const compassRef = useRef(null)
   const planetHits = useRef([])
@@ -39,19 +37,19 @@ export default function NavigationPanel({ gameState, sendCommand }) {
     const systems = gameState?.galaxy_systems ?? []
     const currentId = gameState?.ship?.current_system_id
     return [...systems]
-      .filter(s => s.id !== currentId)
+      .filter(sys => sys.id !== currentId)
       .sort((a, b) => (a.distance_ly ?? 0) - (b.distance_ly ?? 0))
   }, [gameState?.galaxy_systems, gameState?.ship?.current_system_id])
 
   // Selected warp target details
   const warpTarget = useMemo(() => {
     if (!warpTargetId) return null
-    const s = gameState?.galaxy_systems?.find(g => g.id === warpTargetId)
-    if (!s) return null
-    const dist = s.distance_ly ?? 0
+    const sys = gameState?.galaxy_systems?.find(g => g.id === warpTargetId)
+    if (!sys) return null
+    const dist = sys.distance_ly ?? 0
     const cost = WARP_COST_BASE * (dist ** WARP_COST_EXPONENT)
     const charge = gameState?.ship?.warp_capacitor_gw ?? 0
-    return { ...s, cost: Math.round(cost), charge: Math.round(charge), canWarp: charge >= cost, dist }
+    return { ...sys, cost: Math.round(cost), charge: Math.round(charge), canWarp: charge >= cost, dist }
   }, [warpTargetId, gameState])
 
   const engaged     = (ship?.thrust ?? 0) > 0
@@ -349,44 +347,44 @@ export default function NavigationPanel({ gameState, sendCommand }) {
 
   // ── Layout ─────────────────────────────────────────────────────────────────
   return (
-    <div style={{ flex: 1, display: 'flex', background: '#070714', fontFamily: 'Courier New', overflow: 'hidden' }}>
+    <div className={s.container}>
 
       {/* Left column — system map */}
-      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', position: 'relative', borderRight: '1px solid #0d0d22' }}>
+      <div className={s.mapColumn}>
         {/* System name bar */}
-        <div style={{ padding: '5px 10px', background: '#050510', borderBottom: '1px solid #0d0d22', fontSize: '10px', color: '#445577', letterSpacing: '2px', flexShrink: 0 }}>
+        <div className={s.systemBar}>
           {system ? `⊙ ${system.name}  ·  ${system.star_type}` : 'NO SYSTEM DATA'}
         </div>
 
         {/* Canvas */}
-        <div style={{ flex: 1, position: 'relative', overflow: 'hidden' }}>
+        <div className={s.canvasWrap}>
           <canvas
             ref={canvasRef}
             width={760}
             height={712}
             onClick={handleCanvasClick}
-            style={{ width: '100%', height: '100%', background: '#050510', cursor: 'crosshair', display: 'block' }}
+            className={s.canvas}
           />
 
           {/* Zoom controls */}
-          <div style={{ position: 'absolute', bottom: '8px', right: '8px', display: 'flex', gap: '6px', alignItems: 'center', background: 'rgba(5,5,16,0.8)', border: '1px solid #223', padding: '4px 8px', fontSize: '10px' }}>
-            <button onClick={() => setZoom(z => Math.max(0.25, +(z / 1.5).toFixed(2)))} style={iconBtn}>−</button>
-            <span style={{ color: '#8899bb', minWidth: '44px', textAlign: 'center' }}>{zoom.toFixed(1)}× ZOOM</span>
-            <button onClick={() => setZoom(z => Math.min(20, +(z * 1.5).toFixed(2)))} style={iconBtn}>+</button>
-            <button onClick={() => setZoom(1.0)} style={{ ...iconBtn, width: 'auto', padding: '0 6px', color: '#445' }}>FIT</button>
+          <div className={s.zoomControls}>
+            <IconBtn onClick={() => setZoom(z => Math.max(0.25, +(z / 1.5).toFixed(2)))}>−</IconBtn>
+            <span className={s.zoomText}>{zoom.toFixed(1)}× ZOOM</span>
+            <IconBtn onClick={() => setZoom(z => Math.min(20, +(z * 1.5).toFixed(2)))}>+</IconBtn>
+            <IconBtn onClick={() => setZoom(1.0)} style={{ width: 'auto', padding: '0 6px', color: 'var(--text-dim)' }}>FIT</IconBtn>
           </div>
 
           {/* Orbit action bar */}
           {orbitingPlanet && (
-            <div style={orbitBarStyle}>
+            <div className={s.orbitBar}>
               <span style={{ color: '#00ffcc' }}>⊙ IN ORBIT: {orbitingPlanet.name.split('-').pop()}</span>
-              <button onClick={() => sendCommand({ type: 'leave_orbit' })} style={actionBtn('#550011')}>LEAVE ORBIT</button>
+              <Btn onClick={() => sendCommand({ type: 'leave_orbit' })} bg="#550011" color="var(--text-bright)" borderColor="var(--border-faint)">LEAVE ORBIT</Btn>
             </div>
           )}
           {!orbitingPlanet && nearbyPlanet && (
-            <div style={orbitBarStyle}>
+            <div className={s.orbitBar}>
               <span style={{ color: '#ffcc00' }}>◎ {nearbyPlanet.name.split('-').pop()} WITHIN RANGE</span>
-              <button onClick={() => sendCommand({ type: 'orbit', planet_id: nearbyPlanet.id })} style={actionBtn('#003322')}>ENTER ORBIT</button>
+              <Btn onClick={() => sendCommand({ type: 'orbit', planet_id: nearbyPlanet.id })} bg="#003322" color="var(--text-bright)" borderColor="var(--border-faint)">ENTER ORBIT</Btn>
             </div>
           )}
 
@@ -404,16 +402,15 @@ export default function NavigationPanel({ gameState, sendCommand }) {
       </div>
 
       {/* Right column — tabbed controls */}
-      <div style={{ width: 240, display: 'flex', flexDirection: 'column', background: '#070714', flexShrink: 0 }}>
+      <div className={s.rightColumn}>
 
         {/* Tab header */}
-        <div style={{ display: 'flex', borderBottom: '1px solid #0d0d22', flexShrink: 0 }}>
+        <div className={s.tabHeader}>
           {['CONTROLS', 'WARP'].map(tab => (
-            <button key={tab} onClick={() => setRightTab(tab)} style={{
-              flex: 1, padding: '7px 0', background: rightTab === tab ? '#0a1020' : 'transparent',
-              color: rightTab === tab ? '#00ffcc' : '#334455',
-              border: 'none', borderBottom: rightTab === tab ? '2px solid #00ffcc' : '2px solid transparent',
-              fontFamily: 'Courier New', fontSize: '10px', letterSpacing: '2px', cursor: 'pointer',
+            <button key={tab} onClick={() => setRightTab(tab)} className={s.tabBtn} style={{
+              background: rightTab === tab ? 'var(--bg-raised)' : 'transparent',
+              color: rightTab === tab ? 'var(--accent-cyan)' : 'var(--text-dim)',
+              borderBottom: rightTab === tab ? '2px solid var(--accent-cyan)' : '2px solid transparent',
             }}>
               {tab}
             </button>
@@ -421,7 +418,7 @@ export default function NavigationPanel({ gameState, sendCommand }) {
         </div>
 
         {rightTab === 'CONTROLS' ? (
-          <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column' }}>
+          <div className={s.controlsScroll}>
 
             {/* NPC ship info if selected */}
             {npcSelected && (
@@ -444,9 +441,9 @@ export default function NavigationPanel({ gameState, sendCommand }) {
                 width={COMPASS_R * 2}
                 height={COMPASS_R * 2}
                 onClick={handleCompassClick}
-                style={{ background: '#050510', border: '1px solid #223', cursor: 'crosshair', display: 'block', margin: '0 auto' }}
+                className={s.compassCanvas}
               />
-              <div style={{ display: 'flex', gap: '4px', marginTop: '6px' }}>
+              <div className={s.headingRow}>
                 <input
                   type="number" min="0" max="360" step="1"
                   value={directHeading}
@@ -454,25 +451,25 @@ export default function NavigationPanel({ gameState, sendCommand }) {
                   onKeyDown={e => e.key === 'Enter' && isRunning && handleDirectHeadingSet()}
                   disabled={!isRunning}
                   placeholder="0–360°"
-                  style={numInput}
+                  className={s.numInput}
                 />
-                <button onClick={handleDirectHeadingSet} disabled={!isRunning} style={actionBtn('#001133', true)}>SET</button>
+                <Btn small onClick={handleDirectHeadingSet} disabled={!isRunning} bg="#001133" color="var(--text-bright)" borderColor="var(--border-faint)">SET</Btn>
               </div>
             </Section>
 
             {/* Engine controls */}
             <Section label="ENGINES">
-              <div style={{ fontSize: '11px', color: '#334455', marginBottom: '4px' }}>ENGINE SPEED</div>
-              <div style={{ fontSize: '22px', color: engaged ? '#00ffcc' : '#334', fontFamily: 'Courier New', marginBottom: '2px' }}>
+              <div className={s.engineSpeedLabel}>ENGINE SPEED</div>
+              <div className={s.engineSpeedValue} style={{ color: engaged ? '#00ffcc' : 'var(--text-ghost)' }}>
                 {(engineSpeed * 1000).toFixed(3)}
-                <span style={{ fontSize: '10px', color: '#557', marginLeft: '4px' }}>mAU/tk</span>
+                <span className={s.engineSpeedUnit}>mAU/tk</span>
               </div>
-              <div style={{ fontSize: '10px', color: engaged ? '#00ffcc' : '#664433', marginBottom: '8px', letterSpacing: '1px' }}>
+              <div className={s.engineStatus} style={{ color: engaged ? '#00ffcc' : '#664433' }}>
                 {engaged ? '▶ ENGAGED' : '■ OFFLINE'}
               </div>
-              <div style={{ display: 'flex', gap: '6px' }}>
-                <button onClick={() => sendCommand({ type: 'stop' })} disabled={!isRunning || !engaged} style={actionBtn('#550011')}>STOP</button>
-                <button onClick={() => sendCommand({ type: 'set_thrust', value: 1.0 })} disabled={!isRunning || engaged} style={actionBtn('#003322')}>ENGAGE</button>
+              <div className={s.btnRow}>
+                <Btn onClick={() => sendCommand({ type: 'stop' })} disabled={!isRunning || !engaged} bg="#550011" color="var(--text-bright)" borderColor="var(--border-faint)">STOP</Btn>
+                <Btn onClick={() => sendCommand({ type: 'set_thrust', value: 1.0 })} disabled={!isRunning || engaged} bg="#003322" color="var(--text-bright)" borderColor="var(--border-faint)">ENGAGE</Btn>
               </div>
             </Section>
 
@@ -480,20 +477,20 @@ export default function NavigationPanel({ gameState, sendCommand }) {
             <Section label="ORBIT">
               {orbitingPlanet ? (
                 <>
-                  <div style={{ color: '#00ffcc', fontSize: '10px', marginBottom: '6px' }}>⊙ {orbitingPlanet.name.split('-').pop()}</div>
-                  <button onClick={() => sendCommand({ type: 'leave_orbit' })} disabled={!isRunning} style={{ ...actionBtn('#550011'), width: '100%' }}>
+                  <div className={s.orbitStatusText} style={{ color: '#00ffcc' }}>⊙ {orbitingPlanet.name.split('-').pop()}</div>
+                  <Btn onClick={() => sendCommand({ type: 'leave_orbit' })} disabled={!isRunning} bg="#550011" color="var(--text-bright)" borderColor="var(--border-faint)" style={{ width: '100%' }}>
                     LEAVE ORBIT
-                  </button>
+                  </Btn>
                 </>
               ) : nearbyPlanet ? (
                 <>
-                  <div style={{ color: '#ffcc00', fontSize: '10px', marginBottom: '6px' }}>◎ {nearbyPlanet.name.split('-').pop()} in range</div>
-                  <button onClick={() => sendCommand({ type: 'orbit', planet_id: nearbyPlanet.id })} disabled={!isRunning} style={{ ...actionBtn('#003322'), width: '100%' }}>
+                  <div className={s.orbitStatusText} style={{ color: '#ffcc00' }}>◎ {nearbyPlanet.name.split('-').pop()} in range</div>
+                  <Btn onClick={() => sendCommand({ type: 'orbit', planet_id: nearbyPlanet.id })} disabled={!isRunning} bg="#003322" color="var(--text-bright)" borderColor="var(--border-faint)" style={{ width: '100%' }}>
                     ENTER ORBIT
-                  </button>
+                  </Btn>
                 </>
               ) : (
-                <div style={{ color: '#334455', fontSize: '10px' }}>No planet within 0.5 AU</div>
+                <div className={s.noPlanetText}>No planet within 0.5 AU</div>
               )}
             </Section>
 
@@ -524,17 +521,17 @@ function NpcInfo({ npc, onClose }) {
   const color = RACE_COLORS[npc.race] ?? '#aaaaaa'
   return (
     <div>
-      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '6px' }}>
-        <span style={{ color, fontSize: '12px', letterSpacing: '1px' }}>◆ {npc.race}</span>
-        <button onClick={onClose} style={iconBtn}>✕</button>
+      <div className={s.npcHeader}>
+        <span className={s.npcRace} style={{ color }}>◆ {npc.race}</span>
+        <IconBtn onClick={onClose}>✕</IconBtn>
       </div>
-      <div style={{ display: 'grid', gridTemplateColumns: 'auto 1fr', gap: '3px 10px', fontSize: '10px' }}>
-        <span style={{ color: '#445577' }}>SIZE</span>
-        <span style={{ color: '#aabbdd' }}>{npc.size?.toUpperCase()}</span>
-        <span style={{ color: '#445577' }}>DIST</span>
-        <span style={{ color: '#aabbdd' }}>{npc.distance_au?.toFixed(2)} AU</span>
-        <span style={{ color: '#445577' }}>HULL</span>
-        <span style={{ color: '#aabbdd', textTransform: 'uppercase' }}>{npc.hull_category ?? '—'}</span>
+      <div className={s.npcGrid}>
+        <span className={s.npcGridLabel}>SIZE</span>
+        <span className={s.npcGridValue}>{npc.size?.toUpperCase()}</span>
+        <span className={s.npcGridLabel}>DIST</span>
+        <span className={s.npcGridValue}>{npc.distance_au?.toFixed(2)} AU</span>
+        <span className={s.npcGridLabel}>HULL</span>
+        <span className={s.npcGridValue} style={{ textTransform: 'uppercase' }}>{npc.hull_category ?? '—'}</span>
       </div>
     </div>
   )
@@ -543,81 +540,74 @@ function NpcInfo({ npc, onClose }) {
 // ── Warp tab ──────────────────────────────────────────────────────────────────
 function WarpTab({ systems, warpTarget, warpTargetId, setWarpTarget, isRunning, onWarp }) {
   return (
-    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+    <div className={s.warpTabContainer}>
 
       {/* Selected system warp panel */}
       {warpTarget && (
-        <div style={{
-          padding: '10px 10px 8px', borderBottom: '1px solid #0d0d22',
-          background: '#040a10', flexShrink: 0,
-        }}>
-          <div style={{ fontSize: '12px', color: warpTarget.star_color ?? '#aabbcc', letterSpacing: '1px', marginBottom: '4px', fontFamily: 'Courier New' }}>
+        <div className={s.warpPanel}>
+          <div className={s.warpSystemName} style={{ color: warpTarget.star_color ?? 'var(--text-primary)' }}>
             {warpTarget.name}
           </div>
-          <div style={{ display: 'grid', gridTemplateColumns: 'auto 1fr', gap: '2px 10px', fontSize: '9px', marginBottom: '8px', fontFamily: 'Courier New' }}>
-            <span style={{ color: '#334455' }}>TYPE</span>
-            <span style={{ color: '#667788' }}>{warpTarget.star_type}-TYPE STAR</span>
-            <span style={{ color: '#334455' }}>DIST</span>
-            <span style={{ color: '#8899bb' }}>{warpTarget.dist.toFixed(2)} LY</span>
-            <span style={{ color: '#334455' }}>COST</span>
-            <span style={{ color: warpTarget.canWarp ? '#00cc66' : '#cc3300' }}>
+          <div className={s.warpGrid}>
+            <span className={s.warpGridLabel}>TYPE</span>
+            <span style={{ color: 'var(--text-secondary)' }}>{warpTarget.star_type}-TYPE STAR</span>
+            <span className={s.warpGridLabel}>DIST</span>
+            <span style={{ color: 'var(--text-body)' }}>{warpTarget.dist.toFixed(2)} LY</span>
+            <span className={s.warpGridLabel}>COST</span>
+            <span style={{ color: warpTarget.canWarp ? 'var(--accent-green)' : 'var(--accent-red)' }}>
               {warpTarget.cost.toLocaleString()} GW
             </span>
-            <span style={{ color: '#334455' }}>CHARGE</span>
-            <span style={{ color: '#8899bb' }}>{warpTarget.charge.toLocaleString()} GW</span>
+            <span className={s.warpGridLabel}>CHARGE</span>
+            <span style={{ color: 'var(--text-body)' }}>{warpTarget.charge.toLocaleString()} GW</span>
           </div>
           {!warpTarget.canWarp && (
-            <div style={{ fontSize: '9px', color: '#882222', fontFamily: 'Courier New', marginBottom: '6px', letterSpacing: '0.5px' }}>
+            <div className={s.warpInsufficient}>
               ✕ INSUFFICIENT WARP CHARGE
             </div>
           )}
-          <div style={{ display: 'flex', gap: '6px' }}>
-            <button
-              onClick={onWarp}
-              disabled={!isRunning || !warpTarget.canWarp}
-              style={{ ...actionBtn(warpTarget.canWarp ? '#002244' : '#1a1a1a'), flex: 1 }}
-            >
+          <div className={s.warpBtnRow}>
+            <Btn onClick={onWarp} disabled={!isRunning || !warpTarget.canWarp}
+              bg={warpTarget.canWarp ? '#002244' : '#1a1a1a'} color="var(--text-bright)" borderColor="var(--border-faint)" style={{ flex: 1 }}>
               INITIATE WARP
-            </button>
-            <button onClick={() => setWarpTarget(null)} style={actionBtn('#0a0a20', true)}>✕</button>
+            </Btn>
+            <Btn small onClick={() => setWarpTarget(null)} bg="#0a0a20" color="var(--text-bright)" borderColor="var(--border-faint)">✕</Btn>
           </div>
         </div>
       )}
 
       {/* Systems list */}
-      <div style={{ flex: 1, overflowY: 'auto' }}>
+      <div className={s.systemsList}>
         {systems.length === 0 && (
-          <div style={{ padding: '20px', textAlign: 'center', color: '#223344', fontSize: '10px', fontFamily: 'Courier New' }}>
+          <div className={s.noGalaxyData}>
             NO GALAXY DATA
           </div>
         )}
-        {systems.map(s => {
-          const isSel = s.id === warpTargetId
-          const dist  = s.distance_ly ?? 0
-          const cost  = Math.round(WARP_COST_BASE * (dist ** WARP_COST_EXPONENT))
+        {systems.map(sys => {
+          const isSel = sys.id === warpTargetId
+          const dist  = sys.distance_ly ?? 0
+          const cost  = Math.round(_WARP_COST_BASE * (dist ** _WARP_COST_EXPONENT))
           return (
-            <div key={s.id}
-              onClick={() => setWarpTarget(prev => prev === s.id ? null : s.id)}
+            <div key={sys.id}
+              onClick={() => setWarpTarget(prev => prev === sys.id ? null : sys.id)}
+              className={s.systemItem}
               style={{
-                padding: '7px 10px', borderBottom: '1px solid #0a0a18',
                 background: isSel ? '#040f18' : 'transparent',
-                cursor: 'pointer', borderLeft: isSel ? '2px solid #00ffcc' : '2px solid transparent',
-                fontFamily: 'Courier New',
+                borderLeft: isSel ? '2px solid var(--accent-cyan)' : '2px solid transparent',
               }}
             >
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2px' }}>
-                <span style={{ fontSize: '11px', color: s.visited ? (s.star_color ?? '#aabbcc') : '#445566' }}>
-                  {s.name}
+              <div className={s.systemItemHeader}>
+                <span className={s.systemItemName} style={{ color: sys.visited ? (sys.star_color ?? 'var(--text-primary)') : 'var(--text-muted)' }}>
+                  {sys.name}
                 </span>
-                {s.visited && (
-                  <span style={{ fontSize: '7px', color: '#003322', letterSpacing: '1px', border: '1px solid #003322', padding: '0 3px' }}>
+                {sys.visited && (
+                  <span className={s.visitedBadge}>
                     VIS
                   </span>
                 )}
               </div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '9px' }}>
-                <span style={{ color: '#334455' }}>{s.star_type}-type · {s.planet_count}pl</span>
-                <span style={{ color: '#445566' }}>{dist.toFixed(1)} LY · {cost.toLocaleString()} GW</span>
+              <div className={s.systemItemDetails}>
+                <span style={{ color: 'var(--text-dim)' }}>{sys.star_type}-type · {sys.planet_count}pl</span>
+                <span style={{ color: 'var(--text-muted)' }}>{dist.toFixed(1)} LY · {cost.toLocaleString()} GW</span>
               </div>
             </div>
           )
@@ -631,17 +621,17 @@ function WarpTab({ systems, warpTarget, warpTargetId, setWarpTarget, isRunning, 
 
 function Section({ label, children }) {
   return (
-    <div style={{ borderBottom: '1px solid #0d0d22', padding: '8px 10px' }}>
-      <div style={{ fontSize: '9px', color: '#334455', letterSpacing: '2px', marginBottom: '6px' }}>{label}</div>
+    <div className={s.section}>
+      <div className={s.sectionLabel}>{label}</div>
       {children}
     </div>
   )
 }
 
-function Readout({ label, value, color = '#8899bb' }) {
+function Readout({ label, value, color = 'var(--text-body)' }) {
   return (
-    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', marginBottom: '2px' }}>
-      <span style={{ color: '#445577' }}>{label}</span>
+    <div className={s.readout}>
+      <span className={s.readoutLabel}>{label}</span>
       <span style={{ color }}>{value}</span>
     </div>
   )
@@ -649,12 +639,12 @@ function Readout({ label, value, color = '#8899bb' }) {
 
 function MiniBar({ label, value, color }) {
   return (
-    <div style={{ marginBottom: '4px' }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '10px', marginBottom: '2px' }}>
-        <span style={{ color: '#445577' }}>{label}</span>
+    <div className={s.miniBar}>
+      <div className={s.miniBarHeader}>
+        <span className={s.miniBarLabel}>{label}</span>
         <span style={{ color }}>{Math.round(value)}%</span>
       </div>
-      <div style={{ height: '5px', background: '#111', border: '1px solid #223' }}>
+      <div className={s.miniBarTrack}>
         <div style={{ width: `${value}%`, height: '100%', background: color }} />
       </div>
     </div>
@@ -669,15 +659,10 @@ function PlanetInfo({ planet, shipPos, ship, sendCommand, onClose }) {
   const isOrbiting = ship?.orbiting_planet_id === planet.id
 
   return (
-    <div style={{
-      position: 'absolute', top: 8, left: 8,
-      background: 'rgba(4,4,18,0.94)', border: '1px solid #335',
-      padding: '10px 12px', minWidth: 200, fontSize: '11px',
-      fontFamily: 'Courier New', maxHeight: 340, overflowY: 'auto',
-    }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
-        <span style={{ color: '#00ffcc', letterSpacing: '1px' }}>{planet.name.split('-').pop()}</span>
-        <button onClick={onClose} style={iconBtn}>✕</button>
+    <div className={s.planetInfoPanel}>
+      <div className={s.planetInfoHeader}>
+        <span className={s.planetInfoName}>{planet.name.split('-').pop()}</span>
+        <IconBtn onClick={onClose}>✕</IconBtn>
       </div>
       <PIRow label="TYPE"      value={planet.type} />
       <PIRow label="ORBIT"     value={`${planet.orbital_distance_au.toFixed(2)} AU`} />
@@ -686,16 +671,16 @@ function PlanetInfo({ planet, shipPos, ship, sendCommand, onClose }) {
       {planet.inhabited && <PIRow label="INHABITED" value="YES" color="#ffcc00" />}
       {planet.moons?.length > 0 && <PIRow label="MOONS" value={planet.moons.length} />}
       {isOrbiting && (
-        <div style={{ color: '#00ffcc', fontSize: '10px', marginTop: '6px' }}>⊙ Currently orbiting</div>
+        <div className={s.orbitingStatus}>⊙ Currently orbiting</div>
       )}
     </div>
   )
 }
 
-function PIRow({ label, value, color = '#aabbdd' }) {
+function PIRow({ label, value, color = 'var(--text-primary)' }) {
   return (
-    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '3px' }}>
-      <span style={{ color: '#445577', marginRight: '8px' }}>{label}</span>
+    <div className={s.piRow}>
+      <span className={s.piRowLabel}>{label}</span>
       <span style={{ color, textAlign: 'right' }}>{value}</span>
     </div>
   )
@@ -703,11 +688,11 @@ function PIRow({ label, value, color = '#aabbdd' }) {
 
 function MiniBarInline({ value, color }) {
   return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
-      <div style={{ width: 60, height: 5, background: '#111', border: '1px solid #223' }}>
+    <div className={s.miniBarInline}>
+      <div className={s.miniBarInlineTrack}>
         <div style={{ width: `${value}%`, height: '100%', background: color }} />
       </div>
-      <span style={{ fontSize: '10px', color: '#778899' }}>{Math.round(value)}</span>
+      <span className={s.miniBarInlineValue}>{Math.round(value)}</span>
     </div>
   )
 }
@@ -738,31 +723,4 @@ function planetColor(type) {
   return map[type] ?? '#aaaaaa'
 }
 
-// ── Styles ────────────────────────────────────────────────────────────────────
-const iconBtn = {
-  background: 'none', border: '1px solid #335', color: '#8899bb',
-  fontFamily: 'Courier New', fontSize: '12px', width: 22, height: 22,
-  cursor: 'pointer', lineHeight: 1, padding: 0,
-}
-
-function actionBtn(bg, small = false) {
-  return {
-    background: bg, color: '#d0d8f0', border: '1px solid #446',
-    padding: small ? '4px 8px' : '5px 10px',
-    fontFamily: 'Courier New', fontSize: '11px', cursor: 'pointer',
-  }
-}
-
-const numInput = {
-  flex: 1, background: '#050510', color: '#00ffcc', border: '1px solid #335',
-  padding: '4px 6px', fontFamily: 'Courier New', fontSize: '11px',
-  width: 0,   // flex takes over
-}
-
-const orbitBarStyle = {
-  position: 'absolute', bottom: 44, left: '50%', transform: 'translateX(-50%)',
-  display: 'flex', alignItems: 'center', gap: '12px',
-  background: 'rgba(4,4,18,0.9)', border: '1px solid #335',
-  padding: '6px 14px', fontSize: '11px', fontFamily: 'Courier New', whiteSpace: 'nowrap',
-}
 

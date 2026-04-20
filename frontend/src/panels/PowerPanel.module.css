@@ -1,0 +1,398 @@
+/* PowerPanel – extracted from inline styles */
+
+/* ── Main container ──────────────────────────────────── */
+.container {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  background: var(--bg-label);
+  font-family: var(--font-mono);
+  color: var(--text-bright);
+  overflow: hidden;
+  user-select: none;
+}
+
+/* ── No-signal state ─────────────────────────────────── */
+.noSignal {
+  flex: 1;
+  background: var(--bg-label);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-dim);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  letter-spacing: 4px;
+}
+
+/* ── Header ──────────────────────────────────────────── */
+.header {
+  padding: 5px 14px;
+  background: var(--bg-label);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-shrink: 0;
+}
+
+.headerTitle {
+  font-weight: bold;
+  font-size: 12px;
+  letter-spacing: 3px;
+}
+
+.headerStats {
+  display: flex;
+  gap: 20px;
+  font-size: 11px;
+}
+
+.headerSigma {
+  font-size: 10px;
+}
+
+/* ── Power room inventory ────────────────────────────── */
+.powerRoom {
+  padding: 4px 10px;
+  background: var(--bg-input);
+  flex-shrink: 0;
+  display: flex;
+  gap: 12px;
+  align-items: center;
+}
+
+.powerRoomLabel {
+  font-size: 9px;
+  color: var(--text-secondary);
+  letter-spacing: 2px;
+  flex-shrink: 0;
+}
+
+/* ── Reactor row ─────────────────────────────────────── */
+.reactorRow {
+  display: flex;
+  gap: 8px;
+  padding: 8px 10px;
+  flex-shrink: 0;
+}
+
+/* ── Reactor card ────────────────────────────────────── */
+.reactorCard {
+  flex: 1;
+  background: var(--bg-input);
+  border-radius: 6px;
+  padding: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.reactorLabel {
+  font-size: 11px;
+  letter-spacing: 2px;
+  font-weight: bold;
+}
+
+.reactorShutdownBanner {
+  font-size: 9px;
+  color: var(--status-bad);
+  background: #3a000011;
+  border: 1px solid #ff444433;
+  border-radius: 3px;
+  padding: 2px 5px;
+  letter-spacing: 1px;
+  text-align: center;
+}
+
+.reactorHealthHeat {
+  display: flex;
+  justify-content: space-between;
+  font-size: 10px;
+}
+
+.reactorHeatBar {
+  height: 3px;
+  background: var(--bg-base);
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+.reactorHeatFill {
+  height: 100%;
+  transition: width 0.6s linear;
+  border-radius: 2px;
+}
+
+.reactorOutputRow {
+  display: flex;
+  justify-content: space-between;
+  font-size: 10px;
+  margin-top: 2px;
+}
+
+.reactorOutputLabel {
+  color: var(--text-secondary);
+}
+
+.reactorGw {
+  font-size: 10px;
+  text-align: right;
+}
+
+/* ── Battery section ─────────────────────────────────── */
+.batterySection {
+  padding: 0 10px 6px;
+  flex-shrink: 0;
+}
+
+/* ── Battery bar ─────────────────────────────────────── */
+.batteryBar {
+  background: var(--bg-input);
+  border-radius: 6px;
+  padding: 7px 10px;
+}
+
+.batteryBarHeader {
+  display: flex;
+  justify-content: space-between;
+  font-size: 10px;
+  margin-bottom: 4px;
+}
+
+.batteryBankLabel {
+  letter-spacing: 2px;
+}
+
+.batteryBarStats {
+  display: flex;
+  gap: 12px;
+}
+
+.batteryBarStatus {
+  font-size: 9px;
+}
+
+.batteryBarTrack {
+  height: 10px;
+  background: var(--bg-base);
+  border-radius: 5px;
+  overflow: hidden;
+}
+
+.batteryBarFill {
+  height: 100%;
+  transition: width 0.8s ease;
+  border-radius: 5px;
+}
+
+/* ── Battery charge slider ───────────────────────────── */
+.batteryChargeWrapper {
+  margin-top: 5px;
+  background: var(--bg-card);
+  border-radius: 5px;
+  padding: 5px 10px;
+}
+
+.batteryChargeHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 4px;
+}
+
+.batteryChargeLabel {
+  font-size: 9px;
+  color: var(--text-secondary);
+  letter-spacing: 2px;
+}
+
+.batteryChargeDisplay {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  font-size: 9px;
+}
+
+.batteryDirLabel {
+  color: var(--text-dim);
+}
+
+.batteryChargeValue {
+  min-width: 36px;
+  text-align: center;
+}
+
+.batteryTrack {
+  position: relative;
+  height: 8px;
+  background: var(--bg-base);
+  border-radius: 4px;
+  overflow: hidden;
+  margin-bottom: 3px;
+}
+
+.batteryDischargeFill {
+  position: absolute;
+  right: 50%;
+  height: 100%;
+  background: #ff6644;
+  border-radius: 4px 0 0 4px;
+}
+
+.batteryChargeFill {
+  position: absolute;
+  left: 50%;
+  height: 100%;
+  border-radius: 0 4px 4px 0;
+}
+
+.batteryCentreMark {
+  position: absolute;
+  left: 50%;
+  top: 0;
+  bottom: 0;
+  width: 1px;
+  background: var(--border);
+}
+
+.batteryLimitNote {
+  font-size: 8px;
+  text-align: center;
+  letter-spacing: 1px;
+  margin-top: 2px;
+}
+
+/* ── Life support warning ────────────────────────────── */
+.lsWarning {
+  margin: 0 10px 4px;
+  padding: 4px 10px;
+  background: #ff000022;
+  border: 1px solid var(--status-bad);
+  border-radius: 4px;
+  color: var(--status-bad);
+  font-size: 10px;
+  letter-spacing: 1px;
+  flex-shrink: 0;
+}
+
+/* ── Allocation section ──────────────────────────────── */
+.allocLabel {
+  padding: 0 10px 3px;
+  flex-shrink: 0;
+}
+
+.allocLabelText {
+  font-size: 9px;
+  letter-spacing: 2px;
+}
+
+.allocScroll {
+  flex: 1;
+  overflow: auto;
+  padding: 0 10px 8px;
+}
+
+.allocGrid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 4px;
+}
+
+/* ── Allocation slider card ──────────────────────────── */
+.allocCard {
+  background: var(--bg-input);
+  border-radius: 4px;
+  padding: 5px 7px;
+}
+
+.allocCardLabel {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 2px;
+}
+
+.allocStationName {
+  font-size: 9px;
+  letter-spacing: 1px;
+}
+
+.allocCardRight {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.allocLsMin {
+  font-size: 8px;
+  color: var(--text-secondary);
+}
+
+.allocPct {
+  font-size: 10px;
+}
+
+.allocGw {
+  font-size: 9px;
+}
+
+.lockButton {
+  background: none;
+  border: none;
+  font-size: 10px;
+  padding: 0 2px;
+  line-height: 1;
+  font-family: var(--font-mono);
+  font-weight: bold;
+}
+
+.allocFillBar {
+  height: 3px;
+  background: var(--bg-base);
+  border-radius: 2px;
+  margin-bottom: 2px;
+  overflow: hidden;
+}
+
+.allocFill {
+  height: 100%;
+  transition: width 0.3s;
+  border-radius: 2px;
+}
+
+/* ── Fuel bar (power room inventory) ─────────────────── */
+.fuelBar {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.fuelBarLabel {
+  font-size: 8px;
+  color: var(--text-secondary);
+  letter-spacing: 1px;
+  flex-shrink: 0;
+  width: 22px;
+}
+
+.fuelBarTrack {
+  flex: 1;
+  height: 5px;
+  background: var(--bg-base);
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.fuelBarFill {
+  height: 100%;
+  transition: width 0.8s ease;
+  border-radius: 3px;
+}
+
+.fuelBarValue {
+  font-size: 8px;
+  flex-shrink: 0;
+  text-align: right;
+  min-width: 34px;
+}

@@ -1,4 +1,5 @@
 import { useState, lazy, Suspense } from 'react'
+import { Btn } from '../components/ui'
 import { CONSOLES } from '../consoles.js'
 
 // Samsung Galaxy Tab S9 11" landscape: 1280 × 800 CSS px
@@ -22,7 +23,7 @@ const PANEL_MAP = {
   mining:         lazy(() => import('../panels/MiningPanel.jsx')),
 }
 
-export default function GamePage({ consoles, gameState, sendCommand, onExit }) {
+export default function GamePage({ consoles, gameState, sendCommand, lastError, lastAck, onExit }) {
   const [index, setIndex] = useState(0)
   const count = consoles.length
 
@@ -40,21 +41,25 @@ export default function GamePage({ consoles, gameState, sendCommand, onExit }) {
   const prev = () => setIndex(i => (i - 1 + count) % count)
   const next = () => setIndex(i => (i + 1) % count)
 
+  // Game over detection
+  const hullHealth = ship?.hull_health ?? 100
+  const isGameOver = gameState != null && hullHealth <= 0
+
   return (
     <div style={{
-      width: W, height: H, background: '#050510',
+      width: W, height: H, background: 'var(--bg-base)',
       display: 'flex', flexDirection: 'column',
-      fontFamily: 'Courier New', overflow: 'hidden', position: 'relative',
+      fontFamily: 'var(--font-mono)', overflow: 'hidden', position: 'relative',
     }}>
       {/* Top bar */}
       <div style={{
         height: 32, flexShrink: 0,
         display: 'flex', alignItems: 'center', gap: '16px',
         padding: '0 40px',                          // leave room for arrows
-        background: '#050510', borderBottom: '1px solid #0d0d22',
-        fontSize: '10px', color: '#334455', letterSpacing: '2px',
+        background: 'var(--bg-base)', borderBottom: '1px solid var(--border-faint)',
+        fontSize: '10px', color: 'var(--text-dim)', letterSpacing: '2px',
       }}>
-        <span style={{ color: consoleDef?.color ?? '#aabbdd', letterSpacing: '2px' }}>
+        <span style={{ color: consoleDef?.color ?? 'var(--text-primary)', letterSpacing: '2px' }}>
           {consoleDef?.icon} {consoleDef?.name}
         </span>
 
@@ -68,7 +73,7 @@ export default function GamePage({ consoles, gameState, sendCommand, onExit }) {
                 onClick={() => setIndex(i)}
                 style={{
                   width: 8, height: 8, borderRadius: '50%', border: 'none',
-                  background: i === index ? (c?.color ?? '#aabbdd') : '#1a1a2e',
+                  background: i === index ? (c?.color ?? 'var(--text-primary)') : 'var(--border)',
                   cursor: 'pointer', padding: 0,
                 }}
               />
@@ -76,16 +81,16 @@ export default function GamePage({ consoles, gameState, sendCommand, onExit }) {
           })}
         </div>
 
-        <span style={{ marginLeft: 'auto', color: '#1a2a3a' }}>
+        <span style={{ marginLeft: 'auto', color: 'var(--text-ghost)' }}>
           TICK {gameState?.tick ?? '—'}
         </span>
-        <button onClick={onExit} style={exitBtn}>EXIT</button>
+        <Btn onClick={onExit} color="var(--text-dim)" style={{ padding: '2px 10px', fontSize: '9px', letterSpacing: '1px' }}>EXIT</Btn>
       </div>
 
       {/* Panel content — inset by arrow width so no content hides behind the buttons */}
       <div style={{ flex: 1, display: 'flex', position: 'relative', marginLeft: count > 1 ? 36 : 0, marginRight: count > 1 ? 36 : 0 }}>
         <Suspense fallback={<Loading />}>
-          <PanelComp gameState={gameState} sendCommand={sendCommand} />
+          <PanelComp gameState={gameState} sendCommand={sendCommand} lastError={lastError} lastAck={lastAck} />
         </Suspense>
 
         {/* ── Insufficient General Systems Power overlay ── */}
@@ -101,17 +106,17 @@ export default function GamePage({ consoles, gameState, sendCommand, onExit }) {
             zIndex: 50,
           }}>
             <div style={{
-              border: '2px solid #ff3333',
-              background: '#1a0000cc',
+              border: '2px solid var(--status-danger)',
+              background: 'var(--tint-danger)',
               borderRadius: '8px',
               padding: '18px 32px',
               display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px',
               pointerEvents: 'none',
             }}>
-              <span style={{ fontSize: '22px', color: '#ff3333', letterSpacing: '4px', fontWeight: 'bold' }}>
+              <span style={{ fontSize: '22px', color: 'var(--status-danger)', letterSpacing: '4px', fontWeight: 'bold' }}>
                 ⚠ INSUFFICIENT POWER
               </span>
-              <span style={{ fontSize: '11px', color: '#ff6666', letterSpacing: '2px' }}>
+              <span style={{ fontSize: '11px', color: 'var(--status-bad)', letterSpacing: '2px' }}>
                 GENERAL SYSTEMS: {genSysGW.toFixed(1)} GW — MINIMUM 20 GW REQUIRED
               </span>
               {isPowerConsole && (
@@ -137,13 +142,46 @@ export default function GamePage({ consoles, gameState, sendCommand, onExit }) {
           ›
         </button>
       )}
+
+      {/* ── Game Over overlay ── */}
+      {isGameOver && (
+        <div style={{
+          position: 'absolute', inset: 0, zIndex: 100,
+          background: 'rgba(0,0,0,0.92)',
+          display: 'flex', flexDirection: 'column',
+          alignItems: 'center', justifyContent: 'center', gap: 16,
+        }}>
+          <span style={{
+            fontSize: 48, color: '#ff2222', fontWeight: 'bold',
+            letterSpacing: 8, textShadow: '0 0 30px #ff0000',
+          }}>
+            SHIP DESTROYED
+          </span>
+          <span style={{
+            fontSize: 14, color: '#ff8888', letterSpacing: 3,
+          }}>
+            HULL INTEGRITY: 0%
+          </span>
+          <span style={{
+            fontSize: 11, color: '#666', letterSpacing: 2, marginTop: 8,
+          }}>
+            TICK {gameState?.tick ?? '—'}
+          </span>
+          <Btn onClick={onExit} color="#ff4444" style={{
+            marginTop: 20, padding: '8px 32px', fontSize: 12,
+            letterSpacing: 3, border: '1px solid #ff4444',
+          }}>
+            EXIT
+          </Btn>
+        </div>
+      )}
     </div>
   )
 }
 
 function Loading() {
   return (
-    <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#1a2a3a', fontSize: '11px', letterSpacing: '3px' }}>
+    <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-ghost)', fontSize: '11px', letterSpacing: '3px' }}>
       LOADING…
     </div>
   )
@@ -156,9 +194,9 @@ const arrowBtn = {
   transform: 'translateY(-50%)',
   width: 36,
   height: 72,
-  background: 'rgba(255, 140, 0, 0.75)',
+  background: 'var(--btn-arrow-bg)',
   border: 'none',
-  color: '#fff',
+  color: 'var(--text-bright)',
   fontSize: '28px',
   lineHeight: 1,
   cursor: 'pointer',
@@ -168,14 +206,3 @@ const arrowBtn = {
   padding: 0,
 }
 
-const exitBtn = {
-  background: 'transparent',
-  border: '1px solid #1a1a2e',
-  color: '#334455',
-  padding: '2px 10px',
-  fontFamily: 'Courier New',
-  fontSize: '9px',
-  letterSpacing: '1px',
-  cursor: 'pointer',
-  borderRadius: '2px',
-}

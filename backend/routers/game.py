@@ -124,8 +124,13 @@ async def warp(req: WarpRequest):
     )
     cost_gw = round(WARP_COST_BASE * (dist_ly ** WARP_COST_EXPONENT), 1)
 
-    # Power stub: warp always succeeds if drive is functional
-    # TODO: enforce against available power once power station is built
+    # Enforce capacitor charge
+    if game_state.ship.warp_capacitor_gw < cost_gw:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Insufficient warp charge ({game_state.ship.warp_capacitor_gw:,.0f} GW, need {cost_gw:,.0f} GW for {dist_ly:.1f} LY)",
+        )
+    game_state.ship.warp_capacitor_gw -= cost_gw
 
     game_state.ship.warp_to(req.system_id, target.max_orbital_distance_au)
     target.visited = True
@@ -135,5 +140,4 @@ async def warp(req: WarpRequest):
         "destination": target.name,
         "distance_ly": round(dist_ly, 2),
         "warp_cost_gw": cost_gw,
-        "note": "Power cost not yet enforced — power station TBD",
     }

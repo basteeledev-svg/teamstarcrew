@@ -17,7 +17,6 @@ TICK_RATE_SECONDS = 1.0           # one game tick per second
 # ── Power ─────────────────────────────────────────────────────────────────────
 MAX_REACTOR_OUTPUT_GW   = 1000.0  # per reactor, at 100 % output & 100 % health
 REACTOR_COUNT           = 4
-GENERAL_SYSTEMS_FLOOR_GW = 5.0   # below this → full blackout
 
 # ── Battery ───────────────────────────────────────────────────────────────────
 BATTERY_CAPACITY_GW           = 100.0   # GW stored per battery unit
@@ -67,17 +66,27 @@ PLANET_ORBIT_MAX_AU = 45.0
 # 0.001 rad/tick → full orbit in ~6283 ticks (~1.75 h) at 1 AU.
 PLANET_ORBIT_BASE_SPEED_RAD = 0.001
 
-# ── Dynamic object spawn radius ───────────────────────────────────────────────
-DYNAMIC_SPAWN_RADIUS_AU = 5.0
-
 # ── Ship starting state ───────────────────────────────────────────────────────
-SHIP_START_DISTANCE_AU = 3.0  # distance from star at session start
+SHIP_START_DISTANCE_AU  = 3.0    # distance from star at session start
+REACTOR_START_OUTPUT    = 0.05   # initial reactor output fraction (0–1)
+
+# ── Room capacity ─────────────────────────────────────────────────────────────
+ROOM_CAPACITY_STANDARD  = 10_000.0   # max total units in a standard room
+ROOM_CAPACITY_LARGE     = 100_000.0  # max total units in cargo_bay and manufacturing
+
+# ── Orbit ─────────────────────────────────────────────────────────────────────
+ORBIT_DISTANCE_AU       = 0.5        # must be within this distance to enter orbit
+ORBIT_ANGULAR_SPEED     = 0.05       # radians per tick (~17 sec for a full orbit)
 
 # ── Mining ────────────────────────────────────────────────────────────────────
 # Each mining bot produces this many units per tick per 100 richness points
-# Formula: gained = count * richness * health / 100  (both are 0-100 %)
-# e.g. richness=50, health=80, count=3 → 3 * 50 * 80 / 100 = 120 units/tick
-MINING_BOTS_MAX = 20     # max bots assignable per resource
+# Formula: gained = count * richness / 100  (richness is 0-100 %)
+# e.g. richness=50, count=3 → 3 * 50 / 100 = 1.5 units/tick
+MINING_BOTS_MAX         = 20     # max bots assignable per resource
+MINING_BOT_START_COUNT  = 3      # mining bots aboard at game start
+MINING_BOT_CHARGE_MAX   = 100.0  # max charge per mining bot
+MINING_BOT_HEALTH_MAX   = 100.0  # max health per mining bot
+MINING_BOT_CHARGE_COST  = 1.0    # charge consumed per tick while mining
 
 # ── Transport bots ────────────────────────────────────────────────────────────
 TRANSPORT_BOT_START_COUNT      = 1       # bots aboard at game start

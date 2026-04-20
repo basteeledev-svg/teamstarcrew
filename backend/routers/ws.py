@@ -1,12 +1,15 @@
 """WebSocket endpoint — real-time bidirectional comms with tablet stations."""
 import json
+import logging
 import math
 from typing import Optional
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 
 from game.state import game_state, manager
 from game.vector3 import normalize
-from game.constants import WARP_COST_BASE, WARP_COST_EXPONENT
+from game.constants import WARP_COST_BASE, WARP_COST_EXPONENT, ORBIT_DISTANCE_AU
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(tags=["websocket"])
 
@@ -20,8 +23,10 @@ async def websocket_endpoint(ws: WebSocket):
         while True:
             raw = await ws.receive_text()
             await _handle_command(ws, json.loads(raw))
-    except (WebSocketDisconnect, Exception):
+    except WebSocketDisconnect:
         pass
+    except Exception:
+        logger.exception("Unhandled error in WebSocket handler")
     finally:
         manager.disconnect(ws)
 
@@ -84,8 +89,8 @@ async def _handle_command(ws: WebSocket, cmd: dict) -> None:
         ship = game_state.ship
         dx = ship.position["x"] - planet.position["x"]
         dz = ship.position["z"] - planet.position.get("z", 0.0)
-        if math.sqrt(dx ** 2 + dz ** 2) > 0.5:
-            await ws.send_text(json.dumps({"type": "error", "detail": "Too far to orbit (must be within 0.5 AU)"}))
+        if math.sqrt(dx ** 2 + dz ** 2) > ORBIT_DISTANCE_AU:
+            await ws.send_text(json.dumps({"type": "error", "detail": f"Too far to orbit (must be within {ORBIT_DISTANCE_AU} AU)"}))
             return
         ship.orbit_planet(planet_id, planet.position)
         await ws.send_text(json.dumps({"type": "ack", "cmd": "orbit", "planet": planet.name}))
@@ -95,7 +100,6 @@ async def _handle_command(ws: WebSocket, cmd: dict) -> None:
         await ws.send_text(json.dumps({"type": "ack", "cmd": "leave_orbit"}))
 
     elif cmd_type == "set_mining_bots":
-        from game.constants import MINING_BOTS_MAX
         if not game_state.ship.orbiting_planet_id:
             await ws.send_text(json.dumps({"type": "error", "detail": "Not in orbit"}))
             return
@@ -103,9 +107,36 @@ async def _handle_command(ws: WebSocket, cmd: dict) -> None:
         if resource not in ("metals", "rare_earth", "radioactive", "hydrocarbons"):
             await ws.send_text(json.dumps({"type": "error", "detail": "Invalid resource"}))
             return
-        value = max(0, min(MINING_BOTS_MAX, int(cmd.get("value", 0))))
-        game_state.ship.mining_bots[resource] = value
-        await ws.send_text(json.dumps({"type": "ack", "cmd": "set_mining_bots", "resource": resource, "value": value}))
+        target_count = max(0, int(cmd.get("value", 0)))
+        ship = game_state.ship
+        # Count how many bots are currently assigned to this resource
+        current = sum(1 for b in ship.mining_bots_list
+                      if b["state"] == "mining" and b.get("assignment") == resource)
+        if target_count > current:
+            # Assign idle bots
+            needed = target_count - current
+            for bot in ship.mining_bots_list:
+                if needed <= 0:
+                    break
+                if bot["state"] == "idle" and bot["health"] > 0 and bot["charge"] > 0:
+                    bot["state"] = "mining"
+                    bot["assignment"] = resource
+                    bot["location"] = "on_duty"
+                    needed -= 1
+        elif target_count < current:
+            # Recall excess bots
+            to_recall = current - target_count
+            for bot in ship.mining_bots_list:
+                if to_recall <= 0:
+                    break
+                if bot["state"] == "mining" and bot.get("assignment") == resource:
+                    bot["state"] = "idle"
+                    bot["assignment"] = None
+                    bot["location"] = "charging_bay"
+                    to_recall -= 1
+        actual = sum(1 for b in ship.mining_bots_list
+                     if b["state"] == "mining" and b.get("assignment") == resource)
+        await ws.send_text(json.dumps({"type": "ack", "cmd": "set_mining_bots", "resource": resource, "value": actual}))
 
     elif cmd_type == "set_reactor_output":
         from game.ship import SYSTEM_HEALTH_KEYS
@@ -135,7 +166,7 @@ async def _handle_command(ws: WebSocket, cmd: dict) -> None:
         SUM_KEYS = {
             "engines", "warp_drive", "shields", "weapons",
             "short_range_scanner", "long_range_scanner", "comms",
-            "life_support", "general_systems", "manufacturing", "repairs",
+            "life_support", "general_systems", "manufacturing", "charging_bay",
         }
         ALL_KEYS = SUM_KEYS | {"battery"}
         allocations = cmd.get("allocations", {})
@@ -238,9 +269,9 @@ async def _handle_command(ws: WebSocket, cmd: dict) -> None:
         except (TypeError, ValueError):
             await ws.send_text(json.dumps({"type": "error", "detail": "amount must be a number"}))
             return
-        # Resolve planet stockpile if source is "planet"
+        # Resolve planet stockpile if source or dest is "planet"
         planet_stockpile = None
-        if source == "planet":
+        if source == "planet" or dest == "planet":
             if not game_state.ship.orbiting_planet_id:
                 await ws.send_text(json.dumps({"type": "error", "detail": "Not orbiting a planet"}))
                 return
