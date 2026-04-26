@@ -1,135 +1,138 @@
-import { Btn } from '../components/ui'
+import { useEffect, useRef, useState } from 'react'
+import '../hud/hud.css'
 
 const W = 1280
 const H = 800
 
 export default function LandingPage({ gameState, onNewGame, onJoin, onObserver, onAdmin, onStyle }) {
-  const isRunning = gameState?.status === 'running'
-  const tick = gameState?.tick ?? 0
+  const isRunning   = gameState?.status === 'running'
+  const tick        = gameState?.tick ?? 0
   const playerCount = gameState?.player_count ?? null
-  const systemName = gameState?.current_system?.name ?? '—'
-  const hull = gameState?.ship?.hull_health
-  const fuel = gameState?.ship?.fuel
+  const systemName  = gameState?.current_system?.name ?? '—'
+  const hull        = gameState?.ship?.hull_health
+  const fuel        = gameState?.ship?.fuel
+
+  const clock = useClock()
+
+  const hullClass =
+    typeof hull === 'number' ? (hull > 60 ? 'g' : hull > 30 ? 'a' : 'r') : 'c'
 
   return (
-    <div style={{
-      width: W, height: H, background: 'var(--bg-base)',
-      display: 'flex', flexDirection: 'column',
-      fontFamily: 'var(--font-mono)', color: 'var(--text-body)', overflow: 'hidden',
-    }}>
-      {/* Header */}
-      <div style={{
-        padding: '20px 32px 14px',
-        borderBottom: '1px solid var(--border)',
-        display: 'flex', alignItems: 'baseline', gap: '24px',
-      }}>
-        <span style={{ fontSize: '24px', letterSpacing: '6px', color: 'var(--text-primary)' }}>
-          ★ TEAM STAR CREW
+    <div className="hud-wrap" style={{ width: W, height: H, display: 'flex', flexDirection: 'column' }}>
+      {/* ── Top bar ──────────────────────────────────────────────────── */}
+      <div className="hud-top">
+        <span className="hud-logo">★ TEAM STAR CREW</span>
+        <span className={`hud-pip${isRunning ? '' : ' offline'}`} />
+        <span className="hud-tag">
+          STATUS <b>{isRunning ? 'IN PROGRESS' : 'STANDBY'}</b>
         </span>
-        <span style={{ fontSize: '12px', color: 'var(--text-dim)', letterSpacing: '2px' }}>
-          MISSION CONTROL
-        </span>
+        <span className="hud-sp" />
+        <span className="hud-clock">{clock}</span>
       </div>
 
-      {/* Body */}
-      <div style={{
-        flex: 1, display: 'flex', flexDirection: 'column',
-        alignItems: 'center', justifyContent: 'center', gap: 28,
-      }}>
-        {/* Game status block */}
-        <div style={{
-          minWidth: 540,
-          border: `1px solid ${isRunning ? 'var(--accent-green)' : 'var(--border)'}`,
-          background: isRunning ? 'var(--tint-success)' : 'var(--bg-card)',
-          padding: '24px 32px',
-          display: 'flex', flexDirection: 'column', gap: 12,
-        }}>
-          <div style={{ display: 'flex', alignItems: 'baseline', gap: 16 }}>
-            <span style={{
-              fontSize: 13, letterSpacing: 3,
-              color: isRunning ? 'var(--accent-green)' : 'var(--text-muted)',
-            }}>
-              {isRunning ? '● GAME IN PROGRESS' : '○ NO GAME RUNNING'}
-            </span>
-            {isRunning && (
-              <span style={{ fontSize: 11, color: 'var(--text-dim)', letterSpacing: 2, marginLeft: 'auto' }}>
-                TICK {tick}
+      {/* ── Body ─────────────────────────────────────────────────────── */}
+      <div className="hud-content" style={{ padding: '24px 48px', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 32 }}>
+
+        {/* Status panel */}
+        <div className="po" style={{ flex: '0 0 auto', width: 720, height: isRunning ? 220 : 160 }}>
+          <span className="corn tl" /><span className="corn tr" />
+          <span className="corn bl" /><span className="corn br" />
+          <div className="hud-panel">
+            <div className="phdr">
+              <span className="pico" style={{ color: isRunning ? 'var(--hud-cg)' : 'var(--hud-txd)' }}>
+                {isRunning ? '◉' : '○'}
               </span>
-            )}
+              <span className="ptitle">
+                {isRunning ? 'GAME IN PROGRESS' : 'NO GAME RUNNING'}
+              </span>
+              {isRunning && (
+                <span className="pstat">
+                  <span>TICK <span className="vc">{tick}</span></span>
+                </span>
+              )}
+            </div>
+            <div style={{ flex: 1, padding: '20px 32px', display: 'flex', alignItems: 'center', minHeight: 0 }}>
+              {isRunning ? (
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 28, width: '100%' }}>
+                  <Stat label="CREW SIZE"  value={playerCount ? `${playerCount} PLAYERS` : '—'} />
+                  <Stat label="SYSTEM"     value={systemName} />
+                  <Stat label="HULL"       value={typeof hull === 'number' ? `${hull.toFixed(0)}%` : '—'} cls={hullClass} />
+                  <Stat label="FUEL"       value={typeof fuel === 'number' ? Math.round(fuel).toLocaleString() : '—'} />
+                </div>
+              ) : (
+                <div style={{ fontSize: 18, color: 'var(--hud-tx)', letterSpacing: 3, lineHeight: 1.6 }}>
+                  NO ACTIVE GAME. START A NEW MISSION TO GENERATE A GALAXY
+                  AND ASSIGN CREW STATIONS.
+                </div>
+              )}
+            </div>
           </div>
-
-          {isRunning && (
-            <div style={{
-              display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', gap: 20,
-              fontSize: 11, color: 'var(--text-dim)', letterSpacing: 2,
-            }}>
-              <Stat label="CREW SIZE" value={playerCount ? `${playerCount} PLAYERS` : '—'} />
-              <Stat label="SYSTEM" value={systemName} />
-              <Stat label="HULL" value={typeof hull === 'number' ? `${hull.toFixed(0)}%` : '—'} />
-              <Stat label="FUEL" value={typeof fuel === 'number' ? Math.round(fuel).toLocaleString() : '—'} />
-            </div>
-          )}
-
-          {!isRunning && (
-            <div style={{ fontSize: 11, color: 'var(--text-secondary)', letterSpacing: 1.5, lineHeight: 1.5 }}>
-              No active game. Start a new mission to generate a galaxy and assign crew stations.
-            </div>
-          )}
         </div>
 
         {/* Primary actions */}
-        <div style={{ display: 'flex', gap: 14, alignItems: 'center' }}>
+        <div style={{ display: 'flex', gap: 24, alignItems: 'center' }}>
           {isRunning && (
-            <Btn
+            <button
               data-testid="join-btn"
               onClick={onJoin}
-              color="var(--accent-green)" bg="var(--tint-success)"
-              style={{ padding: '14px 32px', fontSize: 14, letterSpacing: 3 }}
+              className="hbtn hbtn-lg grn"
+              style={{ letterSpacing: 4 }}
             >
               JOIN CURRENT GAME →
-            </Btn>
+            </button>
           )}
-          <Btn
+          <button
             data-testid="new-game-btn"
             onClick={onNewGame}
-            color="var(--accent)" bg="var(--tint-accent)"
-            style={{ padding: '14px 32px', fontSize: 14, letterSpacing: 3 }}
+            className={`hbtn hbtn-lg ${isRunning ? 'amb' : 'pri'}`}
+            style={{ letterSpacing: 4 }}
           >
-            ✦ {isRunning ? 'START NEW GAME' : 'START NEW GAME →'}
-          </Btn>
+            ✦ NEW GAME
+          </button>
         </div>
       </div>
 
-      {/* Footer */}
+      {/* ── Footer ───────────────────────────────────────────────────── */}
       <div style={{
-        padding: '14px 32px',
-        borderTop: '1px solid var(--border)',
+        padding: '12px 32px',
+        borderTop: '1px solid rgba(0,229,255,0.18)',
+        background: 'linear-gradient(90deg, transparent, rgba(0,229,255,0.04) 60%, rgba(0,229,255,0.10))',
         display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 12,
       }}>
-        <Btn onClick={onStyle} color="var(--accent-cyan)" borderColor="var(--border)"
-             style={{ padding: '6px 14px', letterSpacing: 2, fontSize: 10 }}>
+        <button onClick={onStyle} className="hud-chip" style={{ width: 130, height: 44 }}>
           ✦ STYLE LAB
-        </Btn>
-        <span style={{ width: 1, height: 22, background: 'var(--border)' }} />
-        <Btn onClick={onObserver} color="var(--text-muted)" borderColor="var(--text-dim)"
-             style={{ padding: '6px 14px', letterSpacing: 2, fontSize: 10 }}>
+        </button>
+        <button onClick={onObserver} className="hud-chip" style={{ width: 110, height: 44 }}>
           OBSERVER
-        </Btn>
-        <Btn data-testid="admin-btn" onClick={onAdmin}
-             color="var(--text-muted)" borderColor="var(--text-dim)"
-             style={{ padding: '6px 14px', letterSpacing: 2, fontSize: 10 }}>
+        </button>
+        <button data-testid="admin-btn" onClick={onAdmin} className="hud-chip dan" style={{ width: 90, height: 44 }}>
           ADMIN
-        </Btn>
+        </button>
       </div>
     </div>
   )
 }
 
-function Stat({ label, value }) {
+function Stat({ label, value, cls = 'c' }) {
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-      <span style={{ fontSize: 9, color: 'var(--text-dim)', letterSpacing: 2 }}>{label}</span>
-      <span style={{ fontSize: 14, color: 'var(--text-primary)', letterSpacing: 1 }}>{value}</span>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+      <span style={{ fontSize: 13, color: 'var(--hud-txd)', letterSpacing: 3 }}>{label}</span>
+      <span className={`hud-rv ${cls}`} style={{ fontSize: 26 }}>{value}</span>
     </div>
   )
+}
+
+function useClock() {
+  const [c, setC] = useState('')
+  const ref = useRef(null)
+  useEffect(() => {
+    const t = () => {
+      const n = new Date()
+      setC(`${String(n.getHours()).padStart(2,'0')}:${String(n.getMinutes()).padStart(2,'0')}:${String(n.getSeconds()).padStart(2,'0')}`)
+    }
+    t()
+    ref.current = setInterval(t, 1000)
+    return () => clearInterval(ref.current)
+  }, [])
+  return c
 }

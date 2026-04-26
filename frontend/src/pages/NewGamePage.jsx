@@ -1,6 +1,6 @@
 import { useState } from 'react'
-import { Btn } from '../components/ui'
 import { ALLOWED_PLAYER_COUNTS, CREW_LAYOUTS } from '../crewLayouts.js'
+import '../hud/hud.css'
 
 const W = 1280
 const H = 800
@@ -36,190 +36,179 @@ export default function NewGamePage({ onCancel, onStarted }) {
   const layout = CREW_LAYOUTS[playerCount] ?? []
 
   return (
-    <div style={{
-      width: W, height: H, background: 'var(--bg-base)',
-      display: 'flex', flexDirection: 'column',
-      fontFamily: 'var(--font-mono)', color: 'var(--text-body)', overflow: 'hidden',
-    }}>
-      {/* Header */}
-      <div style={{
-        padding: '18px 32px 12px',
-        borderBottom: '1px solid var(--border)',
-        display: 'flex', alignItems: 'baseline', gap: 24,
-      }}>
-        <span style={{ fontSize: 20, letterSpacing: 4, color: 'var(--text-primary)' }}>
-          ★ NEW GAME
-        </span>
-        <span style={{ fontSize: 11, color: 'var(--text-dim)', letterSpacing: 2 }}>
-          GENERATE GALAXY · CHOOSE CREW SIZE
-        </span>
+    <div className="hud-wrap" style={{ width: W, height: H, display: 'flex', flexDirection: 'column' }}>
+      {/* ── Top bar ──────────────────────────────────────────────────── */}
+      <div className="hud-top">
+        <span className="hud-logo">★ NEW GAME</span>
+        <span className="hud-tag">GENERATE GALAXY · CHOOSE CREW SIZE</span>
+        <span className="hud-sp" />
+        <button onClick={onCancel} className="hud-exit">EXIT</button>
       </div>
 
-      <div style={{ flex: 1, display: 'flex', padding: '20px 32px', gap: 24, minHeight: 0 }}>
-        {/* Left column — settings */}
-        <div style={{
-          flex: '0 0 380px',
-          display: 'flex', flexDirection: 'column', gap: 22,
-        }}>
-          {/* Player count */}
-          <div>
-            <Label>CREW SIZE</Label>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 6 }}>
-              {ALLOWED_PLAYER_COUNTS.map(n => (
-                <button key={n}
-                  data-testid={`pc-btn-${n}`}
-                  onClick={() => setPlayerCount(n)}
-                  style={{
-                    padding: '14px 0',
-                    background: playerCount === n ? 'var(--tint-accent)' : 'var(--bg-card)',
-                    border: `1px solid ${playerCount === n ? 'var(--accent)' : 'var(--border)'}`,
-                    color: playerCount === n ? 'var(--accent)' : 'var(--text-body)',
-                    fontFamily: 'var(--font-mono)',
-                    fontSize: 18, letterSpacing: 2,
-                    cursor: 'pointer',
-                    borderRadius: 'var(--btn-radius, 2px)',
-                  }}>
-                  {n}
-                </button>
-              ))}
-            </div>
-            <div style={{ fontSize: 10, color: 'var(--text-dim)', letterSpacing: 1, marginTop: 6 }}>
-              ALLOWED: 4, 5, 6, 8, OR 10 PLAYERS
-            </div>
-          </div>
+      {/* ── Body ─────────────────────────────────────────────────────── */}
+      <div className="hud-content" style={{ padding: '12px 12px 8px', gap: 12 }}>
 
-          {/* Game mode */}
-          <div>
-            <Label>MODE</Label>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6 }}>
-              {[
-                { id: 'full',  name: 'FULL',  desc: 'NPCs + story' },
-                { id: 'empty', name: 'EMPTY', desc: 'physics sandbox' },
-              ].map(m => (
-                <button key={m.id}
-                  onClick={() => setMode(m.id)}
-                  style={{
-                    padding: '10px',
-                    background: mode === m.id ? 'var(--tint-accent)' : 'var(--bg-card)',
-                    border: `1px solid ${mode === m.id ? 'var(--accent)' : 'var(--border)'}`,
-                    color: mode === m.id ? 'var(--accent)' : 'var(--text-body)',
-                    fontFamily: 'var(--font-mono)',
-                    fontSize: 12, letterSpacing: 2,
-                    cursor: 'pointer',
-                    display: 'flex', flexDirection: 'column', gap: 2, alignItems: 'flex-start',
-                    borderRadius: 'var(--btn-radius, 2px)',
-                  }}>
-                  <span>{m.name}</span>
-                  <span style={{ fontSize: 9, color: 'var(--text-dim)', letterSpacing: 1 }}>{m.desc}</span>
-                </button>
-              ))}
+        {/* Settings panel */}
+        <div className="po" style={{ flex: '0 0 440px' }}>
+          <span className="corn tl" /><span className="corn tr" />
+          <span className="corn bl" /><span className="corn br" />
+          <div className="hud-panel">
+            <div className="phdr">
+              <span className="pico" style={{ color: 'var(--hud-c)' }}>⚙</span>
+              <span className="ptitle">CONFIGURATION</span>
             </div>
-          </div>
 
-          {/* Seed */}
-          <div>
-            <Label>SEED <span style={{ color: 'var(--text-dim)' }}>(optional)</span></Label>
-            <input
-              type="text"
-              value={seed}
-              onChange={e => setSeed(e.target.value)}
-              placeholder="leave blank for random"
-              style={{
-                width: '100%', padding: '8px 10px',
-                background: 'var(--bg-input)',
-                border: '1px solid var(--border)',
-                color: 'var(--text-bright)',
-                fontFamily: 'var(--font-mono)', fontSize: 12, letterSpacing: 1,
-                outline: 'none',
-                borderRadius: 'var(--btn-radius, 2px)',
-              }}
-            />
-          </div>
-
-          {/* Error */}
-          {error && (
-            <div style={{
-              padding: 10, fontSize: 10,
-              border: '1px solid var(--accent-red)',
-              color: 'var(--accent-red)', letterSpacing: 1,
-            }}>
-              ⚠ {error}
-            </div>
-          )}
-        </div>
-
-        {/* Right column — role preview */}
-        <div style={{
-          flex: 1, display: 'flex', flexDirection: 'column',
-          border: '1px solid var(--border)', background: 'var(--bg-card)',
-          padding: 16, minWidth: 0,
-        }}>
-          <div style={{ fontSize: 11, letterSpacing: 3, color: 'var(--text-muted)', marginBottom: 10 }}>
-            CREW LAYOUT — {playerCount} ROLES
-          </div>
-          <div style={{
-            flex: 1, display: 'grid',
-            gridTemplateColumns: playerCount <= 6 ? 'repeat(2, 1fr)' : 'repeat(3, 1fr)',
-            gap: 8, overflowY: 'auto', alignContent: 'start',
-          }}>
-            {layout.map(role => (
-              <div key={role.id} style={{
-                padding: '10px 12px',
-                border: `1px solid ${role.color}`,
-                background: `${role.color}10`,
-                display: 'flex', flexDirection: 'column', gap: 4,
-                minHeight: 0,
-              }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                  <span style={{ fontSize: 18, color: role.color }}>{role.icon}</span>
-                  <span style={{ fontSize: 11, color: role.color, letterSpacing: 2, fontWeight: 'bold' }}>
-                    {role.name}
-                  </span>
+            <div style={{ flex: 1, padding: '20px 24px', display: 'flex', flexDirection: 'column', gap: 22, overflowY: 'auto' }}>
+              {/* Crew size */}
+              <div>
+                <div className="hud-slbl">CREW SIZE</div>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 8 }}>
+                  {ALLOWED_PLAYER_COUNTS.map(n => (
+                    <button
+                      key={n}
+                      data-testid={`pc-btn-${n}`}
+                      onClick={() => setPlayerCount(n)}
+                      className={`hud-chip${playerCount === n ? ' on' : ''}`}
+                      style={{ height: 60, fontSize: 26, letterSpacing: 0 }}
+                    >
+                      {n}
+                    </button>
+                  ))}
                 </div>
-                <div style={{ fontSize: 9, color: 'var(--text-dim)', letterSpacing: 1, lineHeight: 1.4 }}>
-                  {role.desc}
-                </div>
-                <div style={{ fontSize: 9, color: 'var(--text-secondary)', letterSpacing: 1, marginTop: 2 }}>
-                  {role.consoles.map(c => c.toUpperCase().replace('_', ' ')).join(' · ')}
+                <div style={{ fontSize: 13, color: 'var(--hud-txd)', letterSpacing: 2, marginTop: 8 }}>
+                  ALLOWED: 4 · 5 · 6 · 8 · 10 PLAYERS
                 </div>
               </div>
-            ))}
+
+              {/* Mode */}
+              <div>
+                <div className="hud-slbl">MODE</div>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+                  {[
+                    { id: 'full',  name: 'FULL',  desc: 'NPCS + STORY' },
+                    { id: 'empty', name: 'EMPTY', desc: 'PHYSICS SANDBOX' },
+                  ].map(m => (
+                    <button
+                      key={m.id}
+                      onClick={() => setMode(m.id)}
+                      className={`hud-chip${mode === m.id ? ' on' : ''}`}
+                      style={{ height: 70, flexDirection: 'column', gap: 4, letterSpacing: 3 }}
+                    >
+                      <span style={{ fontSize: 18 }}>{m.name}</span>
+                      <span style={{ fontSize: 11, color: 'var(--hud-txd)', letterSpacing: 2 }}>{m.desc}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Seed */}
+              <div>
+                <div className="hud-slbl">SEED <span style={{ color: 'var(--hud-txd)' }}>(OPTIONAL)</span></div>
+                <input
+                  type="text"
+                  value={seed}
+                  onChange={e => setSeed(e.target.value)}
+                  placeholder="LEAVE BLANK FOR RANDOM"
+                  style={{
+                    width: '100%', padding: '12px 14px', boxSizing: 'border-box',
+                    background: 'rgba(0,229,255,0.04)',
+                    border: '1px solid rgba(0,229,255,0.25)',
+                    color: 'var(--hud-txb)',
+                    fontFamily: 'var(--font-mono)', fontSize: 16, letterSpacing: 2,
+                    outline: 'none',
+                    borderRadius: 0,
+                  }}
+                />
+              </div>
+
+              {error && (
+                <div style={{
+                  padding: '10px 12px', fontSize: 13, letterSpacing: 2,
+                  border: '1px solid var(--hud-cr)',
+                  color: 'var(--hud-cr)',
+                  background: 'rgba(255,61,0,0.08)',
+                }}>
+                  ⚠ {error}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* Crew preview panel */}
+        <div className="po" style={{ flex: 1 }}>
+          <span className="corn tl" /><span className="corn tr" />
+          <span className="corn bl" /><span className="corn br" />
+          <div className="hud-panel">
+            <div className="phdr">
+              <span className="pico" style={{ color: 'var(--hud-cg)' }}>◈</span>
+              <span className="ptitle">CREW LAYOUT</span>
+              <span className="pstat">
+                <span><span className="vc">{playerCount}</span> ROLES</span>
+              </span>
+            </div>
+
+            <div style={{ flex: 1, padding: '16px', overflowY: 'auto' }}>
+              <div style={{
+                display: 'grid',
+                gridTemplateColumns: playerCount <= 6 ? 'repeat(2, 1fr)' : 'repeat(3, 1fr)',
+                gap: 10,
+              }}>
+                {layout.map(role => (
+                  <div key={role.id} style={{
+                    padding: '12px 14px',
+                    border: `1px solid ${role.color}`,
+                    background: `${role.color}14`,
+                    boxShadow: `0 0 8px ${role.color}33`,
+                    display: 'flex', flexDirection: 'column', gap: 6,
+                  }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                      <span style={{ fontSize: 22, color: role.color, textShadow: `0 0 6px ${role.color}` }}>
+                        {role.icon}
+                      </span>
+                      <span style={{ fontSize: 14, color: role.color, letterSpacing: 3, fontWeight: 'bold' }}>
+                        {role.name}
+                      </span>
+                    </div>
+                    <div style={{ fontSize: 12, color: 'var(--hud-tx)', letterSpacing: 1, lineHeight: 1.5 }}>
+                      {role.desc}
+                    </div>
+                    <div style={{ fontSize: 11, color: 'var(--hud-txd)', letterSpacing: 2, marginTop: 2 }}>
+                      {role.consoles.map(c => c.toUpperCase().replace(/_/g, ' ')).join(' · ')}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
           </div>
         </div>
       </div>
 
-      {/* Footer */}
+      {/* ── Footer ───────────────────────────────────────────────────── */}
       <div style={{
-        padding: '14px 32px',
-        borderTop: '1px solid var(--border)',
-        display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 12,
+        padding: '12px 32px',
+        borderTop: '1px solid rgba(0,229,255,0.18)',
+        background: 'linear-gradient(90deg, transparent, rgba(0,229,255,0.04) 60%, rgba(0,229,255,0.10))',
+        display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 16,
       }}>
-        <Btn onClick={onCancel} disabled={busy}
-             color="var(--text-muted)" borderColor="var(--text-dim)"
-             style={{ padding: '8px 18px', letterSpacing: 2 }}>
+        <button
+          onClick={onCancel}
+          disabled={busy}
+          className="hud-chip"
+          style={{ width: 130, height: 50, letterSpacing: 3 }}
+        >
           CANCEL
-        </Btn>
-        <Btn
+        </button>
+        <button
           data-testid="confirm-new-game-btn"
           onClick={startGame}
           disabled={busy}
-          color="var(--accent-green)" bg="var(--tint-success)"
-          style={{
-            padding: '8px 28px', letterSpacing: 3, fontSize: 13,
-            opacity: busy ? 0.4 : 1, cursor: busy ? 'wait' : 'pointer',
-          }}
+          className="hbtn hbtn-md grn"
+          style={{ letterSpacing: 3 }}
         >
           {busy ? 'GENERATING…' : 'GENERATE GALAXY →'}
-        </Btn>
+        </button>
       </div>
-    </div>
-  )
-}
-
-function Label({ children }) {
-  return (
-    <div style={{ fontSize: 10, letterSpacing: 3, color: 'var(--text-muted)', marginBottom: 6 }}>
-      {children}
     </div>
   )
 }
