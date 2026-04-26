@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { CONSOLES } from '../consoles.js'
-import { Btn } from '../components/ui'
+import '../hud/hud.css'
 
 const W = 1280
 const H = 800
@@ -8,59 +8,67 @@ const H = 800
 export default function AdminPage({ gameState, sendCommand, onExit, onObserver }) {
   const [activeTab, setActiveTab] = useState('ship')
 
-  const ship = gameState?.ship
+  const ship   = gameState?.ship
   const system = gameState?.current_system
 
   return (
-    <div style={{
-      width: W, height: H, background: 'var(--bg-base)',
-      display: 'flex', flexDirection: 'column',
-      fontFamily: 'var(--font-mono)', color: 'var(--text-body)', overflow: 'hidden',
-    }}>
-      {/* Header */}
-      <div style={{
-        height: 40, flexShrink: 0, display: 'flex', alignItems: 'center', gap: '0',
-        borderBottom: '1px solid var(--border)', background: 'var(--bg-base)',
-      }}>
-        <div style={{ padding: '0 20px', fontSize: '11px', color: 'var(--text-dim)', letterSpacing: '3px', borderRight: '1px solid var(--border)', height: '100%', display: 'flex', alignItems: 'center' }}>
-          ★ ADMIN
+    <div className="hud-wrap" style={{ width: W, height: H, display: 'flex', flexDirection: 'column' }}>
+      {/* Top bar */}
+      <div className="hud-top">
+        <span className="hud-logo">★ ADMIN</span>
+        <span className="hud-pip" />
+        <div style={{ display: 'flex', gap: 6 }}>
+          {[
+            { id: 'ship',     label: 'SHIP STATUS' },
+            { id: 'stations', label: 'STATIONS' },
+            { id: 'game',     label: 'GAME CONTROL' },
+          ].map(tab => (
+            <button
+              key={tab.id}
+              onClick={() => setActiveTab(tab.id)}
+              className={`hud-chip${activeTab === tab.id ? ' on' : ''}`}
+              style={{ width: 130, height: 50 }}
+            >
+              {tab.label}
+            </button>
+          ))}
         </div>
-        {[
-          { id: 'ship',     label: 'SHIP STATUS' },
-          { id: 'stations', label: 'STATIONS' },
-          { id: 'game',     label: 'GAME CONTROL' },
-        ].map(tab => (
-          <button
-            key={tab.id}
-            onClick={() => setActiveTab(tab.id)}
-            style={{
-              height: '100%', padding: '0 22px',
-              background: activeTab === tab.id ? 'var(--bg-raised)' : 'transparent',
-              border: 'none',
-              borderRight: '1px solid var(--border)',
-              borderBottom: activeTab === tab.id ? '2px solid var(--accent)' : '2px solid transparent',
-              color: activeTab === tab.id ? 'var(--text-primary)' : 'var(--text-dim)',
-              fontFamily: 'var(--font-mono)', fontSize: '10px', letterSpacing: '2px',
-              cursor: 'pointer',
-            }}
-          >
-            {tab.label}
+        <span className="hud-sp" />
+        <span className="hud-tag">TICK <b>{gameState?.tick ?? '—'}</b></span>
+        <span className="hud-tag">STATUS <b>{gameState?.status ?? '—'}</b></span>
+        {onObserver && (
+          <button onClick={onObserver} className="hud-chip" style={{ width: 130, height: 50 }}>
+            OBSERVER
           </button>
-        ))}
-        <div style={{ marginLeft: 'auto', padding: '0 16px', display: 'flex', alignItems: 'center', gap: '12px' }}>
-          <span style={{ fontSize: '10px', color: 'var(--text-ghost)' }}>TICK {gameState?.tick ?? '—'}</span>
-          {onObserver && (
-            <Btn onClick={onObserver} color="var(--accent)" borderColor="var(--tint-accent)" style={{ padding: '4px 12px', fontSize: '9px', letterSpacing: '1px' }}>OBSERVER VIEW</Btn>
-          )}
-          <Btn onClick={onExit} color="var(--text-dim)" borderColor="var(--text-ghost)" style={{ padding: '4px 12px', fontSize: '9px', letterSpacing: '1px' }}>← BACK</Btn>
-        </div>
+        )}
+        <button onClick={onExit} className="hud-exit">← BACK</button>
       </div>
 
       {/* Body */}
-      <div style={{ flex: 1, overflow: 'hidden', display: 'flex' }}>
-        {activeTab === 'ship'     && <ShipStatusTab ship={ship} system={system} />}
-        {activeTab === 'stations' && <StationsTab sendCommand={sendCommand} />}
-        {activeTab === 'game'     && <GameControlTab gameState={gameState} sendCommand={sendCommand} />}
+      <div className="hud-content" style={{ padding: 12 }}>
+        <div className="po" style={{ flex: 1 }}>
+          <span className="corn tl" /><span className="corn tr" />
+          <span className="corn bl" /><span className="corn br" />
+          <div className="hud-panel">
+            <div className="phdr">
+              <span className="pico" style={{ color: 'var(--hud-c)' }}>◈</span>
+              <span className="ptitle">
+                {activeTab === 'ship' ? 'SHIP DIAGNOSTICS'
+                  : activeTab === 'stations' ? 'STATION INVENTORY'
+                  : 'GAME CONTROL'}
+              </span>
+              <span className="pstat">
+                <span>ADMIN</span>
+                <span className="vc">● LIVE</span>
+              </span>
+            </div>
+            <div className="pbody" style={{ overflowY: 'auto' }}>
+              {activeTab === 'ship'     && <ShipStatusTab ship={ship} system={system} />}
+              {activeTab === 'stations' && <StationsTab />}
+              {activeTab === 'game'     && <GameControlTab gameState={gameState} sendCommand={sendCommand} />}
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   )
@@ -71,61 +79,79 @@ function ShipStatusTab({ ship, system }) {
   if (!ship) return <Placeholder text="NO GAME STATE — START GAME FIRST" />
 
   const rows = [
-    ['Hull Health',     `${Math.round(ship.hull_health)}%`],
-    ['Thrust',          `${Math.round((ship.thrust ?? 0) * 100)}%`],
-    ['Position X',      `${ship.position?.x ?? '—'} AU`],
-    ['Position Z',      `${ship.position?.z ?? '—'} AU`],
-    ['Orbiting',        ship.orbiting_planet_id ? 'YES' : 'NO'],
-    ['Mining Bots',     ship.mining_bots ? Object.entries(ship.mining_bots).map(([k,v]) => `${k}:${v}`).join('  ') : '—'],
-    ['Effective Power', `${ship.effective_power_gw ?? '—'} GW`],
-    ['System',          system?.name ?? '—'],
-    ['Planets Nearby',  `${system?.planets?.length ?? 0}`],
+    ['HULL HEALTH',     `${Math.round(ship.hull_health)}%`],
+    ['THRUST',          `${Math.round((ship.thrust ?? 0) * 100)}%`],
+    ['POSITION X',      `${ship.position?.x ?? '—'} AU`],
+    ['POSITION Z',      `${ship.position?.z ?? '—'} AU`],
+    ['ORBITING',        ship.orbiting_planet_id ? 'YES' : 'NO'],
+    ['MINING BOTS',     ship.mining_bots ? Object.entries(ship.mining_bots).map(([k,v]) => `${k}:${v}`).join('  ') : '—'],
+    ['EFFECTIVE POWER', `${ship.effective_power_gw ?? '—'} GW`],
+    ['SYSTEM',          system?.name ?? '—'],
+    ['PLANETS NEARBY',  `${system?.planets?.length ?? 0}`],
   ]
 
   return (
-    <div style={{ flex: 1, padding: '24px 32px', overflowY: 'auto' }}>
-      <SectionHeading>SHIP ATTRIBUTES</SectionHeading>
-      <table style={{ borderCollapse: 'collapse', width: '60%', fontSize: '11px' }}>
-        <tbody>
-          {rows.map(([label, val]) => (
-            <tr key={label}>
-              <td style={{ padding: '6px 16px 6px 0', color: 'var(--text-muted)', letterSpacing: '1px', whiteSpace: 'nowrap' }}>{label.toUpperCase()}</td>
-              <td style={{ padding: '6px 0', color: 'var(--text-primary)', fontFamily: 'var(--font-mono)' }}>{val}</td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
+    <div style={{ padding: '20px 24px', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 32 }}>
+      <div>
+        <SectionHeading>SHIP ATTRIBUTES</SectionHeading>
+        <table style={{ borderCollapse: 'collapse', width: '100%', fontSize: 12, fontFamily: 'var(--font-mono)' }}>
+          <tbody>
+            {rows.map(([label, val]) => (
+              <tr key={label} style={{ borderBottom: '1px solid rgba(0,229,255,0.08)' }}>
+                <td style={{ padding: '7px 12px 7px 0', color: 'var(--hud-txd)', letterSpacing: 2 }}>{label}</td>
+                <td style={{ padding: '7px 0', color: 'var(--hud-tx)', textAlign: 'right' }}>{val}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
 
-      <SectionHeading style={{ marginTop: 28 }}>SYSTEM HEALTH</SectionHeading>
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '8px 24px', maxWidth: 700 }}>
-        {ship.system_health && Object.entries(ship.system_health).map(([key, val]) => (
-          <div key={key} style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '10px' }}>
-            <span style={{ color: 'var(--text-dim)', flex: 1, letterSpacing: '1px' }}>{key.replace(/_/g, ' ').toUpperCase()}</span>
-            <div style={{ width: 80, height: 5, background: 'var(--bg-raised)', border: '1px solid var(--border)' }}>
-              <div style={{ width: `${val}%`, height: '100%', background: val > 50 ? 'var(--accent-green)' : val > 25 ? 'var(--accent-amber)' : 'var(--accent-red)' }} />
-            </div>
-            <span style={{ color: 'var(--text-secondary)', minWidth: 28, textAlign: 'right' }}>{Math.round(val)}</span>
-          </div>
-        ))}
+      <div>
+        <SectionHeading>SYSTEM HEALTH</SectionHeading>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+          {ship.system_health && Object.entries(ship.system_health).map(([key, val]) => {
+            const colorVar = val > 50 ? 'var(--hud-cg)' : val > 25 ? 'var(--hud-ca)' : 'var(--hud-cr)'
+            return (
+              <div key={key} style={{ display: 'flex', alignItems: 'center', gap: 12, fontSize: 11, fontFamily: 'var(--font-mono)' }}>
+                <span style={{ color: 'var(--hud-txd)', flex: 1, letterSpacing: 1.5 }}>
+                  {key.replace(/_/g, ' ').toUpperCase()}
+                </span>
+                <div style={{ width: 140, height: 7, background: 'rgba(0,229,255,0.08)', border: '1px solid rgba(0,229,255,0.25)' }}>
+                  <div style={{ width: `${val}%`, height: '100%', background: colorVar, boxShadow: `0 0 5px ${colorVar}` }} />
+                </div>
+                <span style={{ color: 'var(--hud-tx)', minWidth: 32, textAlign: 'right' }}>{Math.round(val)}</span>
+              </div>
+            )
+          })}
+        </div>
       </div>
     </div>
   )
 }
 
 /* ── Stations ── */
-function StationsTab({ sendCommand }) {
+function StationsTab() {
   return (
-    <div style={{ flex: 1, padding: '24px 32px', overflowY: 'auto' }}>
+    <div style={{ padding: '20px 24px' }}>
       <SectionHeading>ALL 13 STATIONS</SectionHeading>
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '10px', maxWidth: 900 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12 }}>
         {CONSOLES.map(c => (
           <div key={c.id} style={{
-            border: '1px solid var(--border)', padding: '12px 14px',
-            background: 'var(--bg-card)', borderRadius: '3px',
+            border: `1px solid ${c.color}55`,
+            background: `${c.color}0d`,
+            boxShadow: `0 0 6px ${c.color}22`,
+            padding: '12px 14px',
+            display: 'flex', flexDirection: 'column', gap: 6,
           }}>
-            <div style={{ fontSize: '18px', color: c.color, opacity: 0.7, marginBottom: '6px' }}>{c.icon}</div>
-            <div style={{ fontSize: '10px', color: 'var(--text-body)', letterSpacing: '1px' }}>{c.name}</div>
-            <div style={{ fontSize: '9px', color: 'var(--text-dim)', marginTop: '4px', lineHeight: 1.4 }}>{c.desc}</div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+              <span style={{ fontSize: 22, color: c.color, textShadow: `0 0 6px ${c.color}` }}>{c.icon}</span>
+              <span style={{ fontSize: 12, color: c.color, letterSpacing: 2, fontWeight: 'bold', fontFamily: 'var(--font-mono)' }}>
+                {c.name}
+              </span>
+            </div>
+            <div style={{ fontSize: 10, color: 'var(--hud-txd)', letterSpacing: 1, lineHeight: 1.4, fontFamily: 'var(--font-mono)' }}>
+              {c.desc}
+            </div>
           </div>
         ))}
       </div>
@@ -142,79 +168,91 @@ function GameControlTab({ gameState, sendCommand }) {
   }
 
   return (
-    <div style={{ flex: 1, padding: '24px 32px', overflowY: 'auto' }}>
-      <SectionHeading>GAME CONTROL</SectionHeading>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', maxWidth: 400 }}>
-        {/* Mode selector */}
-        <div style={{ padding: '12px 14px', border: '1px solid var(--border)', background: 'var(--bg-card)', borderRadius: '3px' }}>
-          <div style={{ fontSize: '11px', color: 'var(--text-body)', letterSpacing: '1px', marginBottom: 8 }}>UNIVERSE MODE</div>
+    <div style={{ padding: '20px 24px', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 24, fontFamily: 'var(--font-mono)' }}>
+      <div>
+        <SectionHeading>UNIVERSE MODE</SectionHeading>
+        <div style={{
+          border: '1px solid rgba(0,229,255,0.25)',
+          background: 'rgba(0,229,255,0.05)',
+          padding: '14px 16px',
+        }}>
           {[
             { id: 'empty', label: 'EMPTY UNIVERSE', desc: 'No NPCs or events — test ship systems and mechanics' },
             { id: 'full',  label: 'FULL UNIVERSE',  desc: 'NPC ships, factions, and initial messages (AI optional)' },
           ].map(opt => (
-            <label key={opt.id} style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', padding: '4px 0' }}>
+            <label key={opt.id} style={{ display: 'flex', alignItems: 'flex-start', gap: 10, cursor: 'pointer', padding: '8px 0' }}>
               <input
                 type="radio"
                 name="mode"
                 value={opt.id}
                 checked={mode === opt.id}
                 onChange={() => setMode(opt.id)}
-                style={{ accentColor: 'var(--accent)' }}
+                style={{ accentColor: 'var(--hud-c)', marginTop: 3 }}
               />
               <div>
-                <span style={{ fontSize: '10px', color: mode === opt.id ? 'var(--text-primary)' : 'var(--text-muted)', letterSpacing: '1px' }}>{opt.label}</span>
-                <div style={{ fontSize: '9px', color: 'var(--text-dim)', marginTop: 1 }}>{opt.desc}</div>
+                <div style={{ fontSize: 11, color: mode === opt.id ? 'var(--hud-c)' : 'var(--hud-tx)', letterSpacing: 2, fontWeight: mode === opt.id ? 'bold' : 'normal' }}>
+                  {opt.label}
+                </div>
+                <div style={{ fontSize: 10, color: 'var(--hud-txd)', marginTop: 2, letterSpacing: 1 }}>{opt.desc}</div>
               </div>
             </label>
           ))}
         </div>
 
-        <AdminAction
-          label="START NEW GAME"
-          desc={`Generate a fresh galaxy in ${mode} mode`}
-          color="#00cc66"
-          onClick={startGame}
-          testId="start-game-btn"
-        />
-        <AdminAction
-          label="STOP ENGINES"
-          desc="Set ship thrust to 0"
-          color="#ffaa00"
-          onClick={() => sendCommand({ type: 'stop' })}
-        />
-        <AdminAction
-          label="LEAVE ORBIT"
-          desc="Force ship to exit any active orbit"
-          color="#ffaa00"
-          onClick={() => sendCommand({ type: 'leave_orbit' })}
-        />
+        <SectionHeading style={{ marginTop: 24 }}>STATE</SectionHeading>
+        <div style={{ fontSize: 11, color: 'var(--hud-txd)', letterSpacing: 2, lineHeight: 2 }}>
+          <div>STATUS: <span className="vc">{gameState?.status ?? '—'}</span></div>
+          <div>TICK: <span className="vc">{gameState?.tick ?? '—'}</span></div>
+          <div>SYSTEMS: <span className="vc">{gameState?.galaxy_systems?.length ?? '—'}</span></div>
+        </div>
       </div>
 
-      <div style={{ marginTop: 32, fontSize: '10px', color: 'var(--text-ghost)', lineHeight: 2 }}>
-        <div>STATUS: {gameState?.status ?? '—'}</div>
-        <div>TICK: {gameState?.tick ?? '—'}</div>
-        <div>SYSTEMS: {gameState?.galaxy_systems?.length ?? '—'}</div>
+      <div>
+        <SectionHeading>ACTIONS</SectionHeading>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+          <AdminAction
+            label="START NEW GAME"
+            desc={`Generate a fresh galaxy in ${mode} mode`}
+            variant="grn"
+            onClick={startGame}
+            testId="start-game-btn"
+          />
+          <AdminAction
+            label="STOP ENGINES"
+            desc="Set ship thrust to 0"
+            variant="amb"
+            onClick={() => sendCommand({ type: 'stop' })}
+          />
+          <AdminAction
+            label="LEAVE ORBIT"
+            desc="Force ship to exit any active orbit"
+            variant="amb"
+            onClick={() => sendCommand({ type: 'leave_orbit' })}
+          />
+        </div>
       </div>
     </div>
   )
 }
 
-function AdminAction({ label, desc, color, onClick, testId }) {
+function AdminAction({ label, desc, variant, onClick, testId }) {
   return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: '16px', padding: '12px 14px', border: '1px solid var(--border)', background: 'var(--bg-card)', borderRadius: '3px' }}>
+    <div style={{
+      display: 'flex', alignItems: 'center', gap: 16,
+      padding: '12px 16px',
+      border: '1px solid rgba(0,229,255,0.25)',
+      background: 'rgba(0,229,255,0.04)',
+      fontFamily: 'var(--font-mono)',
+    }}>
       <div style={{ flex: 1 }}>
-        <div style={{ fontSize: '11px', color: 'var(--text-body)', letterSpacing: '1px' }}>{label}</div>
-        <div style={{ fontSize: '9px', color: 'var(--text-dim)', marginTop: '3px' }}>{desc}</div>
+        <div style={{ fontSize: 12, color: 'var(--hud-tx)', letterSpacing: 2, fontWeight: 'bold' }}>{label}</div>
+        <div style={{ fontSize: 10, color: 'var(--hud-txd)', marginTop: 3, letterSpacing: 1 }}>{desc}</div>
       </div>
       <button
         data-testid={testId}
         onClick={onClick}
-        style={{
-          background: 'transparent', border: `1px solid ${color}`,
-          color, padding: '5px 14px',
-          fontFamily: 'var(--font-mono)', fontSize: '10px',
-          letterSpacing: '1px', cursor: 'pointer', borderRadius: '2px', whiteSpace: 'nowrap',
-        }}
+        className={`hbtn hbtn-sm ${variant}`}
+        style={{ letterSpacing: 2 }}
       >
         EXECUTE
       </button>
@@ -225,7 +263,14 @@ function AdminAction({ label, desc, color, onClick, testId }) {
 /* ── Shared ── */
 function SectionHeading({ children, style }) {
   return (
-    <div style={{ fontSize: '9px', color: 'var(--text-dim)', letterSpacing: '3px', marginBottom: '14px', paddingBottom: '6px', borderBottom: '1px solid var(--border-faint)', ...style }}>
+    <div style={{
+      fontSize: 10, color: 'var(--hud-c)', letterSpacing: 4,
+      marginBottom: 14, paddingBottom: 6,
+      borderBottom: '1px solid rgba(0,229,255,0.25)',
+      fontFamily: 'var(--font-mono)', fontWeight: 'bold',
+      textShadow: '0 0 4px rgba(0,229,255,0.4)',
+      ...style,
+    }}>
       {children}
     </div>
   )
@@ -233,9 +278,12 @@ function SectionHeading({ children, style }) {
 
 function Placeholder({ text }) {
   return (
-    <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-ghost)', fontSize: '11px', letterSpacing: '3px' }}>
+    <div style={{
+      flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center',
+      color: 'var(--hud-txd)', fontSize: 12, letterSpacing: 4,
+      fontFamily: 'var(--font-mono)', padding: 40,
+    }}>
       {text}
     </div>
   )
 }
-

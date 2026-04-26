@@ -7,24 +7,23 @@ import GamePage          from './pages/GamePage.jsx'
 import AdminPage         from './pages/AdminPage.jsx'
 import ObserverPage      from './pages/ObserverPage.jsx'
 import StyleLabPage      from './pages/StyleLabPage.jsx'
-import HudGamePage       from './pages/HudGamePage.jsx'
 
 // Samsung Galaxy Tab S9 11" landscape: 1280 × 800 CSS px
 // The outer div pins the viewport to exactly those dimensions.
 export default function App() {
   const { gameState, connected, sendCommand, lastError, lastAck } = useGameSocket()
-  // page: 'landing' | 'newGame' | 'select' | 'game' | 'hud-game' | 'admin' | 'observer' | 'styleLab'
+  // page: 'landing' | 'newGame' | 'select' | 'game' | 'admin' | 'observer' | 'styleLab'
   const [page, setPage]         = useState('landing')
   const [consoles, setConsoles] = useState([])
 
-  function handleEnter({ role, consoles: selected, mode }) {
+  function handleEnter({ role, consoles: selected }) {
     if (role === 'admin') {
       setPage('admin')
     } else if (role === 'observer') {
       setPage('observer')
     } else {
       setConsoles(selected)
-      setPage(mode === 'hud' ? 'hud-game' : 'game')
+      setPage('game')
     }
   }
 
@@ -39,8 +38,8 @@ export default function App() {
       position: 'relative',
       background: 'var(--bg-base)',
     }}>
-      {/* Connection indicator — only on non-HUD pages (HUD has its own pip) */}
-      {page !== 'hud-game' && (
+      {/* Connection indicator — only on non-HUD pages (HUD pages have their own pip) */}
+      {page !== 'game' && (
         <div style={{
           position: 'absolute', top: 6,
           right: (page === 'select' || page === 'landing' || page === 'newGame') ? 16 : 70,
@@ -81,16 +80,6 @@ export default function App() {
       )}
       {page === 'game' && (
         <GamePage
-          consoles={consoles}
-          gameState={gameState}landing
-          sendCommand={sendCommand}
-          lastError={lastError}
-          lastAck={lastAck}
-          onExit={() => setPage('select')}
-        />
-      )}
-      {page === 'hud-game' && (
-        <HudGamePage
           consoles={consoles}
           gameState={gameState}
           sendCommand={sendCommand}

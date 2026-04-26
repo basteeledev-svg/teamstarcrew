@@ -3,6 +3,10 @@ import GalaxyMap    from '../components/GalaxyMap.jsx'
 import SystemView   from '../components/SystemView.jsx'
 import ShipControls from '../components/ShipControls.jsx'
 import ShipStatus   from '../components/ShipStatus.jsx'
+import '../hud/hud.css'
+
+const W = 1280
+const H = 800
 
 export default function ObserverPage({ gameState, sendCommand, onExit }) {
   const [selectedSystem, setSelectedSystem] = useState(null)
@@ -26,101 +30,89 @@ export default function ObserverPage({ gameState, sendCommand, onExit }) {
   const isRunning = gameState?.status === 'running'
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', width: 1280, height: 800, overflow: 'hidden' }}>
+    <div className="hud-wrap" style={{ width: W, height: H, display: 'flex', flexDirection: 'column' }}>
 
-      {/* Header */}
-      <div style={headerStyle}>
-        <span style={{ letterSpacing: '3px', fontSize: '14px' }}>★ TEAM STAR CREW</span>
-        <span style={{ fontSize: '10px', color: 'var(--text-dim)', letterSpacing: '2px' }}>OBSERVER</span>
-        <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
-          {!isRunning
-            ? null
-            : `TICK ${gameState.tick} · ${gameState.galaxy_systems?.length} SYSTEMS`
-          }
-        </span>
+      {/* Top bar */}
+      <div className="hud-top">
+        <span className="hud-logo">★ OBSERVER</span>
+        <span className="hud-pip" />
+        {isRunning && <>
+          <span className="hud-tag">TICK <b>{gameState.tick}</b></span>
+          <span className="hud-tag">SYSTEMS <b>{gameState.galaxy_systems?.length ?? 0}</b></span>
+          <span className="hud-tag">CURRENT <b>{gameState.current_system?.name ?? '—'}</b></span>
+        </>}
+        <span className="hud-sp" />
         {!isRunning && (
-          <button onClick={handleStartGame} disabled={starting} style={btnStyle('var(--tint-success)')}>
-            {starting ? 'GENERATING GALAXY…' : 'START NEW GAME'}
+          <button onClick={handleStartGame} disabled={starting} className="hbtn hbtn-sm grn">
+            {starting ? 'GENERATING…' : '✦ START NEW GAME'}
           </button>
         )}
-        <button onClick={onExit} style={{ ...btnStyle('var(--bg-raised)'), marginLeft: 'auto', color: 'var(--text-muted)' }}>
-          ← BACK
-        </button>
+        <button onClick={onExit} className="hud-exit">← BACK</button>
       </div>
 
       {/* Main layout */}
-      <div style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
+      <div className="hud-content" style={{ padding: 10, gap: 10 }}>
 
         {/* Left: Galaxy map */}
-        <div style={{ display: 'flex', flexDirection: 'column', borderRight: '1px solid var(--border)' }}>
-          <SectionLabel>GALAXY MAP</SectionLabel>
-          <GalaxyMap gameState={gameState} onSelectSystem={setSelectedSystem} />
-          {selectedSystem && (
-            <div style={{ padding: '8px', borderTop: '1px solid var(--border-faint)', fontSize: '11px' }}>
-              <div style={{ color: 'var(--text-primary)', marginBottom: '6px' }}>
-                ► {selectedSystem.name}
-                <span style={{ color: 'var(--text-muted)', marginLeft: '8px' }}>
-                  ({selectedSystem.star_type}-type · {selectedSystem.planet_count} planets)
-                </span>
-              </div>
-              <button onClick={handleWarp} disabled={!isRunning} style={btnStyle('var(--tint-accent)')}>
-                INITIATE WARP JUMP
-              </button>
+        <div className="po" style={{ width: 520, display: 'flex' }}>
+          <span className="corn tl" /><span className="corn tr" />
+          <span className="corn bl" /><span className="corn br" />
+          <div className="hud-panel">
+            <div className="phdr">
+              <span className="pico" style={{ color: 'var(--hud-c)' }}>◈</span>
+              <span className="ptitle">GALAXY MAP</span>
+              <span className="pstat">
+                <span className={isRunning ? 'vg' : 'vr'}>{isRunning ? '● LIVE' : '○ IDLE'}</span>
+              </span>
             </div>
-          )}
+            <div className="pbody" style={{ display: 'flex', flexDirection: 'column' }}>
+              <div style={{ flex: 1, minHeight: 0, overflow: 'hidden' }}>
+                <GalaxyMap gameState={gameState} onSelectSystem={setSelectedSystem} />
+              </div>
+              {selectedSystem && (
+                <div style={{
+                  padding: 12,
+                  borderTop: '1px solid rgba(0,229,255,0.25)',
+                  fontFamily: 'var(--font-mono)', fontSize: 11,
+                  display: 'flex', flexDirection: 'column', gap: 8,
+                }}>
+                  <div style={{ color: 'var(--hud-c)', letterSpacing: 2 }}>
+                    ► {selectedSystem.name}
+                    <span style={{ color: 'var(--hud-txd)', marginLeft: 8 }}>
+                      ({selectedSystem.star_type}-TYPE · {selectedSystem.planet_count} PLANETS)
+                    </span>
+                  </div>
+                  <button onClick={handleWarp} disabled={!isRunning} className="hbtn hbtn-sm pri">
+                    ✦ INITIATE WARP JUMP
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
         </div>
 
-        {/* Right: System view + controls */}
-        <div style={{ display: 'flex', flexDirection: 'column', flex: 1, overflowY: 'auto' }}>
-          <SectionLabel>
-            CURRENT SYSTEM: {gameState?.current_system?.name ?? '—'}
-            <span style={{ color: 'var(--text-muted)', marginLeft: '8px', fontSize: '10px' }}>
-              ({gameState?.current_system?.star_type ?? '?'}-type star)
-            </span>
-          </SectionLabel>
-          <SystemView gameState={gameState} sendCommand={sendCommand} />
-          <ShipStatus gameState={gameState} />
-          <ShipControls gameState={gameState} sendCommand={sendCommand} />
+        {/* Right: System view + ship */}
+        <div className="po" style={{ flex: 1, display: 'flex' }}>
+          <span className="corn tl" /><span className="corn tr" />
+          <span className="corn bl" /><span className="corn br" />
+          <div className="hud-panel">
+            <div className="phdr">
+              <span className="pico" style={{ color: 'var(--hud-c)' }}>◇</span>
+              <span className="ptitle">
+                CURRENT SYSTEM: {gameState?.current_system?.name ?? '—'}
+              </span>
+              <span className="pstat">
+                <span>{gameState?.current_system?.star_type ?? '?'}-TYPE STAR</span>
+              </span>
+            </div>
+            <div className="pbody" style={{ overflowY: 'auto' }}>
+              <SystemView gameState={gameState} sendCommand={sendCommand} />
+              <ShipStatus gameState={gameState} />
+              <ShipControls gameState={gameState} sendCommand={sendCommand} />
+            </div>
+          </div>
         </div>
       </div>
     </div>
   )
-}
-
-function SectionLabel({ children }) {
-  return (
-    <div style={{
-      padding: '6px 10px',
-      fontSize: '10px',
-      color: 'var(--text-dim)',
-      letterSpacing: '2px',
-      borderBottom: '1px solid var(--border)',
-      background: 'var(--bg-label)',
-    }}>
-      {children}
-    </div>
-  )
-}
-
-const headerStyle = {
-  display: 'flex',
-  alignItems: 'center',
-  gap: '20px',
-  padding: '8px 16px',
-  background: 'var(--bg-base)',
-  borderBottom: '1px solid var(--border)',
-  color: 'var(--text-body)',
-}
-
-function btnStyle(bg) {
-  return {
-    background: bg,
-    color: 'var(--text-bright)',
-    border: '1px solid var(--border-faint)',
-    padding: '5px 14px',
-    fontFamily: 'var(--font-mono)',
-    fontSize: '11px',
-    cursor: 'pointer',
-    letterSpacing: '1px',
-  }
 }

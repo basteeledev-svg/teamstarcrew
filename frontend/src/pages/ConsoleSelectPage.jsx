@@ -30,8 +30,8 @@ export default function ConsoleSelectPage({ gameState, onEnter, onNewGame, onSty
     })
   }
 
-  function pickRole(role, hud = false) {
-    onEnter({ role: 'crew', consoles: role.consoles, mode: hud ? 'hud' : undefined })
+  function pickRole(role) {
+    onEnter({ role: 'crew', consoles: role.consoles })
   }
 
   return (
@@ -127,26 +127,15 @@ export default function ConsoleSelectPage({ gameState, onEnter, onNewGame, onSty
           </button>
 
           {mode === 'custom' && (
-            <>
-              <button
-                data-testid="hud-btn"
-                disabled={selected.length === 0}
-                onClick={() => onEnter({ role: 'crew', consoles: selected, mode: 'hud' })}
-                className="hbtn hbtn-sm pri"
-                style={{ letterSpacing: 3 }}
-              >
-                ★ HUD MODE
-              </button>
-              <button
-                data-testid="enter-btn"
-                disabled={selected.length === 0}
-                onClick={() => onEnter({ role: 'crew', consoles: selected })}
-                className="hbtn hbtn-md grn"
-                style={{ letterSpacing: 3 }}
-              >
-                ENTER SHIP →
-              </button>
-            </>
+            <button
+              data-testid="enter-btn"
+              disabled={selected.length === 0}
+              onClick={() => onEnter({ role: 'crew', consoles: selected })}
+              className="hbtn hbtn-md grn"
+              style={{ letterSpacing: 3 }}
+            >
+              ENTER SHIP →
+            </button>
           )}
         </div>
       </div>
@@ -206,20 +195,12 @@ function RolePicker({ layout, onPick }) {
             <div style={{ display: 'flex', gap: 6, marginTop: 'auto', paddingTop: 4 }}>
               <button
                 data-testid={`role-btn-${role.id}`}
-                onClick={() => onPick(role, false)}
+                onClick={() => onPick(role)}
                 className="hbtn grn"
                 style={{
                   flex: 1, height: 48, fontSize: 13, letterSpacing: 3,
                 }}>
                 TAKE STATION →
-              </button>
-              <button
-                data-testid={`role-hud-btn-${role.id}`}
-                onClick={() => onPick(role, true)}
-                title="Enter with HUD theme"
-                className="hbtn pri"
-                style={{ width: 56, height: 48, fontSize: 18, letterSpacing: 0 }}>
-                ★
               </button>
             </div>
           </div>
