@@ -36,7 +36,9 @@ export default function GamePage({ consoles, gameState, sendCommand, lastError, 
   const totalPowerGW   = ship?.net_power_gw ?? 0
   const genSysPct      = ship?.power_allocation?.general_systems ?? 0
   const genSysGW       = (genSysPct / 100) * totalPowerGW
-  const lowGenSysPower = gameState != null && genSysGW < 20
+  // Tolerance: GW-locked allocation can drift by ~0.1 GW from rounding,
+  // so only warn when below 19.9 GW (still effectively under the 20 GW lock)
+  const lowGenSysPower = gameState != null && genSysGW < 19.9
 
   // Game over
   const hullHealth = ship?.hull_health ?? 100

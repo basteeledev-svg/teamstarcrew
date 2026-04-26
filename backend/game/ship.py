@@ -1366,34 +1366,37 @@ class Ship:
         new_gw_sum = sum(new_pcts.values())
         delta = old_gw_sum - new_gw_sum  # positive = freed, negative = needs more
 
-        # Apply new pcts to GW-locked stations
+        # Apply new pcts to GW-locked stations.
+        # 6-decimal precision keeps GW-delivered drift below ~0.005 GW
+        # for any reasonable total power budget (rounding to 4 decimals
+        # caused 20 GW locks to drift to ~19.9 GW at large totals).
         for k, pct in new_pcts.items():
-            self.power_allocation[k] = round(pct, 4)
+            self.power_allocation[k] = round(pct, 6)
 
         # Redistribute delta among free (unlocked by either method) non-battery stations
         free = [k for k in _SUM_KEYS
                 if k not in gw_locked
                 and not self.power_allocation_locked.get(k, False)]
-        if free and abs(delta) > 0.001:
+        if free and abs(delta) > 1e-6:
             free_sum = sum(max(0, self.power_allocation[k]) for k in free)
-            if free_sum > 0.001:
+            if free_sum > 1e-6:
                 for k in free:
                     frac = max(0, self.power_allocation[k]) / free_sum
                     self.power_allocation[k] = round(
-                        max(0, self.power_allocation[k] + delta * frac), 4)
+                        max(0, self.power_allocation[k] + delta * frac), 6)
             else:
                 share = delta / len(free)
                 for k in free:
                     self.power_allocation[k] = round(
-                        max(0, self.power_allocation[k] + share), 4)
+                        max(0, self.power_allocation[k] + share), 6)
 
         # Absorb floating-point rounding into the first free station
         total = sum(self.power_allocation[k] for k in _SUM_KEYS)
         err   = 100.0 - total
-        if abs(err) > 0.01 and free:
+        if abs(err) > 1e-4 and free:
             k = free[0]
             self.power_allocation[k] = round(
-                max(0, self.power_allocation[k] + err), 4)
+                max(0, self.power_allocation[k] + err), 6)
 
     def update_battery(self) -> None:
         """Charge or discharge battery each tick.
