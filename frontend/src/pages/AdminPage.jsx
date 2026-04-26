@@ -25,6 +25,7 @@ export default function AdminPage({ gameState, sendCommand, onExit, onObserver }
           ].map(tab => (
             <button
               key={tab.id}
+              data-testid={`admin-tab-${tab.id}`}
               onClick={() => setActiveTab(tab.id)}
               className={`hud-chip${activeTab === tab.id ? ' on' : ''}`}
               style={{ width: 130, height: 50 }}

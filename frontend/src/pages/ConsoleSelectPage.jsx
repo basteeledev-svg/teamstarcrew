@@ -45,10 +45,12 @@ export default function ConsoleSelectPage({ gameState, onEnter, onNewGame, onSty
         </span>
         <span className="hud-sp" />
         <div style={{ display: 'flex', gap: 8 }}>
-          <button className={`hud-chip${mode === 'role' ? ' on' : ''}`}
+          <button data-testid="mode-role-btn"
+                  className={`hud-chip${mode === 'role' ? ' on' : ''}`}
                   onClick={() => setMode('role')}
                   style={{ width: 110, height: 50 }}>ROLES</button>
-          <button className={`hud-chip${mode === 'custom' ? ' on' : ''}`}
+          <button data-testid="mode-custom-btn"
+                  className={`hud-chip${mode === 'custom' ? ' on' : ''}`}
                   onClick={() => setMode('custom')}
                   style={{ width: 110, height: 50 }}>CUSTOM</button>
         </div>
