@@ -85,6 +85,7 @@ class GameState:
         self.ship: Optional[Ship]     = None
         self.tick: int                = 0
         self.running: bool            = False
+        self.player_count: int        = 6
         self.messages: list           = []
         self._next_msg_id: int        = 1
         self.npc_ships: list          = []
@@ -538,7 +539,12 @@ class GameState:
 
     def to_dict(self) -> dict:
         if not self.is_started():
-            return {"type": "state", "status": "not_started", "tick": self.tick}
+            return {
+                "type": "state",
+                "status": "not_started",
+                "tick": self.tick,
+                "player_count": self.player_count,
+            }
 
         current_system = self.galaxy.get_system(self.ship.current_system_id)
         contacts  = self._get_comms_contacts()
@@ -549,6 +555,7 @@ class GameState:
             "type": "state",
             "status": "running",
             "tick": self.tick,
+            "player_count": self.player_count,
             "ship": self.ship.to_dict(),
             "current_system": current_system.to_dict() if current_system else None,
             "galaxy_systems": [s.to_summary_dict() for s in self.galaxy.systems],

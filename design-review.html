@@ -1,0 +1,862 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>TSC — Design Review</title>
+<style>
+@font-face {
+  font-family: 'Stormfaze';
+  src: url('fonts/Stormfaze.otf') format('opentype');
+  font-weight: normal;
+  font-style: normal;
+}
+:root {
+  --c:   #00e5ff;
+  --cg:  #00ff94;
+  --ca:  #ffb300;
+  --cr:  #ff3d00;
+  --bg:  #061828;
+  --bg1: #0a2035;
+  --tx:  #9dd4e8;
+  --txb: #e8f6fc;
+  --txd: #5a9ab8;
+}
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  background: var(--bg);
+  color: var(--tx);
+  font-family: 'Stormfaze', 'Courier New', monospace;
+  min-height: 100vh;
+  overflow: auto;
+  display: flex;
+  flex-direction: column;
+  font-size: 24px;
+  user-select: none;
+}
+/* Scan-line overlay */
+body::after {
+  content: '';
+  position: fixed; inset: 0;
+  background: repeating-linear-gradient(
+    0deg, transparent, transparent 3px,
+    rgba(0,0,0,0.055) 3px, rgba(0,0,0,0.055) 4px);
+  pointer-events: none;
+  z-index: 9000;
+}
+
+/* ─── Top bar ─────────────────────────────────────────────────────── */
+#top {
+  height: 84px;
+  width: 2580px;
+  background: linear-gradient(90deg, rgba(0,229,255,0.10), rgba(0,229,255,0.02) 60%, transparent);
+  border-bottom: 1px solid rgba(0,229,255,0.18);
+  display: flex; align-items: center; gap: 28px; padding: 0 36px;
+  flex-shrink: 0; position: relative; overflow: hidden;
+}
+#top::after {
+  content: '';
+  position: absolute; bottom: 0; left: 0; right: 0; height: 1px;
+  background: linear-gradient(90deg, var(--c), rgba(0,229,255,0.1) 55%, transparent);
+}
+.logo {
+  font-size: 24px; letter-spacing: 8px; font-weight: bold; color: var(--c);
+  text-shadow: 0 0 12px rgba(0,229,255,0.9), 0 0 28px rgba(0,229,255,0.4);
+}
+.top-tag { font-size: 18px; letter-spacing: 3px; color: var(--txd); padding: 6px 20px; border: 1px solid rgba(0,229,255,0.12); }
+.top-tag b { color: var(--c); }
+.top-pip { width: 10px; height: 10px; border-radius: 50%; background: var(--cg); box-shadow: 0 0 8px var(--cg); animation: blink 2s ease-in-out infinite; }
+@keyframes blink { 0%,100%{opacity:1} 50%{opacity:.15} }
+.sp { flex: 1; }
+#clock { font-size: 18px; color: var(--txd); letter-spacing: 4px; }
+
+/* ─── Grid ─────────────────────────────────────────────────────────── */
+#grid {
+  display: grid;
+  grid-template-columns: 1280px 1280px;
+  grid-template-rows: 800px 800px;
+  gap: 10px; padding: 10px;
+  background: var(--bg);
+  width: 2580px;
+  flex-shrink: 0;
+}
+
+/* ─── Panel outer = chamfered glowing border ─────────────────────── */
+.po {
+  position: relative;
+  background: rgba(0,229,255,0.28);
+  clip-path: polygon(15px 0%, calc(100% - 15px) 0%, 100% 15px, 100% calc(100% - 15px),
+                     calc(100% - 15px) 100%, 15px 100%, 0% calc(100% - 15px), 0% 15px);
+  filter: drop-shadow(0 0 9px rgba(0,229,255,0.38));
+  padding: 1px;
+  display: flex;
+}
+/* 4-corner bracket decoration */
+.po .corn {
+  position: absolute; width: 28px; height: 28px; z-index: 20;
+  border-color: var(--c); border-style: solid;
+  filter: drop-shadow(0 0 4px var(--c));
+}
+.po .corn.tl { top:2px;    left:2px;    border-width: 2px 0 0 2px; }
+.po .corn.tr { top:2px;    right:2px;   border-width: 2px 2px 0 0; }
+.po .corn.bl { bottom:2px; left:2px;    border-width: 0 0 2px 2px; }
+.po .corn.br { bottom:2px; right:2px;   border-width: 0 2px 2px 0; }
+
+/* ─── Panel inner ───────────────────────────────────────────────── */
+.panel {
+  flex: 1;
+  background: var(--bg1);
+  clip-path: polygon(14px 0%, calc(100% - 14px) 0%, 100% 14px, 100% calc(100% - 14px),
+                     calc(100% - 14px) 100%, 14px 100%, 0% calc(100% - 14px), 0% 14px);
+  display: flex; flex-direction: column;
+  overflow: hidden; position: relative;
+}
+.panel::after {
+  content: '';
+  position: absolute; inset: 0;
+  background: linear-gradient(135deg, rgba(0,229,255,0.04) 0%, transparent 40%);
+  pointer-events: none; z-index: 1;
+}
+
+/* ─── Panel header ──────────────────────────────────────────────── */
+.phdr {
+  height: 68px;
+  background: linear-gradient(90deg, rgba(0,229,255,0.14), rgba(0,229,255,0.04) 50%, transparent);
+  border-bottom: 1px solid rgba(0,229,255,0.2);
+  display: flex; align-items: center; padding: 0 28px; gap: 20px;
+  flex-shrink: 0; position: relative; z-index: 2;
+}
+.phdr::before {
+  content: '';
+  position: absolute; left: 0; top: 0; bottom: 0; width: 6px;
+  background: var(--c); box-shadow: 0 0 8px var(--c), 0 0 16px rgba(0,229,255,0.4);
+}
+.phdr::after { content: '&#9670;'; position: absolute; right: 24px; font-size: 12px; color: rgba(0,229,255,0.2); }
+.pico   { font-size: 32px; text-shadow: 0 0 10px currentColor; flex-shrink: 0; }
+.ptitle { font-size: 22px; letter-spacing: 5px; color: var(--txb); font-weight: bold; text-shadow: 0 0 8px rgba(0,229,255,0.4); }
+.pstat  { margin-left: auto; display: flex; gap: 24px; align-items: center; font-size: 16px; letter-spacing: 2px; color: var(--txd); flex-shrink: 0; }
+.pstat .vc { color: var(--c); }
+.pstat .vg { color: var(--cg); }
+.pstat .va { color: var(--ca); }
+.pstat .vr { color: var(--cr); }
+.pbody { flex: 1; display: flex; overflow: hidden; min-height: 0; position: relative; z-index: 2; }
+
+/* ─── Micro-components ──────────────────────────────────────────── */
+.slbl { font-size: 20px; letter-spacing: 5px; color: var(--txd); border-bottom: 1px solid rgba(0,229,255,0.08); padding-bottom: 6px; margin-bottom: 10px; }
+.hdiv { height: 1px; background: linear-gradient(90deg, transparent, rgba(0,229,255,0.18), transparent); margin: 10px 0; }
+
+/* ── 5 fixed button sizes (all 3:2 ratio) ─────────────────────── */
+.btn-xs { width:  80px; height:  54px; font-size: 12px; }
+.btn-sm { width: 120px; height:  80px; font-size: 15px; }
+.btn-md { width: 180px; height: 120px; font-size: 18px; }
+.btn-lg { width: 270px; height: 180px; font-size: 21px; }
+.btn-xl { width: 405px; height: 270px; font-size: 25px; }
+
+.hbtn {
+  position: relative; isolation: isolate;
+  background: transparent; border: none; outline: none; color: var(--tx);
+  font-family: 'Stormfaze', 'Courier New', monospace; letter-spacing: 3px;
+  padding: 8px 12px; cursor: pointer; transition: color .12s;
+  white-space: normal; word-break: break-word; overflow-wrap: break-word; text-align: center;
+  display: inline-flex; align-items: center; justify-content: center;
+  flex-shrink: 0; overflow: hidden;
+}
+.hbtn::before {
+  content: ''; position: absolute; inset: 0; z-index: -1; pointer-events: none;
+  background: url('assets/btn-frame.png') center / 100% 100% no-repeat;
+  opacity: 0.75; transition: filter .12s, opacity .12s;
+}
+.hbtn:hover::before  { opacity: 1; filter: brightness(1.35) saturate(1.2); }
+.hbtn:active::before { opacity: 1; filter: brightness(1.6); }
+.hbtn.pri            { color: var(--c); }
+.hbtn.pri::before    { opacity: 0.9; filter: brightness(1.2); }
+.hbtn.pri:hover::before { opacity: 1; filter: brightness(1.6) saturate(1.3); }
+.hbtn.dan            { color: var(--cr); }
+.hbtn.dan::before    { filter: hue-rotate(-160deg) saturate(1.6); }
+.hbtn.dan:hover::before { filter: hue-rotate(-160deg) saturate(2) brightness(1.3); }
+.hbtn.grn            { color: var(--cg); }
+.hbtn.grn::before    { filter: hue-rotate(-55deg) saturate(1.4); }
+.hbtn.grn:hover::before { filter: hue-rotate(-55deg) saturate(1.8) brightness(1.3); }
+
+.chip {
+  position: relative; isolation: isolate;
+  background: transparent; border: none; outline: none; color: var(--txd);
+  font-family: 'Stormfaze', 'Courier New', monospace; letter-spacing: 3px;
+  padding: 0; cursor: pointer; transition: color .12s;
+  display: inline-flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+}
+.chip::before {
+  content: ''; position: absolute; inset: 0; z-index: -1; pointer-events: none;
+  background: url('assets/btn-frame.png') center / 100% 100% no-repeat;
+  opacity: 0.4; filter: brightness(0.6) saturate(0.5); transition: filter .12s, opacity .12s;
+}
+.chip:hover            { color: var(--tx); }
+.chip:hover::before    { opacity: 0.7; filter: brightness(0.9); }
+.chip.on               { color: var(--c); text-shadow: 0 0 8px var(--c); }
+.chip.on::before       { opacity: 0.9; filter: brightness(1.1) saturate(1.1); }
+
+.rr  { display: flex; justify-content: space-between; align-items: baseline; padding: 4px 0; }
+.rk  { font-size: 20px; color: var(--txd); letter-spacing: 3px; }
+.rv  { font-size: 22px; color: var(--txb); font-weight: bold; }
+.rv.c{ color: var(--c); text-shadow: 0 0 6px rgba(0,229,255,0.6); }
+.rv.g{ color: var(--cg); }
+.rv.a{ color: var(--ca); }
+.rv.sm { font-size: 18px; }
+
+.sbar { display: flex; gap: 6px; }
+.sbar .seg    { flex: 1; height: 16px; background: rgba(0,229,255,0.08); border: 1px solid rgba(0,229,255,0.2); border-radius: 9999px; }
+.sbar .seg.on { background: var(--c);  box-shadow: 0 0 6px var(--c), 0 0 12px rgba(0,229,255,0.4);  border-color: var(--c); }
+.sbar .seg.on.g { background: var(--cg); box-shadow: 0 0 6px var(--cg), 0 0 12px rgba(0,255,148,0.4); border-color: var(--cg); }
+.sbar .seg.on.a { background: var(--ca); box-shadow: 0 0 6px var(--ca), 0 0 12px rgba(255,179,0,0.4); border-color: var(--ca); }
+
+.resrow { display: flex; align-items: center; gap: 12px; margin-bottom: 8px; }
+.resrow .rk { font-size: 20px; color: var(--txd); width: 160px; flex-shrink: 0; }
+.resbar     { flex: 1; height: 20px; background: rgba(0,229,255,0.1); border-radius: 9999px; overflow: hidden;
+              box-shadow: 0 0 5px rgba(0,229,255,0.18), inset 0 0 3px rgba(0,229,255,0.1); }
+.resbar div { height: 100%; border-radius: 9999px; transition: width .6s; filter: brightness(1.25) saturate(1.2); }
+.resval     { font-size: 22px; color: var(--tx); width: 72px; text-align: right; flex-shrink: 0; }
+
+input[type=range] {
+  -webkit-appearance: none; width: 100%; height: 12px; outline: none; cursor: pointer; border-radius: 9999px;
+  background: linear-gradient(90deg, var(--sl-c, var(--c)) var(--pct, 0%), rgba(0,229,255,0.1) var(--pct, 0%));
+  filter: drop-shadow(0 0 4px var(--sl-c, rgba(0,229,255,0.6)));
+}
+input[type=range]::-webkit-slider-thumb {
+  -webkit-appearance: none; width: 28px; height: 28px;
+  background: var(--sl-c, var(--c)); border-radius: 9999px;
+  box-shadow: 0 0 10px var(--sl-c, var(--c)), 0 0 20px rgba(0,229,255,0.35); cursor: pointer;
+}
+input[type=range]:disabled { opacity: 0.4; cursor: not-allowed; filter: none; }
+
+.hdd-btn { display: flex; justify-content: center; align-items: center; padding: 0 40px 0 14px; font-size: 18px; text-align: center; overflow: hidden; position: relative; }
+.hdd-btn .hdd-lbl { overflow: hidden; text-overflow: ellipsis; flex: 1; text-align: center; }
+.hdd-btn .hdd-arr { position: absolute; right: 14px; opacity: 0.45; font-size: 16px; }
+
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: rgba(0,229,255,0.18); }
+</style>
+</head>
+<body>
+
+<!-- TOP BAR -->
+<div id="top">
+  <span class="logo">&#9733; TEAM STAR CREW</span>
+  <span class="top-pip"></span>
+  <span class="top-tag">SECTOR <b>7G</b></span>
+  <span class="top-tag">CREW <b>12/12</b></span>
+  <span class="top-tag">HULL <b>94%</b></span>
+  <span class="top-tag">FUEL <b>2,840</b></span>
+  <div class="sp"></div>
+  <span id="clock"></span>
+</div>
+
+<div id="grid">
+
+<!-- ══ NAVIGATION ══════════════════════════════════════════════════════════ -->
+<div class="po">
+  <span class="corn tl"></span><span class="corn tr"></span>
+  <span class="corn bl"></span><span class="corn br"></span>
+  <div class="panel">
+    <div class="phdr">
+      <span class="pico" style="color:var(--c)">&#8853;</span>
+      <span class="ptitle">NAVIGATION</span>
+      <div class="pstat">
+        <span>SPEED</span><span class="vc" id="nav-spd">0.18 AU/s</span>
+        <span>THRUST</span><span class="va">85%</span>
+        <span id="nav-st" class="vg">&#9679; MANUAL</span>
+      </div>
+    </div>
+    <div class="pbody">
+      <!-- Map -->
+      <div style="flex:0 0 52%;background:var(--bg);border-right:1px solid rgba(0,229,255,0.1);position:relative;overflow:hidden;">
+        <svg width="100%" height="100%" viewBox="0 0 240 200" xmlns="http://www.w3.org/2000/svg" style="cursor:crosshair">
+          <line x1="0"   y1="100" x2="240" y2="100" stroke="rgba(0,229,255,0.07)" stroke-width="1"/>
+          <line x1="120" y1="0"   x2="120" y2="200" stroke="rgba(0,229,255,0.07)" stroke-width="1"/>
+          <line x1="0"   y1="50"  x2="240" y2="50"  stroke="rgba(0,229,255,0.03)" stroke-width="0.5" stroke-dasharray="4,8"/>
+          <line x1="0"   y1="150" x2="240" y2="150" stroke="rgba(0,229,255,0.03)" stroke-width="0.5" stroke-dasharray="4,8"/>
+          <circle cx="120" cy="100" r="38"  fill="none" stroke="rgba(0,229,255,0.14)" stroke-width="0.8"/>
+          <circle cx="120" cy="100" r="72"  fill="none" stroke="rgba(0,229,255,0.09)" stroke-width="0.8" stroke-dasharray="4,6"/>
+          <circle cx="120" cy="100" r="105" fill="none" stroke="rgba(0,229,255,0.05)" stroke-width="0.8" stroke-dasharray="3,9"/>
+          <circle cx="120" cy="100" r="7"   fill="var(--ca)" opacity="0.9"/>
+          <circle cx="120" cy="100" r="13"  fill="none" stroke="var(--ca)" stroke-width="0.5" opacity="0.45"/>
+          <circle cx="120" cy="100" r="19"  fill="none" stroke="var(--ca)" stroke-width="0.4" opacity="0.2" stroke-dasharray="2,5"/>
+          <!-- Planets -->
+          <circle class="np" cx="120" cy="62"  r="5" fill="#4488ff" opacity="0.9" data-name="AETHON"    data-cx="120" data-cy="62"  style="cursor:pointer"/>
+          <circle class="np" cx="174" cy="113" r="7" fill="#00ff94" opacity="0.9" data-name="HAVEN"     data-cx="174" data-cy="113" style="cursor:pointer"/>
+          <circle class="np" cx="67"  cy="150" r="4" fill="#cc8833" opacity="0.8" data-name="DUSTMARK"  data-cx="67"  data-cy="150" style="cursor:pointer"/>
+          <circle class="np" cx="40"  cy="78"  r="3" fill="#aaaacc" opacity="0.5" data-name="NULLPOINT" data-cx="40"  data-cy="78"  style="cursor:pointer"/>
+          <text x="127" y="59"  fill="#4488ff" font-size="7" font-family="Courier New" opacity="0.8">AETHON</text>
+          <text x="181" y="112" fill="#00ff94" font-size="7" font-family="Courier New" opacity="0.8">HAVEN</text>
+          <text x="44"  y="163" fill="#cc8833" font-size="7" font-family="Courier New" opacity="0.7">DUST</text>
+          <!-- Ship -->
+          <polygon points="147,70 150,75 147,77 144,75" fill="none" stroke="var(--c)" stroke-width="1.2" opacity="0.85"/>
+          <line x1="141" y1="73.5" x2="144" y2="73.5" stroke="var(--c)" stroke-width="1.5"/>
+          <line x1="150" y1="73.5" x2="153" y2="73.5" stroke="var(--c)" stroke-width="1.5"/>
+          <line id="hdg-line" x1="147" y1="73.5" x2="173" y2="52" stroke="var(--c)" stroke-width="0.8" stroke-dasharray="3,3" opacity="0.4"/>
+          <circle id="nav-tgt-ring" cx="0" cy="0" r="0" fill="none" stroke="var(--ca)" stroke-width="1" stroke-dasharray="3,3" opacity="0"/>
+        </svg>
+        <div id="nav-tgt-lbl" style="position:absolute;bottom:5px;left:8px;font-size:8px;letter-spacing:1.5px;color:var(--ca);text-shadow:0 0 8px var(--ca)">NO TARGET</div>
+      </div>
+      <!-- Controls -->
+      <div style="flex:1;padding:10px 12px;overflow-y:auto;display:flex;flex-direction:column;gap:2px;">
+        <div class="slbl">HEADING</div>
+        <div style="display:flex;align-items:center;gap:5px;margin-bottom:6px;">
+          <button class="hbtn btn-xs" id="hdg-dec">&#9664;</button>
+          <div style="flex:1;text-align:center;">
+            <div id="hdg-val" style="font-size:30px;color:var(--c);text-shadow:0 0 14px var(--c),0 0 28px rgba(0,229,255,0.4);letter-spacing:3px;line-height:1;">045&#176;</div>
+            <div style="font-size:7px;color:var(--txd);letter-spacing:2px;">XY PLANE</div>
+          </div>
+          <button class="hbtn btn-xs" id="hdg-inc">&#9654;</button>
+        </div>
+        <div class="slbl">MODE</div>
+        <div style="display:flex;gap:4px;margin-bottom:4px;" id="nav-modes">
+          <button class="chip btn-md on" data-mode="MANUAL">MANUAL</button>
+          <button class="chip btn-md"    data-mode="ORBIT">ORBIT</button>
+          <button class="chip btn-md"    data-mode="WARP">WARP</button>
+        </div>
+        <div class="hdiv"></div>
+        <div class="rr"><span class="rk">ELEVATION</span><span class="rv sm">0&#176;</span></div>
+        <div class="rr"><span class="rk">POSITION</span><span class="rv sm">1.2, 0.0 AU</span></div>
+        <div class="rr"><span class="rk">ETA TARGET</span><span id="nav-eta" class="rv sm" style="color:var(--txd)">&#8212;</span></div>
+        <div class="hdiv"></div>
+        <div style="display:flex;gap:6px;margin-top:2px;justify-content:center;">
+          <button class="hbtn grn btn-md" id="nav-engage">&#9654; ENGAGE</button>
+          <button class="hbtn dan btn-md" id="nav-stop">&#9632; STOP</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══ SHORT RANGE SCAN ════════════════════════════════════════════════════ -->
+<div class="po">
+  <span class="corn tl"></span><span class="corn tr"></span>
+  <span class="corn bl"></span><span class="corn br"></span>
+  <div class="panel">
+    <div class="phdr">
+      <span class="pico" style="color:var(--c)">&#9673;</span>
+      <span class="ptitle">SHORT RANGE SCAN</span>
+      <div class="pstat">
+        <span>RANGE</span><span class="vc">2.0 AU</span>
+        <span>PWR</span><span class="vc">18 GW</span>
+        <span id="scan-st" class="vg">&#9679; ACTIVE</span>
+        <button id="scan-tog" class="hbtn btn-sm">PAUSE</button>
+      </div>
+    </div>
+    <div class="pbody">
+      <!-- Radar -->
+      <div style="flex:0 0 52%;background:var(--bg);border-right:1px solid rgba(0,229,255,0.1);display:flex;align-items:center;justify-content:center;overflow:hidden;">
+        <svg viewBox="0 0 220 220" style="width:100%;height:100%" xmlns="http://www.w3.org/2000/svg">
+          <defs>
+            <radialGradient id="rg1" cx="50%" cy="50%" r="50%">
+              <stop offset="0%"   stop-color="rgba(0,229,255,0.08)"/>
+              <stop offset="100%" stop-color="transparent"/>
+            </radialGradient>
+            <radialGradient id="sg" cx="0%" cy="50%" r="100%">
+              <stop offset="0%"   stop-color="rgba(0,229,255,0.40)"/>
+              <stop offset="65%"  stop-color="rgba(0,229,255,0.06)"/>
+              <stop offset="100%" stop-color="transparent"/>
+            </radialGradient>
+          </defs>
+          <circle cx="110" cy="110" r="107" fill="var(--bg)"/>
+          <circle cx="110" cy="110" r="107" fill="url(#rg1)"/>
+          <circle cx="110" cy="110" r="88" fill="none" stroke="rgba(0,229,255,0.28)" stroke-width="0.8" stroke-dasharray="3,4"/>
+          <circle cx="110" cy="110" r="66" fill="none" stroke="rgba(0,229,255,0.22)" stroke-width="0.8" stroke-dasharray="4,7"/>
+          <circle cx="110" cy="110" r="44" fill="none" stroke="rgba(0,229,255,0.18)" stroke-width="0.8" stroke-dasharray="4,10"/>
+          <circle cx="110" cy="110" r="22" fill="none" stroke="rgba(0,229,255,0.13)" stroke-width="0.8" stroke-dasharray="3,14"/>
+          <line x1="5"   y1="110" x2="215" y2="110" stroke="rgba(0,229,255,0.08)" stroke-width="0.7"/>
+          <line x1="110" y1="5"   x2="110" y2="215" stroke="rgba(0,229,255,0.08)" stroke-width="0.7"/>
+          <line x1="46"  y1="46"  x2="174" y2="174" stroke="rgba(0,229,255,0.04)" stroke-width="0.5"/>
+          <line x1="174" y1="46"  x2="46"  y2="174" stroke="rgba(0,229,255,0.04)" stroke-width="0.5"/>
+          <g id="sweep">
+            <line x1="110" y1="110" x2="198" y2="110" stroke="rgba(0,229,255,0.75)" stroke-width="1.4"/>
+            <path d="M110,110 L198,110 A88,88 0 0,0 173.2,47.2 Z" fill="url(#sg)" opacity="0.55"/>
+          </g>
+          <circle class="sc" id="sc0" cx="110" cy="22"  r="6" fill="#4488ff" opacity="0.9" data-i="0" style="cursor:pointer"/>
+          <circle class="sc" id="sc1" cx="162" cy="128" r="8" fill="#00ff94" opacity="0.9" data-i="1" style="cursor:pointer"/>
+          <circle class="sc" id="sc2" cx="60"  cy="152" r="5" fill="#cc8833" opacity="0.8" data-i="2" style="cursor:pointer"/>
+          <circle class="sc" id="sc3" cx="145" cy="76"  r="4" fill="#ff3d00" opacity="0.8" data-i="3" style="cursor:pointer"/>
+          <circle id="sel-ring" cx="0" cy="0" r="14" fill="none" stroke="var(--c)" stroke-width="1.2" stroke-dasharray="4,3" opacity="0"/>
+          <line x1="110" y1="2"   x2="110" y2="10"  stroke="rgba(0,229,255,0.3)" stroke-width="1.2"/>
+          <line x1="218" y1="110" x2="210" y2="110" stroke="rgba(0,229,255,0.3)" stroke-width="1.2"/>
+          <line x1="110" y1="218" x2="110" y2="210" stroke="rgba(0,229,255,0.3)" stroke-width="1.2"/>
+          <line x1="2"   y1="110" x2="10"  y2="110" stroke="rgba(0,229,255,0.3)" stroke-width="1.2"/>
+          <line x1="103" y1="110" x2="117" y2="110" stroke="var(--c)" stroke-width="1.8"/>
+          <line x1="110" y1="103" x2="110" y2="117" stroke="var(--c)" stroke-width="1.8"/>
+          <circle cx="110" cy="110" r="3" fill="var(--c)" opacity="0.9"/>
+          <circle cx="110" cy="110" r="107" fill="none" stroke="rgba(0,229,255,0.2)" stroke-width="1"/>
+        </svg>
+      </div>
+      <!-- Detail -->
+      <div style="flex:1;padding:10px 12px;overflow-y:auto;display:flex;flex-direction:column;">
+        <div class="slbl">SELECTED CONTACT</div>
+        <div id="sd-name" style="font-size:14px;color:var(--txb);letter-spacing:2px;margin-bottom:2px;">NO CONTACT</div>
+        <div id="sd-type" style="font-size:8px;color:var(--txd);letter-spacing:1px;margin-bottom:8px;">&#8212; CLICK A CONTACT ON RADAR &#8212;</div>
+        <div id="sd-tier-wrap" style="display:none;margin-bottom:6px;">
+          <span id="sd-tier" style="font-size:8px;padding:2px 9px;border:1px solid var(--c);color:var(--c);background:rgba(0,229,255,0.07);letter-spacing:1px;">TIER &#8212;</span>
+        </div>
+        <div id="sd-extra" style="display:none;">
+          <div class="rr"><span class="rk">DISTANCE</span><span class="rv c sm" id="sd-dist">&#8212;</span></div>
+          <div class="rr"><span class="rk">POPULATION</span><span class="rv sm" id="sd-pop">&#8212;</span></div>
+          <div class="hdiv"></div>
+          <div class="slbl">RESOURCE SURVEY</div>
+          <div class="resrow"><span class="rk">HYDROCARBONS</span><div class="resbar"><div id="sdr0" style="background:var(--ca)"></div></div><span class="resval" id="sdv0">&#8212;</span></div>
+          <div class="resrow"><span class="rk">METALS</span>       <div class="resbar"><div id="sdr1" style="background:var(--c)"></div></div> <span class="resval" id="sdv1">&#8212;</span></div>
+          <div class="resrow"><span class="rk">RARE EARTH</span>   <div class="resbar"><div id="sdr2" style="background:#dd66ff"></div></div><span class="resval" id="sdv2">&#8212;</span></div>
+          <div class="resrow"><span class="rk">ICE</span>           <div class="resbar"><div id="sdr3" style="background:#88ccff"></div></div><span class="resval" id="sdv3">&#8212;</span></div>
+          <div style="margin-top:8px;display:flex;gap:5px;align-items:center;">
+            <button class="hbtn pri btn-xl">&#8594; SET DESTINATION</button>
+            <button class="hbtn btn-sm">LOG</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══ POWER ════════════════════════════════════════════════════════════════ -->
+<div class="po">
+  <span class="corn tl"></span><span class="corn tr"></span>
+  <span class="corn bl"></span><span class="corn br"></span>
+  <div class="panel">
+    <div class="phdr">
+      <span class="pico" style="color:var(--ca)">&#9889;</span>
+      <span class="ptitle">POWER MANAGEMENT</span>
+      <div class="pstat">
+        <span>OUTPUT</span><span class="va">1,840 GW</span>
+        <span>ONLINE</span><span class="vc" id="rx-online">3/4</span>
+        <span>DIST</span><span class="vc" id="pow-dist">63.0%</span>
+      </div>
+    </div>
+    <div class="pbody">
+      <div style="flex:1;padding:8px 12px;overflow-y:auto;display:flex;flex-direction:column;gap:4px;">
+        <div class="slbl">REACTORS</div>
+        <div id="rx-grid" style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:5px;"></div>
+        <div class="hdiv"></div>
+        <div class="slbl">BATTERY BANK</div>
+        <div style="background:rgba(0,229,255,0.04);border:1px solid rgba(0,229,255,0.1);padding:6px 9px;">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:5px;font-size:9px;">
+            <span style="color:var(--ca);letter-spacing:1px">&#9889; CHARGING</span>
+            <span style="color:var(--c)">312 / 500 GW</span>
+            <span>62.4%</span>
+          </div>
+          <div class="sbar" id="bat-bar"></div>
+        </div>
+        <div class="hdiv"></div>
+        <div class="slbl">POWER DISTRIBUTION</div>
+        <div id="alloc-grid" style="display:grid;grid-template-columns:1fr 1fr;gap:5px;"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══ TRANSPORTATION ══════════════════════════════════════════════════════ -->
+<div class="po">
+  <span class="corn tl"></span><span class="corn tr"></span>
+  <span class="corn bl"></span><span class="corn br"></span>
+  <div class="panel">
+    <div class="phdr">
+      <span class="pico" style="color:var(--cg)">&#8644;</span>
+      <span class="ptitle">TRANSPORTATION</span>
+      <div class="pstat">
+        <span>BOTS</span><span class="vg" id="bot-active">3 ACTIVE</span>
+        <span>CHG BAY</span><span class="vc">84 GW</span>
+        <span>TRIPS</span><span class="vc">47</span>
+      </div>
+    </div>
+    <div class="pbody" style="flex-direction:column;overflow-y:auto;padding:14px 18px;gap:0;">
+
+      <!-- Row 1: Bot -->
+      <div style="display:grid;grid-template-columns:1fr;gap:4px;margin-bottom:12px;">
+        <div class="slbl" style="margin-bottom:6px;">DISPATCH ORDER</div>
+        <div style="font-size:14px;color:var(--txd);letter-spacing:2px;margin-bottom:6px;">BOT</div>
+        <div style="display:flex;justify-content:center;">
+          <button class="hbtn hdd-btn btn-md" id="hdd-bot" onclick="hddOpen(this,['BOT #2 \u2014 IDLE (100%)','BOT #1 \u2014 IDLE (88%)'])"><span class="hdd-lbl">BOT #2 &#8212; IDLE (100%)</span><span class="hdd-arr">&#9660;</span></button>
+        </div>
+      </div>
+
+      <!-- Row 2: From / To -->
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px;">
+        <div style="display:flex;flex-direction:column;align-items:center;">
+          <div style="font-size:14px;color:var(--txd);letter-spacing:2px;margin-bottom:6px;align-self:flex-start;">CARRY FROM</div>
+          <button class="hbtn hdd-btn btn-md" id="hdd-from" onclick="hddOpen(this,['CARGO BAY','POWER ROOM','WEAPONS ROOM','MEDICAL BAY'])"><span class="hdd-lbl">CARGO BAY</span><span class="hdd-arr">&#9660;</span></button>
+        </div>
+        <div style="display:flex;flex-direction:column;align-items:center;">
+          <div style="font-size:14px;color:var(--txd);letter-spacing:2px;margin-bottom:6px;align-self:flex-start;">CARRY TO</div>
+          <button class="hbtn hdd-btn btn-md" id="hdd-to" onclick="hddOpen(this,['ENGINE ROOM','LIVING QUARTERS','MANUFACTURING','BRIDGE'])"><span class="hdd-lbl">ENGINE ROOM</span><span class="hdd-arr">&#9660;</span></button>
+        </div>
+      </div>
+
+      <!-- Row 3: Resource / Amount -->
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px;">
+        <div style="display:flex;flex-direction:column;align-items:center;">
+          <div style="font-size:14px;color:var(--txd);letter-spacing:2px;margin-bottom:6px;align-self:flex-start;">RESOURCE</div>
+          <button class="hbtn hdd-btn btn-md" id="hdd-cargo" onclick="hddOpen(this,['FUEL','METALS','RARE EARTH','HYDROCARBONS','RATIONS','AIR SCRUBBERS'])"><span class="hdd-lbl">FUEL</span><span class="hdd-arr">&#9660;</span></button>
+        </div>
+        <div style="display:flex;flex-direction:column;align-items:center;">
+          <div style="font-size:14px;color:var(--txd);letter-spacing:2px;margin-bottom:6px;align-self:flex-start;">AMOUNT</div>
+          <button class="hbtn hdd-btn btn-md" id="hdd-amt" onclick="hddOpen(this,['50','100','200','500','1000','MAX'])"><span class="hdd-lbl">500</span><span class="hdd-arr">&#9660;</span></button>
+        </div>
+      </div>
+
+      <!-- Row 4: Dispatch -->
+      <div style="display:flex;justify-content:center;margin-bottom:16px;">
+        <button id="dsp-btn" class="hbtn grn btn-md">&#9654; DISPATCH</button>
+      </div>
+
+      <div class="hdiv"></div>
+
+      <!-- Cargo bay inventory -->
+      <div class="slbl">CARGO BAY INVENTORY</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;">
+        <div style="background:rgba(0,229,255,0.03);border:1px solid rgba(0,229,255,0.08);padding:10px 14px;">
+          <div style="display:flex;justify-content:space-between;padding:3px 0;font-size:18px;"><span style="color:var(--txd)">FUEL</span><span>2,840</span></div>
+          <div style="display:flex;justify-content:space-between;padding:3px 0;font-size:18px;"><span style="color:var(--txd)">METALS</span><span>1,200</span></div>
+        </div>
+        <div style="background:rgba(0,229,255,0.03);border:1px solid rgba(0,229,255,0.08);padding:10px 14px;">
+          <div style="display:flex;justify-content:space-between;padding:3px 0;font-size:18px;"><span style="color:var(--txd)">RARE EARTH</span><span>380</span></div>
+          <div style="display:flex;justify-content:space-between;padding:3px 0;font-size:18px;"><span style="color:var(--txd)">HYDROCARBONS</span><span>740</span></div>
+        </div>
+      </div>
+
+      <div class="hdiv"></div>
+
+      <!-- Fleet status -->
+      <div class="slbl">FLEET</div>
+      <div id="bot-list"></div>
+
+    </div>
+  </div>
+</div>
+
+</div><!-- #grid -->
+
+<script>
+// Text-fit: wrap then shrink font until button content fits
+var BTN_BASE_SIZES = {'btn-xs':12,'btn-sm':15,'btn-md':18,'btn-lg':21,'btn-xl':25};
+function fitBtnText() {
+  document.querySelectorAll('.hbtn, .chip').forEach(function(btn) {
+    var base = 9;
+    for (var cls in BTN_BASE_SIZES) {
+      if (btn.classList.contains(cls)) { base = BTN_BASE_SIZES[cls]; break; }
+    }
+    btn.style.fontSize = base + 'px';
+    var fs = base;
+    while (fs > 5.5 && (btn.scrollHeight > btn.clientHeight + 1 || btn.scrollWidth > btn.clientWidth + 1)) {
+      fs -= 0.5;
+      btn.style.fontSize = fs + 'px';
+    }
+  });
+}
+
+// Clock
+function tickClock() {
+  var d = new Date();
+  document.getElementById('clock').textContent =
+    d.getUTCFullYear() + '.' + String(d.getUTCMonth()+1).padStart(2,'0') + '.' +
+    String(d.getUTCDate()).padStart(2,'0') + ' \u00b7 ' +
+    String(d.getUTCHours()).padStart(2,'0') + ':' +
+    String(d.getUTCMinutes()).padStart(2,'0') + ':' +
+    String(d.getUTCSeconds()).padStart(2,'0') + ' UTC';
+}
+tickClock(); setInterval(tickClock, 1000);
+
+// Radar sweep
+var sweepDeg = 0, sweepPaused = false;
+(function animSweep() {
+  if (!sweepPaused) {
+    sweepDeg = (sweepDeg + 0.55) % 360;
+    document.getElementById('sweep').setAttribute('transform', 'rotate(' + sweepDeg + ',110,110)');
+  }
+  requestAnimationFrame(animSweep);
+})();
+document.getElementById('scan-tog').addEventListener('click', function() {
+  sweepPaused = !sweepPaused;
+  this.textContent = sweepPaused ? 'RESUME' : 'PAUSE';
+  this.style.borderColor = sweepPaused ? 'rgba(255,61,0,.5)' : '';
+  this.style.color = sweepPaused ? 'var(--cr)' : '';
+  document.getElementById('scan-st').textContent = sweepPaused ? '\u25a0 PAUSED' : '\u25cf ACTIVE';
+  document.getElementById('scan-st').className = sweepPaused ? 'vr' : 'vg';
+});
+
+// Heading
+var heading = 45;
+function updateHeading() {
+  document.getElementById('hdg-val').textContent = String(heading).padStart(3,'0') + '\u00b0';
+  var rad = (heading - 90) * Math.PI / 180;
+  var ln = document.getElementById('hdg-line');
+  ln.setAttribute('x2', (147 + Math.cos(rad)*38).toFixed(1));
+  ln.setAttribute('y2', (73.5 + Math.sin(rad)*38).toFixed(1));
+}
+document.getElementById('hdg-dec').addEventListener('click', function() { heading = (heading-5+360)%360; updateHeading(); });
+document.getElementById('hdg-inc').addEventListener('click', function() { heading = (heading+5)%360; updateHeading(); });
+
+// Mode chips
+document.getElementById('nav-modes').addEventListener('click', function(e) {
+  var b = e.target.closest('.chip'); if (!b) return;
+  document.querySelectorAll('#nav-modes .chip').forEach(function(c){c.classList.remove('on');});
+  b.classList.add('on');
+  var st = document.getElementById('nav-st');
+  st.textContent = '\u25cf ' + b.dataset.mode;
+  st.style.color = b.dataset.mode === 'WARP' ? 'var(--c)' : '';
+});
+
+// Engage / Stop
+document.getElementById('nav-engage').addEventListener('click', function() {
+  var st = document.getElementById('nav-st');
+  st.textContent = '\u25ba TRAVELING'; st.style.color = 'var(--cg)';
+  document.getElementById('nav-eta').textContent = (Math.random()*8+1).toFixed(1) + ' min';
+  document.getElementById('nav-spd').textContent = '0.31 AU/s';
+});
+document.getElementById('nav-stop').addEventListener('click', function() {
+  var st = document.getElementById('nav-st');
+  st.textContent = '\u25a0 STOPPED'; st.style.color = 'var(--cr)';
+  document.getElementById('nav-eta').textContent = '\u2014';
+  document.getElementById('nav-spd').textContent = '0.00 AU/s';
+});
+
+// Nav planet click
+document.querySelectorAll('.np').forEach(function(p) {
+  p.addEventListener('click', function() {
+    document.getElementById('nav-tgt-lbl').textContent = '\u25ba TARGET: ' + p.dataset.name;
+    document.getElementById('nav-eta').textContent = (Math.random()*12+1).toFixed(1) + ' min';
+    var r = document.getElementById('nav-tgt-ring');
+    r.setAttribute('cx', p.dataset.cx); r.setAttribute('cy', p.dataset.cy);
+    r.setAttribute('r',  (parseFloat(p.getAttribute('r'))*2.4).toString());
+    r.setAttribute('opacity','0.85');
+  });
+});
+
+// Scan contacts
+var CONTACTS = [
+  {name:'AETHON',     type:'GAS GIANT \u00b7 UNINHABITED',  tier:2, dist:'0.60 AU', pop:'\u2014',   res:[20,70,40,15]},
+  {name:'HAVEN',      type:'TERRA-AQUA \u00b7 INHABITED',   tier:3, dist:'0.85 AU', pop:'12.4M', res:[72,48,20,85]},
+  {name:'DUSTMARK',   type:'ROCKY BODY \u00b7 BARREN',      tier:1, dist:'1.30 AU', pop:'\u2014',   res:[15,85,30,5]},
+  {name:'NPC VESSEL', type:'HOSTILE \u2014 CLASS UNKNOWN',  tier:0, dist:'0.42 AU', pop:'?',     res:[0,0,0,0]},
+];
+function selectContact(i) {
+  var c = CONTACTS[i];
+  document.getElementById('sd-name').textContent = c.name;
+  document.getElementById('sd-type').textContent = c.type;
+  var tw = document.getElementById('sd-tier-wrap');
+  if (c.tier > 0) { tw.style.display=''; document.getElementById('sd-tier').textContent='TIER '+c.tier; }
+  else tw.style.display='none';
+  document.getElementById('sd-extra').style.display='';
+  document.getElementById('sd-dist').textContent=c.dist;
+  document.getElementById('sd-pop').textContent=c.pop;
+  c.res.forEach(function(v,j){
+    document.getElementById('sdr'+j).style.width=v+'%';
+    document.getElementById('sdv'+j).textContent=v>60?'RICH':v>30?'MOD':v>0?'LOW':'\u2014';
+  });
+  var dot=document.querySelectorAll('.sc')[i], ring=document.getElementById('sel-ring');
+  ring.setAttribute('cx',dot.getAttribute('cx'));
+  ring.setAttribute('cy',dot.getAttribute('cy'));
+  ring.setAttribute('r',(parseFloat(dot.getAttribute('r'))*2.2).toString());
+  ring.setAttribute('opacity','0.9');
+}
+document.querySelectorAll('.sc').forEach(function(s){
+  s.addEventListener('click', function(){selectContact(+s.dataset.i);});
+});
+
+// Reactors
+var REACTORS = [
+  {id:'R1',type:'FUEL',hp:98, heat:23,gw:460,on:true},
+  {id:'R2',type:'FUEL',hp:94, heat:41,gw:460,on:true},
+  {id:'R3',type:'RAD', hp:100,heat:8, gw:460,on:true},
+  {id:'R4',type:'RAD', hp:12, heat:99,gw:0,  on:false,fault:'MELTDOWN'},
+];
+function buildReactors() {
+  var g=document.getElementById('rx-grid'); g.innerHTML='';
+  REACTORS.forEach(function(r,i){
+    var hc=r.heat>70?'var(--cr)':r.heat>40?'var(--ca)':'var(--cg)';
+    var card=document.createElement('div');
+    card.style.cssText='background:rgba(0,229,255,0.04);border:1px solid '+(r.on?'rgba(0,229,255,0.2)':'rgba(255,61,0,0.2)')+';padding:6px 5px;';
+    card.innerHTML=
+      '<div style="font-size:8px;letter-spacing:1px;color:'+(r.on?'var(--ca)':'var(--cr)')+';margin-bottom:3px;font-weight:bold;">'+r.id+' '+r.type+'</div>'+
+      (r.fault?'<div style="font-size:7px;color:var(--cr);border:1px solid rgba(255,61,0,.25);text-align:center;padding:2px;margin-bottom:2px;">\u26a0 '+r.fault+'</div>':'')+
+      (r.on?
+        '<div style="display:flex;justify-content:space-between;font-size:7px;margin-bottom:2px;"><span style="color:var(--cg)">HP '+r.hp+'%</span><span style="color:'+hc+'">HT '+r.heat+'%</span></div>'+
+        '<div style="height:5px;background:rgba(0,0,0,0.4);border-radius:9999px;overflow:hidden;margin-bottom:3px;box-shadow:0 0 4px '+hc+',inset 0 0 2px rgba(0,229,255,0.1);"><div style="height:100%;width:'+r.heat+'%;background:'+hc+';border-radius:9999px;filter:brightness(1.2);"></div></div>'+
+        '<div style="font-size:8px;color:var(--c);text-align:right;margin-bottom:2px;">'+r.gw+' GW</div>'
+      :'<div style="font-size:8px;color:var(--cr);text-align:right;margin-bottom:8px;">OFFLINE</div>')+
+      '<button class="hbtn btn-md '+(r.on?'dan':'grn')+'" data-ri="'+i+'">'+(r.on?'SHUT DOWN':'START UP')+'</button>';
+    g.appendChild(card);
+  });
+  g.querySelectorAll('[data-ri]').forEach(function(b){
+    b.addEventListener('click', function(){
+      REACTORS[+b.dataset.ri].on=!REACTORS[+b.dataset.ri].on;
+      buildReactors(); fitBtnText();
+      document.getElementById('rx-online').textContent=REACTORS.filter(function(r){return r.on;}).length+'/4';
+    });
+  });
+}
+buildReactors();
+fitBtnText();
+
+// Battery
+var bb=document.getElementById('bat-bar');
+for(var i=0;i<20;i++){var s=document.createElement('div');s.className='seg'+(i<12?' on a':'');bb.appendChild(s);}
+
+// Allocation sliders
+var ALLOCS=[
+  {id:'eng', name:'ENGINES',      val:22,c:'var(--c)'},
+  {id:'shd', name:'SHIELDS',      val:18,c:'var(--c)'},
+  {id:'lsp', name:'LIFE SUPPORT', val:8, c:'var(--cg)',locked:true},
+  {id:'wpn', name:'WEAPONS',      val:15,c:'var(--cr)'},
+];
+function updateDist(){
+  document.getElementById('pow-dist').textContent=ALLOCS.reduce(function(s,a){return s+a.val;},0).toFixed(1)+'%';
+}
+(function buildAlloc(){
+  var g=document.getElementById('alloc-grid'); g.innerHTML='';
+  ALLOCS.forEach(function(a){
+    var card=document.createElement('div');
+    card.style.cssText='background:rgba(0,229,255,0.04);border:1px solid rgba(0,229,255,0.1);padding:6px 7px;';
+    card.innerHTML=
+      '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">'+
+        '<span style="font-size:16px;color:var(--tx);letter-spacing:1px;">'+a.name+'</span>'+
+        '<span id="ap-'+a.id+'" style="font-size:18px;color:'+a.c+';font-weight:bold;">'+a.val.toFixed(1)+'%</span>'+
+      '</div>'+
+      '<div style="height:12px;background:rgba(0,229,255,0.1);border-radius:9999px;overflow:hidden;margin-bottom:8px;box-shadow:0 0 4px '+a.c+',inset 0 0 2px rgba(0,229,255,0.1);">'+
+        '<div id="ab-'+a.id+'" style="height:100%;width:'+a.val+'%;background:'+a.c+';border-radius:9999px;filter:brightness(1.2);"></div>'+
+      '</div>'+
+      '<input type="range" id="as-'+a.id+'" min="0" max="100" step="0.5" value="'+a.val+'"'+
+             ' style="--pct:'+a.val+'%;--sl-c:'+a.c+';"'+(a.locked?' disabled':'')+'>';
+    g.appendChild(card);
+    if(!a.locked){
+      (function(aa){
+        var sl=card.querySelector('#as-'+aa.id);
+        sl.addEventListener('input',function(){
+          var v=+sl.value; aa.val=v;
+          document.getElementById('ap-'+aa.id).textContent=v.toFixed(1)+'%';
+          document.getElementById('ab-'+aa.id).style.width=v+'%';
+          sl.style.setProperty('--pct',v+'%');
+          updateDist();
+        });
+      })(a);
+    }
+  });
+})();
+updateDist();
+
+// Bots
+var BOTS=[
+  {id:1,status:'TRAVELING',health:88, charge:72, dest:'ENGINE ROOM',sc:'var(--ca)'},
+  {id:2,status:'IDLE',     health:100,charge:100,dest:null,         sc:'var(--cg)'},
+  {id:3,status:'CHARGING', health:61, charge:34, dest:null,         sc:'var(--c)'},
+];
+function renderBots(){
+  var list=document.getElementById('bot-list'); list.innerHTML='';
+  BOTS.forEach(function(b){
+    var hc=b.health>80?'var(--cg)':b.health>50?'var(--ca)':'var(--cr)';
+    var cc=b.charge>60?'var(--c)':'var(--ca)';
+    var d=document.createElement('div');
+    d.style.cssText='padding:6px 10px;border-bottom:1px solid rgba(0,229,255,0.06);';
+    d.innerHTML=
+      '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">'+
+        '<span style="font-size:18px;color:var(--c);letter-spacing:1px;">\u21c4 BOT #'+b.id+'</span>'+
+        '<span style="font-size:14px;letter-spacing:1px;color:'+b.sc+'">'+b.status+'</span>'+
+      '</div>'+
+      '<div style="display:flex;align-items:center;gap:6px;margin-bottom:5px;">'+
+        '<span style="font-size:14px;color:var(--txd);width:38px;">HLTH</span>'+
+        '<div style="flex:1;height:12px;background:rgba(0,229,255,0.1);border-radius:9999px;overflow:hidden;box-shadow:0 0 4px '+hc+',inset 0 0 2px rgba(0,229,255,0.08);"><div style="height:100%;width:'+b.health+'%;background:'+hc+';border-radius:9999px;filter:brightness(1.2);"></div></div>'+
+        '<span style="font-size:14px;color:'+hc+';width:42px;text-align:right">'+b.health+'%</span>'+
+      '</div>'+
+      '<div style="display:flex;align-items:center;gap:6px;">'+
+        '<span style="font-size:14px;color:var(--txd);width:38px;">CHG</span>'+
+        '<div style="flex:1;height:12px;background:rgba(0,229,255,0.1);border-radius:9999px;overflow:hidden;box-shadow:0 0 4px '+cc+',inset 0 0 2px rgba(0,229,255,0.08);"><div style="height:100%;width:'+b.charge+'%;background:'+cc+';border-radius:9999px;filter:brightness(1.2);"></div></div>'+
+        '<span style="font-size:14px;color:'+cc+';width:42px;text-align:right">'+b.charge+'%</span>'+
+      '</div>'+
+      (b.dest?'<div style="font-size:14px;color:var(--txd);margin-top:5px;">\u2192 '+b.dest+'</div>':'');
+    list.appendChild(d);
+  });
+  document.getElementById('bot-active').textContent=BOTS.filter(function(b){return b.status!=='OFFLINE';}).length+' ACTIVE';
+}
+renderBots();
+fitBtnText();
+
+// Custom HUD dropdown popup
+var _hddBtn = null;
+(function(){
+  var pop = document.createElement('div');
+  pop.id = 'hdd-popup';
+  pop.style.cssText = 'display:none;position:absolute;z-index:9999;background:#0a2035;border:1px solid #00e5ff;box-shadow:0 0 18px rgba(0,229,255,0.22);padding:3px;min-width:120px;';
+  document.body.appendChild(pop);
+})();
+function hddOpen(btn, opts) {
+  hddClosePopup();
+  var pop = document.getElementById('hdd-popup');
+  _hddBtn = btn;
+  pop.innerHTML = '';
+  opts.forEach(function(o) {
+    var b = document.createElement('button');
+    b.className = 'hbtn btn-md';
+    b.textContent = o;
+    b.style.cssText = 'display:inline-flex;width:100%;margin-bottom:2px;';
+    b.onclick = function(e) { e.stopPropagation(); hddPick(o); };
+    pop.appendChild(b);
+  });
+  var sep = document.createElement('div');
+  sep.style.cssText = 'border-top:1px solid rgba(255,61,0,0.25);padding-top:3px;margin-top:1px;';
+  var cb = document.createElement('button');
+  cb.className = 'hbtn dan btn-md';
+  cb.innerHTML = '\u2716 &nbsp; CLOSE';
+  cb.style.cssText = 'display:block;';
+  cb.onclick = function(e) { e.stopPropagation(); hddClosePopup(); };
+  sep.appendChild(cb);
+  pop.appendChild(sep);
+  pop.style.display = 'block';
+  fitBtnText();
+  var rect = btn.getBoundingClientRect();
+  var scrollY = window.scrollY || document.documentElement.scrollTop;
+  var scrollX = window.scrollX || document.documentElement.scrollLeft;
+  pop.style.width = '';
+  pop.style.left = (rect.left + scrollX) + 'px';
+  var popH = pop.offsetHeight;
+  var spaceBelow = window.innerHeight - rect.bottom;
+  pop.style.top = (spaceBelow >= popH ? rect.bottom + scrollY + 2 : rect.top + scrollY - popH - 2) + 'px';
+  pop.style.bottom = '';
+}
+function hddPick(val) {
+  if (_hddBtn) {
+    _hddBtn.querySelector('.hdd-lbl').textContent = val;
+    _hddBtn.dataset.val = val;
+  }
+  hddClosePopup();
+}
+function hddClosePopup() {
+  var pop = document.getElementById('hdd-popup');
+  if (pop) pop.style.display = 'none';
+  _hddBtn = null;
+}
+document.addEventListener('click', function(e) {
+  var pop = document.getElementById('hdd-popup');
+  if (pop && pop.style.display !== 'none') {
+    if (!pop.contains(e.target) && (!_hddBtn || !_hddBtn.contains(e.target))) {
+      hddClosePopup();
+    }
+  }
+});
+
+document.getElementById('dsp-btn').addEventListener('click', function(){
+  var idle=null;
+  for(var i=0;i<BOTS.length;i++){if(BOTS[i].status==='IDLE'){idle=BOTS[i];break;}}
+  var btn=document.getElementById('dsp-btn');
+  if(idle){
+    idle.status='TRAVELING'; idle.sc='var(--ca)'; idle.dest='ENGINE ROOM';
+    renderBots(); fitBtnText();
+    btn.textContent='\u2713 DISPATCHED';
+    btn.style.borderColor='rgba(0,255,148,0.6)'; btn.style.background='rgba(0,255,148,0.1)';
+    setTimeout(function(){btn.textContent='\u25ba DISPATCH';btn.style.borderColor='';btn.style.background='';},2000);
+  } else {
+    btn.textContent='\u26a0 NO IDLE BOTS';
+    btn.style.borderColor='rgba(255,61,0,.5)'; btn.style.color='var(--cr)';
+    setTimeout(function(){btn.textContent='\u25ba DISPATCH';btn.style.borderColor='';btn.style.color='';},2000);
+  }
+});
+window.addEventListener('load', fitBtnText);
+</script>
+</body>
+</html>

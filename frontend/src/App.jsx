@@ -1,28 +1,35 @@
 import { useState } from 'react'
 import { useGameSocket } from './api/useGameSocket.js'
+import LandingPage       from './pages/LandingPage.jsx'
+import NewGamePage       from './pages/NewGamePage.jsx'
 import ConsoleSelectPage from './pages/ConsoleSelectPage.jsx'
 import GamePage          from './pages/GamePage.jsx'
 import AdminPage         from './pages/AdminPage.jsx'
 import ObserverPage      from './pages/ObserverPage.jsx'
 import StyleLabPage      from './pages/StyleLabPage.jsx'
+import HudGamePage       from './pages/HudGamePage.jsx'
 
 // Samsung Galaxy Tab S9 11" landscape: 1280 × 800 CSS px
 // The outer div pins the viewport to exactly those dimensions.
 export default function App() {
   const { gameState, connected, sendCommand, lastError, lastAck } = useGameSocket()
-  // page: 'select' | 'game' | 'admin' | 'observer'
-  const [page, setPage]       = useState('select')
+  // page: 'landing' | 'newGame' | 'select' | 'game' | 'hud-game' | 'admin' | 'observer' | 'styleLab'
+  const [page, setPage]         = useState('landing')
   const [consoles, setConsoles] = useState([])
 
-  function handleEnter({ role, consoles: selected }) {
+  function handleEnter({ role, consoles: selected, mode }) {
     if (role === 'admin') {
       setPage('admin')
     } else if (role === 'observer') {
       setPage('observer')
     } else {
       setConsoles(selected)
-      setPage('game')
+      setPage(mode === 'hud' ? 'hud-game' : 'game')
     }
+  }
+
+  function handleJoin() {
+    if (gameState?.status === 'running') setPage('select')
   }
 
   return (
@@ -32,29 +39,64 @@ export default function App() {
       position: 'relative',
       background: 'var(--bg-base)',
     }}>
-      {/* Connection indicator — top-right corner, always visible */}
-      <div style={{
-        position: 'absolute', top: 6, right: page === 'select' ? 16 : 70,
-        fontSize: '9px', color: connected ? 'var(--accent-green)' : 'var(--accent-red)',
-        fontFamily: 'var(--font-mono)', zIndex: 100, pointerEvents: 'none',
-        letterSpacing: '1px',
-      }}>
-        {connected ? '● LIVE' : '○ OFFLINE'}
-      </div>
+      {/* Connection indicator — only on non-HUD pages (HUD has its own pip) */}
+      {page !== 'hud-game' && (
+        <div style={{
+          position: 'absolute', top: 6,
+          right: (page === 'select' || page === 'landing' || page === 'newGame') ? 16 : 70,
+          fontSize: '9px', color: connected ? 'var(--accent-green)' : 'var(--accent-red)',
+          fontFamily: 'var(--font-mono)', zIndex: 100, pointerEvents: 'none',
+          letterSpacing: '1px',
+        }}>
+          {connected ? '● LIVE' : '○ OFFLINE'}
+        </div>
+      )}
 
+      {page === 'landing' && (
+        <LandingPage
+          gameState={gameState}
+          onNewGame={() => setPage('newGame')}
+          onJoin={handleJoin}
+          onObserver={() => setPage('observer')}
+          onAdmin={() => setPage('admin')}
+          onStyle={() => setPage('styleLab')}
+        />
+      )}
+      {page === 'newGame' && (
+        <NewGamePage
+          onCancel={() => setPage('landing')}
+          onStarted={() => setPage('select')}
+        />
+      )}
       {page === 'select' && (
-        <ConsoleSelectPage onEnter={handleEnter} onStyle={() => setPage('styleLab')} />
+        <ConsoleSelectPage
+          gameState={gameState}
+          onEnter={handleEnter}
+          onNewGame={() => setPage('newGame')}
+          onStyle={() => setPage('styleLab')}
+        />
       )}
       {page === 'styleLab' && (
-        <StyleLabPage onBack={() => setPage('select')} />
+        <StyleLabPage onBack={() => setPage('landing')} />
       )}
       {page === 'game' && (
         <GamePage
+          consoles={consoles}
+          gameState={gameState}landing
+          sendCommand={sendCommand}
+          lastError={lastError}
+          lastAck={lastAck}
+          onExit={() => setPage('select')}
+        />
+      )}
+      {page === 'hud-game' && (
+        <HudGamePage
           consoles={consoles}
           gameState={gameState}
           sendCommand={sendCommand}
           lastError={lastError}
           lastAck={lastAck}
+          connected={connected}
           onExit={() => setPage('select')}
         />
       )}

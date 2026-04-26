@@ -12,6 +12,7 @@ from game.tick import tick_loop
 from routers.game import router as game_router
 from routers.ws   import router as ws_router
 from routers.ai   import router as ai_router
+from routers.feedback import router as feedback_router
 
 
 @asynccontextmanager
@@ -39,6 +40,7 @@ app.add_middleware(
 app.include_router(game_router)
 app.include_router(ws_router)
 app.include_router(ai_router)
+app.include_router(feedback_router)
 
 
 @app.get("/health")

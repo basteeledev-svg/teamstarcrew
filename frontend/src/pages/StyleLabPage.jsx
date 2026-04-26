@@ -433,6 +433,11 @@ export default function StyleLabPage({ onBack }) {
   const [mockPwr,   setMockPwr]   = useState(60)
   const [copied,    setCopied]    = useState(false)
   const [leftTab,   setLeftTab]   = useState('shapes')  // 'shapes' | 'colors'
+  const [fbRating,  setFbRating]  = useState(0)          // -1, 0, 1
+  const [fbComment, setFbComment] = useState('')
+  const [fbSent,    setFbSent]    = useState(false)
+  const [fbHistory, setFbHistory] = useState([])
+  const [fbLoading, setFbLoading] = useState(false)
 
   // Push every change to :root so the whole app updates in real time
   useEffect(() => {
@@ -450,6 +455,48 @@ export default function StyleLabPage({ onBack }) {
     navigator.clipboard?.writeText(out)
     setCopied(true)
     setTimeout(() => setCopied(false), 2500)
+  }
+
+  // ── Feedback ─────────────────────────────────────────────────────────────
+  useEffect(() => {
+    fetch('/api/feedback')
+      .then(r => r.ok ? r.json() : { feedback: [] })
+      .then(d => setFbHistory(d.feedback ?? []))
+      .catch(() => {})
+  }, [])
+
+  function submitFeedback() {
+    if (fbLoading) return
+    setFbLoading(true)
+    // Detect which preset is active (if any)
+    const allPresets = [...PRESETS, ...CB_PRESETS]
+    const activePreset = allPresets.find(p =>
+      Object.entries(p.vars).every(([k, v]) => vars[k] === v)
+    )
+    fetch('/api/feedback', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        category: 'theme',
+        rating: fbRating,
+        comment: fbComment || null,
+        theme_id: activePreset?.id ?? 'custom',
+        theme_vars: activePreset ? null : vars,
+      }),
+    })
+      .then(r => r.json())
+      .then(() => {
+        setFbSent(true)
+        setFbComment('')
+        setTimeout(() => setFbSent(false), 3000)
+        // Refresh history
+        fetch('/api/feedback')
+          .then(r => r.ok ? r.json() : { feedback: [] })
+          .then(d => setFbHistory(d.feedback ?? []))
+          .catch(() => {})
+      })
+      .catch(() => setFbLoading(false))
+      .finally(() => setFbLoading(false))
   }
 
   const currentPreset = null  // unused — kept for future
@@ -935,6 +982,115 @@ export default function StyleLabPage({ onBack }) {
                 </div>
               </div>
             </div>
+          </PrevSection>
+
+          {/* ── Feedback / Rating ── */}
+          <PrevSection title="RATE THIS THEME — YOUR FEEDBACK SHAPES THE GAME">
+            <div style={{ display: 'flex', gap: 12, alignItems: 'flex-start' }}>
+              {/* Rating buttons */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 6, alignItems: 'center', flexShrink: 0 }}>
+                <span style={{ fontSize: 8, color: 'var(--text-dim)', letterSpacing: 1, marginBottom: 2 }}>RATING</span>
+                {[
+                  { val: 1,  icon: '👍', label: 'LIKE',    color: 'var(--status-good)' },
+                  { val: 0,  icon: '—',  label: 'NEUTRAL', color: 'var(--text-muted)'  },
+                  { val: -1, icon: '👎', label: 'DISLIKE', color: 'var(--status-bad)'  },
+                ].map(({ val, icon, label, color }) => (
+                  <button
+                    key={val}
+                    onClick={() => setFbRating(val)}
+                    style={{
+                      width: 64, padding: '6px 4px',
+                      background: fbRating === val ? `${color}18` : 'transparent',
+                      border: `1px solid ${fbRating === val ? color : 'var(--border)'}`,
+                      color: fbRating === val ? color : 'var(--text-dim)',
+                      fontFamily: 'var(--font-mono)', fontSize: 9, letterSpacing: 1,
+                      cursor: 'pointer', borderRadius: 'var(--btn-radius, 2px)',
+                      transition: 'all .15s',
+                    }}
+                  >
+                    <div style={{ fontSize: 16, marginBottom: 2 }}>{icon}</div>
+                    {label}
+                  </button>
+                ))}
+              </div>
+
+              {/* Comment + submit */}
+              <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 6 }}>
+                <textarea
+                  value={fbComment}
+                  onChange={e => setFbComment(e.target.value)}
+                  maxLength={2000}
+                  placeholder="What do you think about this theme? Any suggestions?"
+                  style={{
+                    width: '100%', height: 72, resize: 'vertical',
+                    background: 'var(--bg-input)', border: '1px solid var(--border)',
+                    color: 'var(--text-body)', fontFamily: 'var(--font-mono)', fontSize: 10,
+                    padding: '8px 10px', borderRadius: 'var(--btn-radius, 2px)',
+                    outline: 'none',
+                  }}
+                />
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <span style={{ fontSize: 8, color: 'var(--text-ghost)' }}>
+                    {fbComment.length}/2000
+                  </span>
+                  <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                    {fbSent && (
+                      <span style={{ fontSize: 9, color: 'var(--status-good)', letterSpacing: 1 }}>
+                        ✓ SENT
+                      </span>
+                    )}
+                    <Btn
+                      color="var(--accent)"
+                      onClick={submitFeedback}
+                      small
+                    >
+                      {fbLoading ? '…' : '▶ SUBMIT FEEDBACK'}
+                    </Btn>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Recent feedback history */}
+            {fbHistory.length > 0 && (
+              <div style={{ marginTop: 12, borderTop: '1px solid var(--border-faint)', paddingTop: 8 }}>
+                <div style={{ fontSize: 7, color: 'var(--text-dim)', letterSpacing: 2, marginBottom: 6 }}>
+                  RECENT FEEDBACK ({fbHistory.length})
+                </div>
+                <div style={{ maxHeight: 120, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 4 }}>
+                  {fbHistory.slice(-10).reverse().map((fb, i) => (
+                    <div key={i} style={{
+                      display: 'flex', gap: 8, alignItems: 'flex-start',
+                      padding: '4px 6px', background: 'var(--bg-input)',
+                      border: '1px solid var(--border-faint)',
+                      borderRadius: 'var(--btn-radius, 2px)',
+                    }}>
+                      <span style={{
+                        fontSize: 12, flexShrink: 0, width: 18, textAlign: 'center',
+                        color: fb.rating > 0 ? 'var(--status-good)' : fb.rating < 0 ? 'var(--status-bad)' : 'var(--text-dim)',
+                      }}>
+                        {fb.rating > 0 ? '👍' : fb.rating < 0 ? '👎' : '—'}
+                      </span>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 2 }}>
+                          <span style={{ fontSize: 8, color: 'var(--text-muted)', letterSpacing: 1 }}>
+                            {fb.theme_id?.toUpperCase() ?? 'CUSTOM'}
+                          </span>
+                          <span style={{ fontSize: 7, color: 'var(--text-ghost)' }}>
+                            {fb.ts ? new Date(fb.ts).toLocaleString() : ''}
+                          </span>
+                        </div>
+                        {fb.comment && (
+                          <div style={{ fontSize: 9, color: 'var(--text-body)', wordBreak: 'break-word' }}>
+                            {fb.comment}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
           </PrevSection>
 
           {/* Spacer so content doesn't cram against bottom */}
