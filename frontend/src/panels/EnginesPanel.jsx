@@ -238,6 +238,8 @@ export default function EnginesPanel({ gameState, sendCommand }) {
               health={sysHealth[key] ?? 100}
               isFuel={false}
               maxOutputFrac={maxFracThis}
+              fuelMaxThrust={FUEL_ENGINE_MAX_THRUST}
+              elecMaxThrust={ELEC_ENGINE_MAX_THRUST}
               onOutput={v => handleEngineChange(key, v)}
             />
           )
@@ -252,6 +254,8 @@ export default function EnginesPanel({ gameState, sendCommand }) {
           netRate={warpNetRate}
           warpDrivePct={curWarpPct}
           maxWarpPct={totalPowerGW > 0 ? (warpBudgetGW / totalPowerGW) * 100 : 0}
+          warpCapMax={WARP_CAP_MAX}
+          warpLeakGW={WARP_LEAK_GW}
           onWarpChange={handleWarpDriveChange}
         />
       </div>
@@ -263,14 +267,17 @@ export default function EnginesPanel({ gameState, sendCommand }) {
 // ══════════════════════════════════════════════════════════════════════════════
 // ENGINE CARD
 // ══════════════════════════════════════════════════════════════════════════════
-function EngineCard({ label, output, health, isFuel, maxOutputFrac = 1, onOutput }) {
+function EngineCard({ label, output, health, isFuel, maxOutputFrac = 1,
+                     fuelMaxThrust = _FUEL_ENGINE_MAX_THRUST,
+                     elecMaxThrust = _ELEC_ENGINE_MAX_THRUST,
+                     onOutput }) {
   const accentCol    = isFuel ? ACCENT : ELEC
   const borderCol    = health < 40 ? '#ff444455' : `${accentCol}33`
   const consume      = engineConsumption(output)
   const consumeLabel = isFuel
     ? `${consume.toLocaleString()} fuel/tk`
     : `${consume.toLocaleString()} GW/tk`
-  const thrustMax    = isFuel ? FUEL_ENGINE_MAX_THRUST : ELEC_ENGINE_MAX_THRUST
+  const thrustMax    = isFuel ? fuelMaxThrust : elecMaxThrust
   const thrustContrib = output * (health / 100) * thrustMax
 
   return (
@@ -325,7 +332,12 @@ function EngineCard({ label, output, health, isFuel, maxOutputFrac = 1, onOutput
 // WARP CAPACITOR SECTION
 // ══════════════════════════════════════════════════════════════════════════════
 function WarpCapacitorSection({ capacitorGW, warpAllocGW, netRate,
-                                warpDrivePct, maxWarpPct, onWarpChange }) {
+                                warpDrivePct, maxWarpPct,
+                                warpCapMax = _WARP_CAP_MAX,
+                                warpLeakGW = _WARP_LEAK_GW,
+                                onWarpChange }) {
+  const WARP_CAP_MAX = warpCapMax
+  const WARP_LEAK_GW = warpLeakGW
   const pct      = Math.min(100, (capacitorGW / WARP_CAP_MAX) * 100)
   const isFull   = capacitorGW >= WARP_CAP_MAX - 1
   const isEmpty  = capacitorGW <= 0.1
