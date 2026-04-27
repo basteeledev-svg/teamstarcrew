@@ -28,6 +28,8 @@ from fastapi import APIRouter, Header, HTTPException
 from pydantic import BaseModel
 
 from game.state import game_state, manager
+from game.constants import TICK_RATE_SECONDS
+from game.npc_ai import VALID_BEHAVIORS
 
 router = APIRouter(prefix="/api/ai", tags=["ai"])
 
@@ -69,6 +71,16 @@ class NpcMoveRequest(BaseModel):
     vz: Optional[float] = None
 
 
+class NpcBehaviorRequest(BaseModel):
+    behavior: str                       # idle | patrol | follow | attack | flee | move_to | intercept
+    target_id: Optional[str] = None     # other npc id, or "player"
+    waypoint: Optional[dict] = None     # {"x": float, "z": float}
+    patrol_points: Optional[list] = None  # [{"x":..,"z":..}, ...]
+    speed: Optional[float] = None
+    weapon_range_au: Optional[float] = None
+    flee_distance_au: Optional[float] = None
+
+
 class EventRequest(BaseModel):
     event_type: str                    # e.g. "anomaly", "distress_call", "encounter"
     title: str
@@ -84,6 +96,7 @@ class MessageRequest(BaseModel):
     from_id: str = "ai"
     has_video: bool = False
     video_color: str = "#4488ff"
+    deliver_in_seconds: float = 0.0     # delay before message lands in inbox
 
 
 class AnnotateSystemRequest(BaseModel):
@@ -176,6 +189,53 @@ async def ai_move_npc(
     return {"id": npc_id, "position": npc["position"], "velocity": npc["velocity"]}
 
 
+@router.post("/npc/{npc_id}/behavior")
+async def ai_set_npc_behavior(
+    npc_id: str,
+    req: NpcBehaviorRequest,
+    x_ai_key: Optional[str] = Header(default=None),
+):
+    """Set the high-level behavior driving an NPC's per-tick steering.
+
+    The behavior runs in pure Python (no LLM in the tick loop). The GM
+    client only needs to call this when an NPC's intent changes — it does
+    NOT need to be called every tick.
+    """
+    _check_auth(x_ai_key)
+    _require_running()
+
+    if req.behavior not in VALID_BEHAVIORS:
+        raise HTTPException(
+            status_code=400,
+            detail=f"behavior must be one of {sorted(VALID_BEHAVIORS)}",
+        )
+
+    npc = next((n for n in game_state.npc_ships if n["id"] == npc_id), None)
+    if npc is None:
+        raise HTTPException(status_code=404, detail="NPC not found")
+
+    npc["behavior"] = req.behavior
+    if req.target_id is not None:
+        npc["target_id"] = req.target_id
+    if req.waypoint is not None:
+        npc["waypoint"] = req.waypoint
+    if req.patrol_points is not None:
+        npc["patrol_points"] = req.patrol_points
+        npc["patrol_index"] = 0
+    if req.speed is not None:
+        npc["speed"] = req.speed
+    if req.weapon_range_au is not None:
+        npc["weapon_range_au"] = req.weapon_range_au
+    if req.flee_distance_au is not None:
+        npc["flee_distance_au"] = req.flee_distance_au
+
+    return {
+        "id":       npc_id,
+        "behavior": npc["behavior"],
+        "target_id": npc.get("target_id"),
+    }
+
+
 @router.delete("/npc/{npc_id}", status_code=204)
 async def ai_despawn_npc(
     npc_id: str,
@@ -233,11 +293,17 @@ async def ai_send_message(
     req: MessageRequest,
     x_ai_key: Optional[str] = Header(default=None),
 ):
-    """Deliver a message directly to the crew inbox (Communications panel)."""
+    """Deliver a message directly to the crew inbox (Communications panel).
+
+    If `deliver_in_seconds` > 0 the message is queued and delivered after
+    that wall-clock delay (translated to ticks via TICK_RATE_SECONDS).
+    Use this to simulate light-speed comms delay so the LLM's response
+    latency is invisible to players.
+    """
     _check_auth(x_ai_key)
     _require_running()
 
-    msg = game_state._make_message(
+    kwargs = dict(
         from_id=req.from_id,
         from_name=req.from_name,
         to_id="crew",
@@ -248,6 +314,20 @@ async def ai_send_message(
         has_video=req.has_video,
         video_color=req.video_color,
     )
+
+    if req.deliver_in_seconds and req.deliver_in_seconds > 0:
+        delay_ticks = max(1, int(round(req.deliver_in_seconds / TICK_RATE_SECONDS)))
+        game_state.pending_messages.append({
+            "deliver_at_tick": game_state.tick + delay_ticks,
+            "kwargs":          kwargs,
+        })
+        return {
+            "status":           "queued",
+            "deliver_at_tick":  game_state.tick + delay_ticks,
+            "delay_ticks":      delay_ticks,
+        }
+
+    msg = game_state._make_message(**kwargs)
     return {"status": "delivered", "msg_id": msg["id"]}
 
 

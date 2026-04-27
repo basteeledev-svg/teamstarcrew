@@ -64,6 +64,15 @@ cat > "$VHOST_CONF_DIR/vhost_nginx.conf" <<'NGINX'
 # TeamStarCrew — proxy all traffic to uvicorn backend
 # The backend serves the frontend static files via FastAPI StaticFiles mount
 
+# Block /api/ai/* from the public internet. The AI Game Master client
+# reaches these routes via SSH tunnel directly to 127.0.0.1:8000 on the
+# server (see deploy/start-gm-remote.sh). This makes the tunnel +
+# X-AI-Key the only way to control the GM, even if the key leaks.
+location /api/ai/ {
+    deny all;
+    return 403;
+}
+
 location /api/ {
     proxy_pass http://127.0.0.1:8000;
     proxy_set_header Host $host;

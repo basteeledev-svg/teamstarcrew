@@ -93,6 +93,10 @@ class GameState:
         # Dynamic objects: meteors and player-fired missiles
         self.dynamic_objects: list    = []
         self._next_obj_id: int        = 1
+        # Delayed-delivery message queue: each entry is
+        # {"deliver_at_tick": int, "kwargs": dict-for-_make_message}
+        # Drained every tick by tick_loop → drain_pending_messages.
+        self.pending_messages: list   = []
 
     def is_started(self) -> bool:
         return self.galaxy is not None and self.ship is not None

@@ -25,6 +25,10 @@ Thumbs.db
 *.log
 tss-backup/
 
+# AI GM client
+ai_gm/.venv/
+gm_memory.json
+
 # Playwright (root-level test runner)
 node_modules/
 package-lock.json

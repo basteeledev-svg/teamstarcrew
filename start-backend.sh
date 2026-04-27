@@ -9,4 +9,8 @@ if [ ! -d ".venv" ]; then
   .venv/bin/pip install -q -r requirements.txt
 fi
 
+# Default AI key for local dev so the GM client can authenticate.
+# Override by exporting AI_API_KEY before running this script.
+export AI_API_KEY="${AI_API_KEY:-devkey}"
+
 exec .venv/bin/uvicorn main:app --reload --port 8000

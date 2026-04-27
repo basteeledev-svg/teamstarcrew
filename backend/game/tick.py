@@ -11,6 +11,7 @@ from .constants import (
     SECTION_SIDES,
 )
 from .state import game_state, manager
+from .npc_ai import update_npcs
 
 
 # ── Combat geometry helpers ────────────────────────────────────────────────────
@@ -164,6 +165,19 @@ def update_combat(gs) -> None:
                         ship.weapons_locked_target_id = None
 
 
+def _drain_pending_messages(gs) -> None:
+    """Deliver any AI-queued messages whose deliver_at_tick has been reached."""
+    if not gs.pending_messages:
+        return
+    still_pending = []
+    for entry in gs.pending_messages:
+        if gs.tick >= entry["deliver_at_tick"]:
+            gs._make_message(**entry["kwargs"])
+        else:
+            still_pending.append(entry)
+    gs.pending_messages = still_pending
+
+
 async def tick_loop() -> None:
     """Runs forever at TICK_RATE_SECONDS intervals.
     Each tick: advance ship, broadcast state to all WebSocket clients."""
@@ -207,6 +221,8 @@ async def tick_loop() -> None:
             ship.update_component_jobs() # advance component install/uninstall
 
             update_combat(game_state)    # meteors, missiles, laser fire, damage
+            update_npcs(game_state)      # AI-driven NPC steering & combat
+            _drain_pending_messages(game_state)  # release delayed AI messages
 
             # Mark system visited on arrival
             if current and not current.visited:
