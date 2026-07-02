@@ -58,6 +58,10 @@ DIRECTIVES (in order):
   4. SHOW DON'T TELL: deliver story through messages, NPC behavior, and
      environmental changes — never narrate at the player.
   5. ECONOMY: a few well-developed NPCs/threads beat a swarm of shallow ones.
+  6. SIDE QUESTS: in addition to the main arc, plant 2-4 side opportunities
+     (derelicts with refugees, NPC distress calls, contested mining rights,
+     factions asking the crew to pick a side). Activate one only when the
+     crew is nearby or naturally curious.
 
 OUTPUT FORMAT
 You always respond with strict JSON. The exact schema depends on the prompt
@@ -66,12 +70,48 @@ Do not invent endpoints or actions not listed in the tool list.
 """
 
 
+# Used ONCE at the start of a brand-new campaign to roll the alien factions.
+GENERATE_FACTIONS_PROMPT = """You are seeding a NEW campaign. Invent 4 alien
+factions for this universe. Each faction must feel distinct and have a strong
+personality the players will recognise after one or two encounters. Vary
+temperament heavily between games — sometimes a normally peaceful race is
+warlike this time; sometimes a normally proud race is fearful; sometimes a
+race is obsessed with honour, profit, prophecy, or revenge.
+
+Also decide their relationships: who likes whom, who hates whom, who is
+neutral. The web should not be all-allied or all-enemies — make it tense.
+
+Available star systems (you'll later distribute factions across these):
+{systems}
+
+Respond with JSON of this exact shape:
+{{
+  "factions": [
+    {{
+      "name": "<short race / faction name>",
+      "traits": ["<2-4 personality traits>"],
+      "speech_style": "<one short sentence describing how they talk>",
+      "values": "<what they care about most>",
+      "home_system_hint": "<system name from the list, or 'unknown'>",
+      "allies":  ["<faction name>", ...],
+      "enemies": ["<faction name>", ...]
+    }}
+  ]
+}}
+"""
+
+
 # Used at game start to choose an arc and seed initial state.
 PLAN_MAIN_ARC_PROMPT = """You are starting a NEW campaign. Pick ONE arc
 archetype from the list and concretize it into a full opening: a title,
 a one-paragraph summary, 3-5 objectives the crew must achieve, and
 1-3 starting actions to set the stage (spawn NPCs, annotate systems,
-send opening message).
+send opening message). Lean on the FACTIONS already established for
+this universe — your arc's protagonists, antagonists and bystanders
+should come from them.
+
+Factions in play:
+{factions}
 
 Available archetypes:
 {archetypes}

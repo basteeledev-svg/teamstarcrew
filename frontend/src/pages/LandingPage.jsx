@@ -4,7 +4,7 @@ import '../hud/hud.css'
 const W = 1280
 const H = 800
 
-export default function LandingPage({ gameState, onNewGame, onJoin, onObserver, onAdmin, onStyle }) {
+export default function LandingPage({ gameState, onNewGame, onJoin, onObserver, onAdmin }) {
   const isRunning   = gameState?.status === 'running'
   const tick        = gameState?.tick ?? 0
   const playerCount = gameState?.player_count ?? null
@@ -99,9 +99,6 @@ export default function LandingPage({ gameState, onNewGame, onJoin, onObserver, 
         background: 'linear-gradient(90deg, transparent, rgba(0,229,255,0.04) 60%, rgba(0,229,255,0.10))',
         display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 12,
       }}>
-        <button onClick={onStyle} className="hud-chip" style={{ width: 130, height: 44 }}>
-          ✦ STYLE LAB
-        </button>
         <button onClick={onObserver} className="hud-chip" style={{ width: 110, height: 44 }}>
           OBSERVER
         </button>

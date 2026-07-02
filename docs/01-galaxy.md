@@ -14,7 +14,11 @@ Each system contains:
 
 ## Planet Types (15)
 
-Terrestrial, Gas Giant, Ice Giant, Ocean/Water World, Desert/Arid, Volcanic/Lava, Barren/Rocky, Carbon, Ammonia, Super-Earth, Dwarf/Planetoid, Tidally Locked, Ring, Ice, Exotic/Anomalous.
+The 15 types defined in `backend/game/galaxy.py PLANET_TYPE_CONFIG`:
+
+Barren/Rocky, Terrestrial, Desert/Arid, Ice World, Gas Giant, Ice Giant, Ocean World, Jungle/Lush, Tidally Locked, Toxic/Corrosive, Volcanic/Magma, Irradiated, Super-Earth, Crystalline, Rogue/Dark.
+
+Each type has its own resource biases (metals / rare-earth / radioactive / hydrocarbons), base hostility range, and inhabited probability. Frontend colors are kept in sync via `frontend/src/shared.js PLANET_TYPE_COLORS`.
 
 Each planet has:
 - **Resources**: `metals`, `rare_earth`, `radioactive`, `hydrocarbons` (richness 0–100)

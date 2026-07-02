@@ -95,7 +95,8 @@ class MessageRequest(BaseModel):
     body: str
     from_id: str = "ai"
     has_video: bool = False
-    video_color: str = "#4488ff"
+    video_color: str = "#4488ff"          # contact-avatar accent color
+    video_url: Optional[str] = None        # if set, frontend plays this instead of the placeholder
     deliver_in_seconds: float = 0.0     # delay before message lands in inbox
 
 
@@ -313,6 +314,7 @@ async def ai_send_message(
         direction="inbox",
         has_video=req.has_video,
         video_color=req.video_color,
+        video_url=req.video_url,
     )
 
     if req.deliver_in_seconds and req.deliver_in_seconds > 0:

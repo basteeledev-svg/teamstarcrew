@@ -40,10 +40,12 @@ LOG_KEEP_LAST = 60
 
 _BLANK: dict[str, Any] = {
     "current_arc":       None,
+    "factions":          [],     # generated fresh per game (see set_factions)
     "threads":           [],
     "side_quest_seeds":  [],
     "npc_relationships": {},
     "log":               [],
+    "game_started_at_tick": None,  # backend tick when this campaign began
 }
 
 
@@ -73,9 +75,22 @@ class Memory:
             tmp.replace(self.path)
 
     # ── Convenience mutators ────────────────────────────────────────────
+    def reset(self, started_at_tick: int) -> None:
+        """Wipe memory for a brand-new campaign."""
+        self.data = json.loads(json.dumps(_BLANK))
+        self.data["game_started_at_tick"] = started_at_tick
+        self.save()
+
     def set_arc(self, arc: dict[str, Any]) -> None:
         self.data["current_arc"] = arc
         self.save()
+
+    def set_factions(self, factions: list[dict[str, Any]]) -> None:
+        self.data["factions"] = factions
+        self.save()
+
+    def has_factions(self) -> bool:
+        return bool(self.data.get("factions"))
 
     def add_log(self, tick: int, summary: str) -> None:
         self.data["log"].append({"tick": tick, "summary": summary})
@@ -116,10 +131,33 @@ class Memory:
     def has_arc(self) -> bool:
         return bool(self.data.get("current_arc"))
 
+    def factions_block(self) -> str:
+        """Render the faction roster for the LLM prompt."""
+        facs = self.data.get("factions") or []
+        if not facs:
+            return "(no factions defined yet)"
+        lines = []
+        for f in facs:
+            name   = f.get("name", "?")
+            traits = ", ".join(f.get("traits", []) or []) or "?"
+            speech = f.get("speech_style", "?")
+            values = f.get("values", "?")
+            allies = ", ".join(f.get("allies", []) or []) or "—"
+            enemies= ", ".join(f.get("enemies", []) or []) or "—"
+            lines.append(
+                f"  {name}: traits=[{traits}]  speech=\"{speech}\"  values=\"{values}\"\n"
+                f"    allies: {allies}   enemies: {enemies}"
+            )
+        return "\n".join(lines)
+
     def to_prompt_summary(self) -> str:
         """Render a compact text view for inclusion in the LLM prompt."""
         d = self.data
         out = []
+        if d.get("factions"):
+            out.append("FACTIONS:")
+            out.append(self.factions_block())
+            out.append("")
         if d["current_arc"]:
             arc = d["current_arc"]
             out.append(f"ACTIVE ARC: [{arc.get('archetype','?')}] {arc.get('title','')}")

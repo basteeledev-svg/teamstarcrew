@@ -114,6 +114,7 @@ class GameState:
         direction: str = "inbox",
         has_video: bool = False,
         video_color: str = "#4488ff",
+        video_url: Optional[str] = None,
     ) -> dict:
         """Create and store a message. Returns the message dict."""
         msg = {
@@ -127,8 +128,9 @@ class GameState:
             "tick": self.tick,
             "read": False,
             "direction": direction,    # "inbox" | "sent"
-            "has_video": has_video,
+            "has_video": has_video or bool(video_url),
             "video_color": video_color,
+            "video_url": video_url,
         }
         self._next_msg_id += 1
         self.messages.append(msg)

@@ -121,16 +121,16 @@ All stations are accessible via tablet devices. Players select 1–4 stations ea
 | 1 | Navigation | In-system piloting, orbit, galactic jump targeting, NPC contacts | ✅ Implemented |
 | 2 | Short Range Scanning | Local system scan — planets, NPC ships, tier-based reveal | ✅ Implemented |
 | 3 | Long Range Scanning | Galaxy-wide scan — systems, tier-based reveal by LRS GW | ✅ Implemented |
-| 4 | Weapons | Offensive systems — lasers and missiles | ❌ Placeholder |
-| 5 | Shields | Defensive systems — shield strength, distribution | ❌ Placeholder |
-| 6 | Repairs | Directs repair bots to damaged ship sections | ❌ Placeholder |
-| 7 | Transportation | Directs transport bots for cargo movement between rooms | ✅ Implemented |
+| 4 | Weapons (Tactical) | Offensive systems — offense lasers and missiles, per-section power, target lock | ✅ Implemented |
+| 5 | Shields | Defensive systems — defense lasers and shield batteries, per-section/per-component power | ✅ Implemented |
+| 6 | Repairs | Directs repair bots to damaged systems, hull sections, bots, and items | ✅ Implemented |
+| 7 | Transportation | Directs transport bots for cargo movement between rooms / to planet | ✅ Implemented |
 | 8 | Manufacturing | Queues fabrication jobs in the manufacturing facility | ✅ Implemented |
 | 9 | Power | Ship power distribution across all systems | ✅ Implemented |
 | 10 | Engines | Engine output, thrust, and warp drive | ✅ Implemented |
-| 11 | Life Support | Air quality, temperature, and hab systems | ❌ Placeholder |
+| 11 | Life Support | Air quality, temperature, hab systems, scrubber/people management | ✅ Implemented |
 | 12 | Communications | Email-style comms with NPC ships/planets, range-gated by power | ✅ Implemented |
-| 13 | Mining | Directs mining bots to extract resources from planets | ❌ Placeholder |
+| 13 | Mining | Directs mining bots to extract resources from orbited planets | ✅ Implemented |
 
 ---
 
@@ -160,9 +160,9 @@ Discrete components and consumables.
 | Power Batteries | General ship power reserves |
 | Air Scrubbers | Life support consumables; filter and recycle atmosphere |
 
-**Capacity:** 1,000 units per standard room / 5,000 units in Cargo Bay / 5,000 units in Manufacturing Facility
+**Capacity:** Same room capacities as small resources — `ROOM_CAPACITY_STANDARD` (10,000) for standard rooms, `ROOM_CAPACITY_LARGE` (100,000) for Cargo Bay and Manufacturing Facility. All items (small + large) share the same per-room capacity pool.
 
-> **Implementation note:** Room capacity limits are defined here as design targets but are **not yet enforced** in the backend code.
+> **Implementation note:** Room capacities are enforced in `_validate_transport()` and `_complete_manufactured_item()`. `room_used()` / `room_free()` helpers expose live values, broadcast as `room_capacity` and `room_used`.
 
 ---
 
@@ -189,9 +189,9 @@ Bots are autonomous units that carry out physical tasks on the ship. They are **
 
 | Bot Type | Role | Implementation Status |
 |---|---|---|
-| Transport Bots | Move items between rooms within the ship; support repeat trips (1/5/10/∞) | ✅ Implemented — full entity list, location tracking, trip repeats, returning-to-bay state |
-| Repair Bots | Navigate to damaged sections and perform structural/system repairs | ⚙️ Backend entities exist; front-end panel is a placeholder |
-| Mining Bots | Deployed externally to extract resources from planets/asteroids | ⚙️ Backend entities exist (`mining_bots_list`) + legacy per-resource count dict; front-end panel is a placeholder |
+| Transport Bots | Move items between rooms or to/from an orbited planet; support repeat trips (1/5/10/∞) | ✅ Implemented — full entity list, location tracking, trip repeats, returning-to-bay state |
+| Repair Bots | Navigate to damaged systems / hull sections / bots / items and perform repairs | ✅ Implemented — entities + Repairs panel with target picker, dispatch / recall, per-bot status |
+| Mining Bots | Assigned to a resource type while orbiting a planet; extract `richness/100` units per tick | ✅ Implemented — entity list (`mining_bots_list`), resource assignment, charge/health tracking, Mining panel UI |
 
 ### Transport Bot Behaviour
 1. Player dispatches bot from Transportation panel: selects source room → item → destination → amount → trips (1/5/10/∞)

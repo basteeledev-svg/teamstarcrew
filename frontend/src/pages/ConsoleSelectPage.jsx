@@ -15,7 +15,7 @@ const MAX_CUSTOM_SELECTION = 4
  * Fallback mode: "CUSTOM" — free-pick up to 4 stations (preserves the old
  * workflow + existing tests).
  */
-export default function ConsoleSelectPage({ gameState, onEnter, onNewGame, onStyle }) {
+export default function ConsoleSelectPage({ gameState, onEnter, onNewGame }) {
   const playerCount = gameState?.player_count ?? 6
   const layout      = CREW_LAYOUTS[playerCount] ?? CREW_LAYOUTS[6]
 
@@ -116,9 +116,6 @@ export default function ConsoleSelectPage({ gameState, onEnter, onNewGame, onSty
         <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
           <button onClick={onNewGame} className="hud-chip amb" style={{ width: 130, height: 50, color: 'var(--hud-ca)' }}>
             ✦ NEW GAME
-          </button>
-          <button onClick={onStyle} className="hud-chip" style={{ width: 110, height: 50 }}>
-            STYLE LAB
           </button>
           <button onClick={() => onEnter({ role: 'observer' })} className="hud-chip" style={{ width: 110, height: 50 }}>
             OBSERVER

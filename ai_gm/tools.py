@@ -53,7 +53,9 @@ send_message:
   to simulate comms delay so your latency is invisible.
   args: {from_name: str, subject: str, body: str,
          from_id: str = "ai", has_video: bool = false,
-         video_color: str = "#4488ff", deliver_in_seconds: float = 0}
+         video_color: str = "#4488ff",      # contact-avatar accent color
+         video_url: str? = null,             # absolute URL or /videos/foo.mp4 (optional)
+         deliver_in_seconds: float = 0}
 
 annotate_system:
   Attach narrative metadata to a star system. Persists across the game.

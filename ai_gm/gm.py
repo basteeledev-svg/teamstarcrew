@@ -21,6 +21,7 @@ from .memory        import Memory
 from .prompts       import (
     ARC_ARCHETYPES,
     GM_SYSTEM_PROMPT,
+    GENERATE_FACTIONS_PROMPT,
     PLAN_MAIN_ARC_PROMPT,
     PLAN_TICK_PROMPT,
     COMMS_REPLY_PROMPT,
@@ -64,9 +65,33 @@ async def _execute_actions(backend: BackendClient, actions: list[dict]) -> list[
 # Main-arc planning (once per game)
 # ─────────────────────────────────────────────────────────────────────────────
 
+# ─────────────────────────────────────────────────────────────────────────────
+# Faction generation (once per campaign)
+# ─────────────────────────────────────────────────────────────────────────────
+
+async def generate_factions(llm: LLMClient, backend: BackendClient, mem: Memory) -> None:
+    state = await backend.get_state()
+    user = GENERATE_FACTIONS_PROMPT.format(systems=systems_for_planning(state))
+    print("[gm] generating fresh alien factions for this campaign…")
+    reply = await llm.chat_json(GM_SYSTEM_PROMPT, user, temperature=1.0, max_tokens=1500)
+    factions = reply.get("factions") or []
+    if not factions:
+        print("[gm] WARNING: faction generation returned no factions")
+        return
+    mem.set_factions(factions)
+    names = ", ".join(f.get("name", "?") for f in factions)
+    print(f"[gm] factions: {names}")
+    mem.add_log(state.get("tick", 0), f"Factions seeded: {names}")
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Main-arc planning (once per game)
+# ─────────────────────────────────────────────────────────────────────────────
+
 async def plan_main_arc(llm: LLMClient, backend: BackendClient, mem: Memory) -> None:
     state = await backend.get_state()
     user = PLAN_MAIN_ARC_PROMPT.format(
+        factions     = mem.factions_block(),
         archetypes   = _archetypes_block(),
         systems      = systems_for_planning(state),
         ship_state   = summarize_ship(state),
@@ -196,6 +221,22 @@ async def run() -> None:
 
     print(f"[gm] backend={backend.url}")
     await wait_for_game(backend)
+
+    # Detect new game: backend tick lower than the tick at which our memory
+    # was last seeded → the players started a fresh campaign. Wipe everything.
+    state0 = await backend.get_state()
+    cur_tick = state0.get("tick", 0)
+    last_seed_tick = mem.data.get("game_started_at_tick")
+    if last_seed_tick is None or cur_tick < (last_seed_tick or 0):
+        print(f"[gm] new campaign detected (tick={cur_tick}, last_seed={last_seed_tick}) — resetting memory")
+        mem.reset(started_at_tick=cur_tick)
+
+    if not mem.has_factions():
+        try:
+            await generate_factions(llm, backend, mem)
+        except Exception as e:
+            print(f"[gm] faction generation failed: {e}")
+            traceback.print_exc()
 
     if not mem.has_arc():
         try:

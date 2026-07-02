@@ -1,30 +1,52 @@
 # API Reference
 
-## REST Endpoints
+> Authoritative source: routers in `backend/routers/`. This doc is generated from those files — keep in sync when adding endpoints.
 
-### Game Lifecycle
+## Health
 | Method | Path | Description |
 |--------|------|-------------|
-| GET | `/api/state` | Current game state as JSON |
-| POST | `/api/start` | Start a new game session (generates galaxy + ship) |
-| POST | `/api/stop` | Stop current game |
-| POST | `/api/join` | Player join (returns station assignment) |
+| GET | `/health` | Liveness probe — returns `{"status": "ok"}` |
 
-### Ship Actions (REST)
+---
+
+## Game Lifecycle (`/api`)
 | Method | Path | Description |
 |--------|------|-------------|
-| POST | `/api/ship/warp` | Warp to target system (deducts capacitor charge) |
+| POST | `/api/game/start` | Start a new session — generates galaxy + ship, seeds NPCs and intro messages |
+| POST | `/api/game/stop` | Stop current session |
+| GET  | `/api/game/state` | Public game state JSON (sanitised — no AI-only fields) |
 
-### AI Game Master
+## Ship REST helpers (`/api/ship/*`)
+These are convenience wrappers; the WebSocket protocol is the primary interface.
+| Method | Path | Body | Description |
+|--------|------|------|-------------|
+| POST | `/api/ship/thrust` | `{value: 0..1}` | Set ship thrust |
+| POST | `/api/ship/direction` | `{x, y, z}` | Set heading (auto-normalised) |
+| POST | `/api/ship/stop` | — | Emergency stop |
+| POST | `/api/ship/warp` | `{system_id}` | Warp to target system (requires capacitor charge) |
+
+## Feedback (`/api/feedback`)
+| Method | Path | Body | Description |
+|--------|------|------|-------------|
+| POST | `/api/feedback` | `{rating, comment?, page?}` | Submit playtest feedback (appended to `feedback.jsonl`) |
+| GET  | `/api/feedback` | — | List feedback entries (admin) |
+
+---
+
+## AI Game Master (`/api/ai/*`)
+
+All AI endpoints require the `X-AI-Key` header. Configure on the server with the `AI_API_KEY` environment variable; on production the public reverse proxy denies `/api/ai/*` so only the SSH-tunnelled localhost can reach them (see `deploy/enable-ai.sh`).
+
 | Method | Path | Description |
 |--------|------|-------------|
-| POST | `/api/ai/spawn_npc` | Spawn NPC ship in a system |
-| POST | `/api/ai/despawn_npc` | Remove NPC ship |
-| POST | `/api/ai/send_message` | Inject message into comms |
-| POST | `/api/ai/annotate_system` | Add AI annotation to a star system |
-| POST | `/api/ai/inject_event` | Trigger a game event |
-
-All AI endpoints require `X-AI-Key` header authentication.
+| GET    | `/api/ai/state` | Full game state including AI-only fields (NPC behaviour, internal targets, etc.) |
+| POST   | `/api/ai/npc/spawn` | Spawn an NPC ship — body: `{name, race, size, system_id, x, z, hull_health?, role?, faction?}` |
+| POST   | `/api/ai/npc/{npc_id}/move` | Set position or velocity — body: `{x?, z?, vx?, vz?}` |
+| POST   | `/api/ai/npc/{npc_id}/behavior` | Set behaviour tree state — body: `{behavior, target_id?, waypoint?, patrol_points?, speed?, weapon_range_au?, flee_distance_au?}`. `behavior` ∈ `idle / patrol / follow / attack / flee / move_to / intercept`. |
+| DELETE | `/api/ai/npc/{npc_id}` | Despawn NPC |
+| POST   | `/api/ai/event` | Inject a game event — body: `{event_type, title, description, system_id?, position?}` |
+| POST   | `/api/ai/message` | Inject a comms message — body: `{from_name, subject, body, from_id?, has_video?, video_color?, deliver_in_seconds?}`. `deliver_in_seconds > 0` queues delivery via `pending_messages` (drained by `tick.py`). |
+| POST   | `/api/ai/galaxy/system/{system_id}/annotate` | Attach AI annotations — body: `{story_note?, faction_control?, threat_level?, points_of_interest?}` |
 
 ---
 
@@ -32,88 +54,88 @@ All AI endpoints require `X-AI-Key` header authentication.
 
 Connect: `ws://{host}/ws`
 
-All commands are JSON objects with a `type` field. Server responds with `{type: "ack", ...}` on success or `{type: "error", detail: "..."}` on failure. Game state broadcasts arrive as `{type: "state", ...}`.
+All commands are JSON `{type, ...}`. Server replies with `{type: "ack", ...}` on success, `{type: "error", detail}` on failure. State broadcasts arrive as `{type: "state", ...}` at ~1 Hz.
 
-### Navigation & Movement
+### Navigation
 | Command | Fields | Description |
 |---------|--------|-------------|
-| `set_thrust` | `value` (0–1) | Set ship thrust fraction |
-| `set_target_direction` | `x, y, z` | Set heading (auto-normalized) |
-| `stop` | — | Emergency stop (thrust → 0) |
-| `warp` | `system_id` | Warp to star system |
-| `orbit` | `planet_id` | Enter orbit (must be within 0.5 AU) |
+| `set_thrust` | `value` (0–1) | Set thrust fraction |
+| `set_target_direction` | `x, y, z` | Set heading (auto-normalised) |
+| `stop` | — | Emergency stop |
+| `warp` | `system_id` | Warp to system |
+| `orbit` | `planet_id` | Enter orbit (must be ≤ `ORBIT_DISTANCE_AU`) |
 | `leave_orbit` | — | Exit orbit |
 
 ### Power & Reactors
-| Command | Fields | Description |
-|---------|--------|-------------|
-| `set_reactor_output` | `reactor`, `value` (0–1) | Set reactor output fraction |
-| `set_engine_output` | `engine`, `value` (0–1) | Set individual engine output |
-| `set_power_allocation` | `allocations` (all 12 keys) | Update power distribution |
-| `toggle_power_lock` | `station` | Toggle % lock on a station |
-| `set_gw_lock` | `station`, `gw_target` (or null) | Set/clear GW lock |
+| Command | Fields |
+|---------|--------|
+| `set_reactor_output` | `reactor`, `value` (0–1) |
+| `set_engine_output` | `engine`, `value` (0–1) |
+| `set_power_allocation` | `allocations` (all keys) |
+| `toggle_power_lock` | `station` |
+| `set_gw_lock` | `station`, `gw_target` (or null) |
 
 ### Transport
-| Command | Fields | Description |
-|---------|--------|-------------|
-| `transport_items` | `source`, `dest`, `item`, `amount`, `bot_id?`, `trips?` | Queue transport job |
-| `cancel_transport` | `bot_id` | Cancel active transport job |
-| `charge_transport` | `bot_id` | Recall bot to charging bay |
-| `build_transport_bot` | — | Build from manufacturing materials |
-| `repair_transport_bot` | `bot_id`, `amount` | Repair a transport bot |
+| Command | Fields |
+|---------|--------|
+| `transport_items` | `source`, `dest`, `item`, `amount`, `bot_id?`, `trips?` |
+| `cancel_transport` | `bot_id` |
+| `charge_transport` | `bot_id` |
+| `build_transport_bot` | — |
+| `repair_transport_bot` | `bot_id`, `amount` |
 
-Source/dest can be any room key or `"planet"` (when orbiting). Planet trips use double travel time.
+`source` / `dest` can be any room key or `"planet"` (when orbiting). Planet trips take `TRANSPORT_TRAVEL_TICKS × 2`.
 
 ### Repair Bots
-| Command | Fields | Description |
-|---------|--------|-------------|
-| `dispatch_repair_bot` | `bot_id`, `target` | Send bot to repair target |
-| `recall_repair_bot` | `bot_id` | Recall bot to charging bay |
+| Command | Fields |
+|---------|--------|
+| `dispatch_repair_bot` | `bot_id`, `target` |
+| `recall_repair_bot` | `bot_id` |
 
-Target format: `{type: "system"|"room_hull"|"outer_hull"|"bot"|"item", key/room/side/...}`
+`target` ∈ `{type: "system"|"room_hull"|"outer_hull"|"bot"|"item", ...}`.
 
 ### Mining
-| Command | Fields | Description |
-|---------|--------|-------------|
-| `set_mining_bots` | `resource`, `value` | Set mining bot count for a resource (assigns/unassigns entities) |
+| Command | Fields |
+|---------|--------|
+| `set_mining_bots` | `resource`, `value` |
 
 ### Manufacturing
-| Command | Fields | Description |
-|---------|--------|-------------|
-| `set_manufacturing_alloc` | `item`, `pct` | Set % of manufacturing GW for an item |
+| Command | Fields |
+|---------|--------|
+| `set_manufacturing_alloc` | `item`, `pct` |
 
 ### Hull Components
-| Command | Fields | Description |
-|---------|--------|-------------|
-| `install_component` | `section`, `role`, `station` | Queue component install (progress-based) |
-| `uninstall_component` | `section`, `role`, `component_id` | Queue component uninstall |
+| Command | Fields |
+|---------|--------|
+| `install_component` | `section`, `role`, `station` |
+| `uninstall_component` | `section`, `role`, `component_id` |
 
 ### Shields & Weapons
-| Command | Fields | Description |
-|---------|--------|-------------|
-| `set_shields_section_alloc` | `alloc` ({6 sides}) | Set shield GW distribution per hull side |
-| `set_shields_component_alloc` | `section`, `alloc` | Set per-component weights within a section |
-| `set_weapons_alloc` | `targeting_pct?`, `section_alloc?` | Set weapons targeting % and section distribution |
-| `set_weapons_component_alloc` | `section`, `alloc` | Set per-component weights for offense lasers |
-| `set_weapons_target` | `target_id` (or null) | Lock/unlock weapons target |
-| `fire_missile` | `target_id` | Fire missile at NPC target |
+| Command | Fields |
+|---------|--------|
+| `set_shields_section_alloc` | `alloc` (6 sides) |
+| `set_shields_component_alloc` | `section`, `alloc` |
+| `set_weapons_alloc` | `targeting_pct?`, `section_alloc?` |
+| `set_weapons_component_alloc` | `section`, `alloc` |
+| `set_weapons_target` | `target_id` (or null) |
+| `fire_missile` | `target_id` |
 
 ### Communications
-| Command | Fields | Description |
-|---------|--------|-------------|
-| `send_message` | `to_id`, `subject`, `body` | Send message (max 200 subject, 2000 body) |
-| `mark_read` | `message_id` | Mark message as read |
+| Command | Fields |
+|---------|--------|
+| `send_message` | `to_id`, `subject`, `body` (max 200 / 2000) |
+| `mark_read` | `message_id` |
 
 ### Utility
-| Command | Fields | Description |
-|---------|--------|-------------|
-| `ping` | — | Connection check (returns `pong`) |
+| Command | Fields |
+|---------|--------|
+| `ping` | — (returns `pong`) |
 
 ---
 
 ## Key Constants
 
-All constants are served in the game state broadcast under `state.constants`:
+Broadcast under `state.constants`. Full list in `backend/game/constants.py`.
 
 | Constant | Value | Description |
 |----------|-------|-------------|
@@ -128,9 +150,10 @@ All constants are served in the game state broadcast under `state.constants`:
 | WARP_COST_EXPONENT | 1.3 | Warp cost formula exponent |
 | MINING_BOTS_MAX | 20 | Max bots per resource |
 | CHARGING_BAY_CHARGE_RATE_PER_GW | 2.0 | Charge per GW per bot per tick |
-| ROOM_CAPACITY_STANDARD | 10,000 | Standard room item capacity |
+| ROOM_CAPACITY_STANDARD | 10,000 | Standard room capacity |
 | ROOM_CAPACITY_LARGE | 100,000 | Cargo bay / manufacturing capacity |
 | ORBIT_DISTANCE_AU | 0.5 | Max distance to enter orbit |
-| TRANSPORT_TRAVEL_TICKS | 5 | Ticks per transport phase (doubled for planet) |
+| TRANSPORT_TRAVEL_TICKS | 5 | Ticks per transport phase (×2 for planet) |
 | REPAIR_BOT_REPAIR_RATE | 0.5 | HP repaired per tick per bot |
 | SECTION_COMPONENT_CAP | 5 | Max components per type per hull section |
+| NPC_SHIPS_PER_SYSTEM_MIN/MAX | 2 / 5 | NPC seed range (starting system only; AI GM spawns elsewhere) |

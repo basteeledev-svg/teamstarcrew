@@ -1,121 +1,95 @@
-# Questions for Review
+# Open Questions
 
-> All items resolved. ✅ = implemented or answered.
-
----
-
-## ✅ RESOLVED — Game Design
-
-### Q1: What happens at hull_health = 0? ✅
-**Answer:** Generic game-over screen needed. Not yet implemented in frontend, but design direction settled.
-
-### Q2: Is there an intended win condition? ✅
-**Answer:** Intentionally open sandbox. AI Game Master will eventually drive storylines.
-
-### Q3: What is the purpose of `people_on_board`? ✅
-**Implemented:** `people_on_board` starts at 0. People are tracked as items in room inventories (`"people"` key in living_quarters). Transportable like consumables (1 person = 1 unit). `count_people()` sums across all rooms. Life support GW scales dynamically with people count.
-
-### Q4: What should happen when power starves individual stations? ✅
-**Answer:** Stations naturally stop functioning without power (engines can't run, lasers/shields inactive, manufacturing halts). No special "OFFLINE" state needed.
-
-### Q5: Planet `health` field — what's it for? ✅
-**Implemented:** Removed `health` field from Planet and Moon dataclasses. Mining formula simplified to `count * richness / 100`.
-
-### Q6: NPC ships — what do they DO? ✅
-**Answer:** Placeholders. AI Game Master will control spawn/despawn and behavior.
-
-### Q7: What is the intended role of the AI Game Master? ✅
-**Answer:** AI controls all events, NPCs, and story flow. Current focus is sandbox mode.
-
-### Q8: Comms — should NPCs ever reply? ✅
-**Answer:** AI Game Master will handle message reading/responding and NPC actions.
-
-### Q9: Room capacity limits — enforce or remove? ✅
-**Implemented:** Room capacities enforced. `ROOM_CAPACITY_STANDARD = 10,000`, `ROOM_CAPACITY_LARGE = 100,000`. Checked in `_validate_transport()` and `_complete_manufactured_item()`. `room_used()` / `room_free()` helpers added. Broadcast to frontend as `room_capacity` and `room_used`.
-
-### Q10: Warp — can you warp while orbiting? ✅
-**Answer:** Yes, you can warp anytime with sufficient energy in the warp capacitor.
-
-### Q11: Relationship between "repairs" power allocation and repair bots? ✅
-**Implemented:** Removed `repairs` power allocation entirely. Renamed to `charging_bay`. All bot types (transport, repair, mining) share the charging bay power allocation for recharging.
-
-### Q12: Should power affect component installation? ✅
-**Implemented:** Install/uninstall is now a progress-based job system. 1 GW = 1% progress per tick. Power split evenly among a station's active jobs. `component_jobs` list tracks all in-progress jobs. `update_component_jobs()` runs each tick.
-
-### Q13: Mining bots — legacy dict vs. entity list? ✅
-**Implemented:** Mining bots are now fully entity-based (`mining_bots_list`). Each has `{id, charge, health, location, state, assignment}`. `mining_bot_counts()` derives resource→count dict. Legacy `mining_bots` dict removed. Uses dedicated constants: `MINING_BOT_CHARGE_MAX`, `MINING_BOT_HEALTH_MAX`, `MINING_BOT_CHARGE_COST`.
-
-### Q14: Transport bot planet source? ✅
-**Implemented:** When orbiting, planet appears as a transport room. Double travel time for planet trips (`TRANSPORT_TRAVEL_TICKS * 2`). Planet destination bypasses room capacity check. `update_transport()` accepts `planet_stockpile` parameter.
-
-### Q15: What determines manufacturing recipes? ✅
-**Answer:** Just the 9 hardcoded recipes.
-
-### Q16: Charging bay power allocation? ✅
-**Implemented:** `charging_bay` is a proper power allocation key with a slider in PowerPanel. GW is evenly distributed among all idle bots in the bay. Each bot type respects its own charge max (`TRANSPORT_BOT_CHARGE_MAX`, `REPAIR_BOT_CHARGE_MAX`, `MINING_BOT_CHARGE_MAX`).
+> Live list of unresolved design / engineering questions for the **AI Game Master era** and the run-up to playtests.
+> Resolved historical Q&A (Q1–Q31, QN1–QN6) is archived in `QUESTIONS-archive.md`.
 
 ---
 
-## ✅ RESOLVED — Frontend / UI
+## AI Game Master
 
-### Q17: Target device? ✅
-**Answer:** Tablets running browsers in fullscreen (1280×800, Galaxy Tab S9).
+### Q-AI-1: Polling vs. WebSocket for the GM client
+The GM client (`ai_gm/gm.py`) currently HTTP-polls `GET /api/ai/state` every ~5 s. Should it instead subscribe to `/ws` for push events? Polling is simpler and stateless; WS would reduce latency on combat/comms reactions.
 
-### Q18: How many players? ✅
-**Answer:** Team-building or family activity. Player count optimization deferred to user testing.
+Answer: Please update everything to websockets
 
-### Q19: Theme persistence? ✅
-**Answer:** Building a CSS creation tool. Themes are CSS-only for now.
+### Q-AI-2: Behaviour persistence across warp
+NPC `behavior` blocks live on the NPC dict. When the player warps to a new system the NPCs in the old system stay there. Should `attack`/`flee` targeting `"player"` automatically reset to `idle` on system change, or is it acceptable to leave them locked-on (they'll just sit forever)?
 
-### Q20: Observer page? ✅
-**Answer:** Temporary development/testing page for full ship access.
+Answer: Go ahead an leave the state how it is, if the players return to that system we want the people who were angry to still be angry
 
-### Q21: Station manning tracking? ✅
-**Answer:** Deferred to later design decisions.
+### Q-AI-3: GM "panic shutdown"
+If the LLM produces a bad arc (spam messages, runaway NPC spawns), is there a one-shot kill switch? Right now only `Ctrl-C` on the GM client stops it; the spawned NPCs and queued `pending_messages` remain on the server.
 
----
+Answer: What would you suggest as far as monitering the AI so it can't mess up the game?
 
-## ✅ RESOLVED — Technical / Architecture
+### Q-AI-4: GM memory longevity
+`gm_memory.json` survives between sessions. Is that desirable, or should the AI GM start fresh every time the backend `/api/game/start` runs? Should `gm_memory.json` be cleared when a new session starts?
 
-### Q22: State persistence? ✅
-**Answer:** No saving. One session = one adventure.
+Answer: I would like it to be a new game generated every time, including which alien factions like/dislike eachother, how they speak what they value. This should all be generated at game start. Sometime fulborg will be very warlike, sometime they will be diplomatic. Sometimes races can be fearfull or backstabbing or obsessed with honor.
 
-### Q23: Multi-ship support? ✅
-**Answer:** Currently single-ship. Architecture should leave door open for multi-ship.
+### Q-AI-5: Multiple concurrent arcs
+`prompts.py` has 4 archetypes (`dark_star`, `diplomatic`, `transport`, `escort`). Currently one arc runs at a time. Should the GM weave 2–3 arcs in parallel for richer sandbox feel?
 
-### Q24: Tick rate? ✅
-**Answer:** 1 second. Speed may need adjustment based on playtesting.
-
-### Q25: AI API authentication? ✅
-**Answer:** Needs proper authentication and encryption for GPU-hosted AI module.
-
-### Q26: Test coverage? ✅
-**Answer:** Leave existing 7 Playwright tests as-is for now.
-
-### Q27: Standalone design app? ✅
-**Answer:** Fully functional universe sandbox without AI driving story.
-
-### Q28–31: Design app feedback? ✅
-**Answer:** Like/dislike + text input. Same VPS. Test with all audiences. Everything iterable.
+There should be many sidequests which could bring up different arcs if the players choose to follow those, for example they may come across a derilict ship that has passengers the players could transport to the nearest settled planet if they choose. Or NPCs could ask for help in a violent dispute and the players have to decide which side to take, if any.
 
 ---
 
-## ✅ RESOLVED — New Design Questions
+## Alien Communication Videos
 
-### QN1: Should system_health affect scanner/comms/shields/weapons output? ✅
-**Implemented:** `health_fraction` now applied to `comms_gw()`, `short_range_scan_gw()`, `long_range_scan_gw()`, `shields_gw()`, and `weapons_gw()` in ship.py. All system outputs degrade proportionally with damage.
+### Q-VID-1: File format & storage
+Videos for comms messages — what container/codec (MP4/H.264 vs WebM)? Where do they live: `frontend/public/videos/aliens/` (shipped with the build) or served from the backend (so the GM can drop new ones live)?
 
-### QN2: Battery starting energy? ✅
-**Implemented:** `create_ship()` now seeds `battery_energy_gw = 12.0` for immediate usability.
+We need to discuss this. I would love custom generated videos where the NPCs actually look like they are saying what is generated but I'm not sure how to do that or if it is reasonable.
 
-### QN3: Life support — what happens when power is insufficient? ✅
-**Implemented:** `update_life_support()` added to ship.py. When life support power is below minimum: temperature drops, air quality degrades, scrubbers stop working. Passengers take health damage based on air quality. Called each tick via `tick.py`.
+### Q-VID-2: Trigger contract
+The `/api/ai/message` endpoint accepts `has_video: bool` and `video_color: str`. How does the frontend know **which** video to play — is the colour a lookup key, or do we need a `video_id` / `video_url` field?
 
-### QN4: Planet stockpile — should there be a cap? ✅
-**Answer:** No cap needed currently. Ship capacity limits and stockpile loss on departure are sufficient constraints.
+I don't know set it up however is easiest and change whatever you need to in the code. It was generated and may be incorrect.
 
-### QN5: NPCs only in starting system ✅
-**Answer:** Intentional. AI Game Master will handle NPC spawning in other systems.
+### Q-VID-3: UI placement
+Should videos play inline in the Communications panel, or pop a fullscreen modal that demands the crew's attention? Auto-play on receipt, or only when the message is opened?
 
-### QN6: Game-over screen implementation ✅
-**Implemented:** `GamePage.jsx` shows a full-screen game-over overlay when `hullHealth ≤ 0` with ship destruction message and option to restart.
+Messages should pop up on the communications and when they are opened they should be able to be shared with the whole crew if the comms officer decides it is necessary.
+
+---
+
+## Frontend / UX
+
+### Q-UX-1: Tutorial / first-time crew onboarding
+Brand-new crew sit down at 13 stations they've never seen. Do we need a 30-second cold-open per station (interactive tooltip walkthrough), a printed quick-card, or just trust the GM to narrate? 
+
+Answer: I would like a 10 min or so sandbox with full resources before the game starts where the players can get used to the ship before bringing the GM in.
+
+### Q-UX-2: Game-over restart flow
+`hullHealth ≤ 0` shows the game-over overlay. Restart re-runs `/api/game/start` — does that regenerate the galaxy, or should we keep the same galaxy and just respawn the ship?
+
+For now just do a game over screen then they can restart after
+
+### Q-UX-3: `design-review.html` (root, 46 KB standalone)
+Is this an active tool we should keep / move into `frontend/`, or a leftover artifact safe to delete? It is not referenced by any code path.
+
+You can delete this
+
+### Q-UX-4: `StyleLabPage.jsx` (1167 LOC)
+Lab/theme experiment page reachable from the landing screen. Keep visible to playtesters or hide behind an admin gate?
+
+This can be removed as well
+
+---
+
+## Architecture
+
+### Q-ARCH-1: Multi-ship door
+Q23 left it open. With AI GM now driving NPCs, do we still want to design for player-controlled allied ships, or has that quietly become "the GM controls every other ship"?
+
+We still want the door open to have multiple teams in the same galaxy
+
+### Q-ARCH-2: AI auth in dev vs. prod
+`start-backend.sh` defaults `AI_API_KEY=devkey`. Production uses a real key plus an Nginx deny on `/api/ai/*` (see `deploy/enable-ai.sh`) so only the SSH tunnel works. Worth documenting this two-layer model in a deploy README so future-us doesn't accidentally expose it?
+
+Yes
+
+### Q-ARCH-3: Tick-rate dependence on LLM latency
+Game runs at 1 Hz. If the LLM takes 8 s to plan, the GM is 8 ticks behind reality. Acceptable, or do we want the GM to pre-fetch its next move while the previous one is still resolving?
+
+It should be acceptable we need to do a lot of testing for how fast different models and options for machines are.

@@ -15,7 +15,20 @@ function fmtTick(tick) {
 }
 
 // ── Video placeholder screen ──────────────────────────────────────────────────
-function VideoScreen({ color = '#4488ff' }) {
+function VideoScreen({ color = '#4488ff', src = null }) {
+  if (src) {
+    return (
+      <div className={s.videoScreen} style={{ border: `1px solid ${color}44` }}>
+        <video
+          src={src}
+          controls
+          autoPlay
+          playsInline
+          style={{ width: '100%', height: '100%', objectFit: 'cover', background: '#000' }}
+        />
+      </div>
+    )
+  }
   const c = color
   return (
     <div className={s.videoScreen} style={{ border: `1px solid ${c}44` }}>
@@ -198,7 +211,7 @@ function MessageViewer({ msg, contact, onReply }) {
       {/* Video screen */}
       {msg.has_video && (
         <div className={s.videoMargin}>
-          <VideoScreen color={vc} />
+          <VideoScreen color={vc} src={msg.video_url || null} />
           <div className={s.videoCaption}>
             {contact?.in_range
               ? `◉ LIVE SIGNAL — ${contact.system_name}`

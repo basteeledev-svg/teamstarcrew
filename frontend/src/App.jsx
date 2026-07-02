@@ -6,13 +6,12 @@ import ConsoleSelectPage from './pages/ConsoleSelectPage.jsx'
 import GamePage          from './pages/GamePage.jsx'
 import AdminPage         from './pages/AdminPage.jsx'
 import ObserverPage      from './pages/ObserverPage.jsx'
-import StyleLabPage      from './pages/StyleLabPage.jsx'
 
 // Samsung Galaxy Tab S9 11" landscape: 1280 × 800 CSS px
 // The outer div pins the viewport to exactly those dimensions.
 export default function App() {
   const { gameState, connected, sendCommand, lastError, lastAck } = useGameSocket()
-  // page: 'landing' | 'newGame' | 'select' | 'game' | 'admin' | 'observer' | 'styleLab'
+  // page: 'landing' | 'newGame' | 'select' | 'game' | 'admin' | 'observer'
   const [page, setPage]         = useState('landing')
   const [consoles, setConsoles] = useState([])
 
@@ -58,7 +57,6 @@ export default function App() {
           onJoin={handleJoin}
           onObserver={() => setPage('observer')}
           onAdmin={() => setPage('admin')}
-          onStyle={() => setPage('styleLab')}
         />
       )}
       {page === 'newGame' && (
@@ -72,13 +70,10 @@ export default function App() {
           gameState={gameState}
           onEnter={handleEnter}
           onNewGame={() => setPage('newGame')}
-          onStyle={() => setPage('styleLab')}
         />
       )}
-      {page === 'styleLab' && (
-        <StyleLabPage onBack={() => setPage('landing')} />
-      )}
       {page === 'game' && (
+
         <GamePage
           consoles={consoles}
           gameState={gameState}
