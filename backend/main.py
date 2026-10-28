@@ -7,6 +7,7 @@ from pathlib import Path
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
+from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from game.tick import tick_loop
 from routers.game     import router as game_router
@@ -63,9 +64,24 @@ async def sim_health():
 
 
 # Serve built frontend in production (static files at ../frontend/dist)
+class SpaStaticFiles(StaticFiles):
+    """Static files, but unknown page paths (e.g. a station join link like /7799)
+    get index.html so the React app can route them. Missing assets and API
+    paths still 404."""
+
+    async def get_response(self, path, scope):
+        try:
+            return await super().get_response(path, scope)
+        except StarletteHTTPException as exc:
+            first = path.split("/", 1)[0]
+            if exc.status_code != 404 or "." in path.rsplit("/", 1)[-1] or first in ("api", "ws", "assets", "sim"):
+                raise
+            return await super().get_response("index.html", scope)
+
+
 _static_dir = Path(__file__).resolve().parent.parent / "frontend" / "dist"
 if _static_dir.is_dir():
     # Optional mount for subpath deployments. Keep mounted before root fallback.
     app.mount("/sim", StaticFiles(directory=str(_static_dir), html=True), name="frontend-sim")
     # Mount at root LAST so /api and /ws routes take priority
-    app.mount("/", StaticFiles(directory=str(_static_dir), html=True), name="frontend")
+    app.mount("/", SpaStaticFiles(directory=str(_static_dir), html=True), name="frontend")
