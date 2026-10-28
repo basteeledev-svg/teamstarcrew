@@ -57,6 +57,36 @@ send_message:
          video_url: str? = null,             # absolute URL or /videos/foo.mp4 (optional)
          deliver_in_seconds: float = 0}
 
+create_situation:
+  Put a DECISION in front of the whole crew. They see it on every station with
+  a countdown, vote, and the captain commits. Use this for dilemmas instead of
+  just sending a message. Effects run when an option is chosen.
+  args: {title: str, body: str, default_option: str (an option id),
+         deadline_seconds: float = 60 (15-600),
+         source_id: str? (npc id the situation is about),
+         options: [ {id: str, label: str, hint: str?,
+                     requires: {max_distance_au: float?, cargo: {item: amount}?}?,
+                     effects: [effect, ...]} ]  (2-4 options)}
+  effect types (amounts are clamped):
+    {type:"message", from_name, subject, body}
+    {type:"npc_behavior", npc_id?, behavior, target_id?}   (npc_id defaults to source_id)
+    {type:"cargo", delta:{metals:-50, "engine_bay.fuel":1000}}
+    {type:"passengers", delta:int}
+    {type:"standing", faction:str, delta:int}
+    {type:"hull", delta:float}
+    {type:"despawn", npc_id?}
+    {type:"text", text:str}         (shown to the crew as the outcome)
+    {type:"bluff", success:[...], failure:[...]}  (odds rise with weapons+shields power)
+
+create_objective:
+  Give the crew a task with a destination and deadline. They complete it by
+  orbiting the planet and using the settlement services.
+  args: {title: str, detail: str?, kind: "visit|deliver_passengers|deliver_cargo",
+         planet_id: str (an INHABITED planet id), amount: int = 0,
+         deadline_seconds: float?,
+         reward: {standing:{faction:int}, cargo:{item:amount}}?,
+         penalty: {standing:{faction:int}}?}
+
 annotate_system:
   Attach narrative metadata to a star system. Persists across the game.
   args: {system_id: str, story_note: str?, faction_control: str?,
@@ -99,6 +129,10 @@ class BackendClient:
                 r = await self._client.post(f"{self.url}/api/ai/event", json=args)
             elif tool == "send_message":
                 r = await self._client.post(f"{self.url}/api/ai/message", json=args)
+            elif tool == "create_situation":
+                r = await self._client.post(f"{self.url}/api/ai/situation", json=args)
+            elif tool == "create_objective":
+                r = await self._client.post(f"{self.url}/api/ai/objective", json=args)
             elif tool == "annotate_system":
                 sid = args.pop("system_id")
                 r = await self._client.post(f"{self.url}/api/ai/galaxy/system/{sid}/annotate", json=args)

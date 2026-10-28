@@ -140,7 +140,7 @@ export default function EnginesPanel({ gameState, sendCommand }) {
         </span>
         <div className={s.headerStats}>
           <span className={s.thrustReadout}>
-            THRUST <b>{(engineThrustAU * 1000).toFixed(2)}</b> mAU/tk
+            THRUST <b>{engineThrustAU.toFixed(2)}</b> AU/s
           </span>
           <span className={s.headerStatSmall} style={{ color: overBudget ? 'var(--status-bad)' : 'var(--text-secondary)' }}>
             ELEC {elecDraw.toFixed(0)}/{engineAllocGW.toFixed(0)} TW
@@ -292,7 +292,7 @@ function EngineCard({ label, output, health, isFuel, maxOutputFrac = 1,
 
       <div className={s.engineCardStats}>
         <span style={{ color: healthColor(health) }}>HP {health.toFixed(1)}%</span>
-        <span style={{ color: ACCENT2 }}>{(thrustContrib * 1000).toFixed(3)} mAU/tk</span>
+        <span style={{ color: ACCENT2 }}>{thrustContrib.toFixed(2)} AU/s</span>
       </div>
 
       {/* Health bar */}

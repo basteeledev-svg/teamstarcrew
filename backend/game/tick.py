@@ -12,6 +12,7 @@ from .constants import (
 )
 from .state import game_state, manager
 from .npc_ai import update_npcs
+from . import world
 
 
 # ── Combat geometry helpers ────────────────────────────────────────────────────
@@ -122,7 +123,7 @@ def update_combat(gs) -> None:
             td = max(math.sqrt(tdx * tdx + tdz * tdz), 1e-9)
             obj["velocity"]["x"] = round((tdx / td) * MISSILE_SPEED_AU, 6)
             obj["velocity"]["z"] = round((tdz / td) * MISSILE_SPEED_AU, 6)
-            if td <= MISSILE_HIT_RADIUS_AU:
+            if td <= max(MISSILE_HIT_RADIUS_AU, MISSILE_SPEED_AU):   # reaches it this tick
                 # Missile hits NPC — damage proportional to remaining health
                 dmg = MISSILE_BASE_DAMAGE * (obj["health"] / 100.0)
                 target_npc["hull_health"] = round(max(0.0, target_npc["hull_health"] - dmg), 1)
@@ -178,77 +179,90 @@ def _drain_pending_messages(gs) -> None:
     gs.pending_messages = still_pending
 
 
+def advance_tick(game_state) -> None:
+    """Advance the whole simulation by one tick (no I/O). Used by the loop and by tests."""
+    game_state.tick += 1
+    world.update_warp(game_state)    # spool / transit / arrival (may change system)
+
+    # Advance planet orbits in current system first
+    current = game_state.galaxy.get_system(game_state.ship.current_system_id)
+    if current:
+        for planet in current.planets:
+            planet.orbit_tick()
+
+    # Pass the orbited planet's fresh position so the ship tracks it
+    ship = game_state.ship
+    planet_center = None
+    if ship.orbiting_planet_id and current:
+        op = current.get_planet(ship.orbiting_planet_id)
+        if op:
+            planet_center = op.position
+
+    in_transit = ship.warp_phase == "transit"
+    if in_transit:
+        current = None               # between systems: nothing local happens
+    ship.update_engines()            # compute thrust, consume fuel/power, update warp capacitor
+    if not in_transit:
+        world.apply_autopilot(game_state)
+        ship.update_tick(planet_center=planet_center)
+    ship.update_reactor_heat()
+    ship.consume_reactor_fuel()  # deduct fuel/rad from Power Room, shut off starved reactors
+    ship.update_gw_locks()   # recalculate GW-locked station percentages
+    ship.update_battery()
+    ship.update_life_support(game_state.tick)  # O2/rations drain + atmosphere quality
+    # Resolve planet stockpile for transport bot deliveries
+    transport_planet_stockpile = None
+    if ship.orbiting_planet_id and current:
+        orbited = current.get_planet(ship.orbiting_planet_id)
+        if orbited:
+            transport_planet_stockpile = orbited.stockpile
+    ship.update_transport(planet_stockpile=transport_planet_stockpile)   # advance transport bot jobs
+    ship.update_repair_bots() # advance repair bot jobs
+    ship.update_item_health() # destroy items at 0% health
+    ship.update_auto_repairs() # optional passive repair loop for simplified solo mode
+    ship.update_mining_bots() # consume mining bot charge
+    ship.update_synthesis()      # Molecular Synthesis panel (raw → consumables)
+    ship.update_manufacturing()  # Fabrication Manufacturing panel (hardware via bots)
+    ship.update_weapon_pool()    # attack-mode lasers charge weapon_energy_pool
+    ship.update_component_jobs() # advance component install/uninstall
+
+    if not in_transit:
+        update_combat(game_state)    # meteors, missiles, laser fire, damage
+        update_npcs(game_state)      # AI-driven NPC steering & combat
+    world.update_world(game_state)   # encounters, situations, objectives
+    _drain_pending_messages(game_state)  # release delayed AI messages
+
+    # Mark system visited on arrival
+    if current and not current.visited:
+        current.visited = True
+
+    # Mining: if orbiting with any bots assigned, accumulate resources
+    mining_counts = ship.mining_bot_counts()
+    if ship.orbiting_planet_id and any(v > 0 for v in mining_counts.values()) and current:
+        planet = current.get_planet(ship.orbiting_planet_id)
+        if planet:
+            planet.mine_tick(mining_counts)
+
+    # Game-over checks
+    if not game_state.game_over_reason:
+        if ship.hull_health <= 0:
+            game_state.running = False
+            game_state.game_over_reason = "hull_destroyed"
+        elif ship.oxygen_reserves <= 0 or ship.bio_matter_rations <= 0:
+            game_state.life_support_countdown += 1
+            if game_state.life_support_countdown >= 20:
+                game_state.running = False
+                game_state.game_over_reason = "crew_asphyxiated"
+        else:
+            game_state.life_support_countdown = 0
+
+
 async def tick_loop() -> None:
     """Runs forever at TICK_RATE_SECONDS intervals.
-    Each tick: advance ship, broadcast state to all WebSocket clients."""
+    Each tick: advance the simulation, broadcast state to all WebSocket clients."""
     while True:
         await asyncio.sleep(TICK_RATE_SECONDS)
         if game_state.running and game_state.is_started():
-            game_state.tick += 1
-
-            # Advance planet orbits in current system first
-            current = game_state.galaxy.get_system(game_state.ship.current_system_id)
-            if current:
-                for planet in current.planets:
-                    planet.orbit_tick()
-
-            # Pass the orbited planet's fresh position so the ship tracks it
-            ship = game_state.ship
-            planet_center = None
-            if ship.orbiting_planet_id and current:
-                op = current.get_planet(ship.orbiting_planet_id)
-                if op:
-                    planet_center = op.position
-
-            ship.update_engines()            # compute thrust, consume fuel/power, update warp capacitor
-            ship.update_tick(planet_center=planet_center)
-            ship.update_reactor_heat()
-            ship.consume_reactor_fuel()  # deduct fuel/rad from Power Room, shut off starved reactors
-            ship.update_gw_locks()   # recalculate GW-locked station percentages
-            ship.update_battery()
-            ship.update_life_support(game_state.tick)  # O2/rations drain + atmosphere quality
-            # Resolve planet stockpile for transport bot deliveries
-            transport_planet_stockpile = None
-            if ship.orbiting_planet_id and current:
-                orbited = current.get_planet(ship.orbiting_planet_id)
-                if orbited:
-                    transport_planet_stockpile = orbited.stockpile
-            ship.update_transport(planet_stockpile=transport_planet_stockpile)   # advance transport bot jobs
-            ship.update_repair_bots() # advance repair bot jobs
-            ship.update_item_health() # destroy items at 0% health
-            ship.update_auto_repairs() # optional passive repair loop for simplified solo mode
-            ship.update_mining_bots() # consume mining bot charge
-            ship.update_synthesis()      # Molecular Synthesis panel (raw → consumables)
-            ship.update_manufacturing()  # Fabrication Manufacturing panel (hardware via bots)
-            ship.update_weapon_pool()    # attack-mode lasers charge weapon_energy_pool
-            ship.update_component_jobs() # advance component install/uninstall
-
-            update_combat(game_state)    # meteors, missiles, laser fire, damage
-            update_npcs(game_state)      # AI-driven NPC steering & combat
-            _drain_pending_messages(game_state)  # release delayed AI messages
-
-            # Mark system visited on arrival
-            if current and not current.visited:
-                current.visited = True
-
-            # Mining: if orbiting with any bots assigned, accumulate resources
-            mining_counts = ship.mining_bot_counts()
-            if ship.orbiting_planet_id and any(v > 0 for v in mining_counts.values()) and current:
-                planet = current.get_planet(ship.orbiting_planet_id)
-                if planet:
-                    planet.mine_tick(mining_counts)
-
-            # Game-over checks
-            if not game_state.game_over_reason:
-                if ship.hull_health <= 0:
-                    game_state.running = False
-                    game_state.game_over_reason = "hull_destroyed"
-                elif ship.oxygen_reserves <= 0 or ship.bio_matter_rations <= 0:
-                    game_state.life_support_countdown += 1
-                    if game_state.life_support_countdown >= 20:
-                        game_state.running = False
-                        game_state.game_over_reason = "crew_asphyxiated"
-                else:
-                    game_state.life_support_countdown = 0
-
+            advance_tick(game_state)
             await manager.broadcast(game_state.to_dict())
+

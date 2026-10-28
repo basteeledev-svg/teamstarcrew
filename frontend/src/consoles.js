@@ -1,6 +1,13 @@
 /** Console definitions — all panels available for station assignment. */
 export const CONSOLES = [
   {
+    id: 'mission',
+    name: 'MISSION',
+    icon: '◆',
+    color: '#ffaa00',
+    desc: 'Crew decisions · objectives & deadlines · settlements · factions',
+  },
+  {
     id: 'navigation',
     name: 'NAVIGATION',
     icon: '⊕',

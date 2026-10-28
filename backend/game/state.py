@@ -8,6 +8,7 @@ from fastapi import WebSocket
 
 from .galaxy import Galaxy
 from .ship import Ship
+from . import world as world_mod
 from .constants import (
     NPC_RACES, NPC_SHIP_SIZES,
     NPC_SHIPS_PER_SYSTEM_MIN, NPC_SHIPS_PER_SYSTEM_MAX,
@@ -104,6 +105,8 @@ class GameState:
         # Game over tracking
         self.game_over_reason: str | None = None
         self.life_support_countdown: int  = 0
+        # Living world: factions, situations, objectives (see game/world.py)
+        self.world: dict              = world_mod.new_world()
 
     def is_started(self) -> bool:
         return self.galaxy is not None and self.ship is not None
@@ -179,8 +182,38 @@ class GameState:
                     "video_color":  color,
                 })
 
+        # Ships in this system that the short-range scanner can see can be hailed
+        # directly (any comms power reaches them).
+        scan_gw = self.ship.short_range_scan_gw()
+        if self.ship.warp_phase != "transit":
+            for npc in self.npc_ships:
+                if npc.get("system_id") != self.ship.current_system_id:
+                    continue
+                dx = self.ship.position["x"] - npc["position"]["x"]
+                dz = self.ship.position["z"] - npc["position"].get("z", 0.0)
+                dist_au = max(0.05, math.sqrt(dx * dx + dz * dz))
+                sig = scan_gw / dist_au if scan_gw > 0 else 0.0
+                if sig < SCAN_SHIP_TIER1:
+                    continue
+                identified = sig >= SCAN_SHIP_TIER3
+                fac = self.world["factions"].get(npc.get("faction"), {})
+                contacts.append({
+                    "id":           npc["id"],
+                    "kind":         "ship",
+                    "name":         npc["name"] if identified else f"Unidentified contact {npc['id'][4:]}",
+                    "role":         npc.get("role") if identified else None,
+                    "faction":      npc.get("faction") if identified else None,
+                    "system_name":  f"{(npc.get('role') or 'ship') if identified else 'contact'} · {dist_au:.1f} AU",
+                    "system_id":    npc["system_id"],
+                    "distance_ly":  0.0,
+                    "distance_au":  round(dist_au, 2),
+                    "same_system":  True,
+                    "in_range":     comms_gw >= 1.0,
+                    "video_color":  fac.get("color", _DEFAULT_VIDEO_COLOR),
+                })
+
         # Sort: same-system first, then by distance
-        contacts.sort(key=lambda c: (0 if c["same_system"] else 1, c["distance_ly"]))
+        contacts.sort(key=lambda c: (0 if c["same_system"] else 1, c["distance_ly"], c.get("distance_au", 0)))
         return contacts
 
     def _get_long_range_scan_data(self) -> dict:
@@ -584,6 +617,7 @@ class GameState:
             "long_range_scan":  lrs,
             "dynamic_objects":  self.dynamic_objects,
             "targeting_contacts": targeting,
+            "world":            world_mod.world_view(self),
             "constants": {
                 "FUEL_GENERATOR_MAX_TW": FUEL_GENERATOR_MAX_TW,
                 "NUCLEAR_REACTOR_MAX_TW": NUCLEAR_REACTOR_MAX_TW,

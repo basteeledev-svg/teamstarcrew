@@ -17,11 +17,14 @@ DEL  /api/ai/npc/{npc_id}             – despawn an NPC
 POST /api/ai/event                     – inject a narrative event (broadcasts via WS)
 POST /api/ai/message                   – deliver a message to the crew inbox
 POST /api/ai/galaxy/system/{system_id}/annotate  – attach story notes to a star system
+POST /api/ai/situation                 – put a decision in front of the crew (options + effects)
+POST /api/ai/objective                 – give the crew a task with a destination and deadline
 """
 
 import math
 import os
 import random
+import time
 from typing import Optional
 
 from fastapi import APIRouter, Header, HTTPException
@@ -30,6 +33,7 @@ from pydantic import BaseModel
 from game.state import game_state, manager
 from game.constants import TICK_RATE_SECONDS
 from game.npc_ai import VALID_BEHAVIORS
+from game import world
 
 router = APIRouter(prefix="/api/ai", tags=["ai"])
 
@@ -118,6 +122,7 @@ async def ai_get_state(x_ai_key: Optional[str] = Header(default=None)):
     """
     _check_auth(x_ai_key)
     _require_running()
+    game_state.world["gm_last_seen"] = time.time()   # lets the server skip canned hail replies
     base = game_state.to_dict()
     # Attach full NPC data (to_dict already includes npc_ships in scan data;
     # this gives the AI the raw list directly)
@@ -125,6 +130,8 @@ async def ai_get_state(x_ai_key: Optional[str] = Header(default=None)):
         "npc_ships_full": game_state.npc_ships,
         "dynamic_objects": game_state.dynamic_objects,
         "tick": game_state.tick,
+        "factions": game_state.world["factions"],
+        "settlements": list(game_state.world["settlements"].values()),
     }
     return base
 
@@ -155,6 +162,8 @@ async def ai_spawn_npc(
         "system_id":   req.system_id,
         # AI metadata (not shown to players directly)
         "ai_role":     req.role,
+        "role":        req.role,          # raider/trader/patrol/derelict drive built-in encounters
+        "faction":     req.faction,
         "ai_faction":  req.faction,
     }
     game_state.npc_ships.append(npc)
@@ -365,3 +374,105 @@ async def ai_annotate_system(
         ann["points_of_interest"] = req.points_of_interest
 
     return {"system_id": system_id, "annotations": ann}
+
+
+# ── Situations & objectives ──────────────────────────────────────────────────
+# Effects are limited to a small whitelist with bounded amounts so a confused
+# model can't wreck the game. See game/world.py:_apply_effect.
+
+_EFFECT_TYPES = {"message", "npc_behavior", "cargo", "passengers", "standing",
+                 "despawn", "hull", "text", "bluff"}
+
+
+def _clean_effects(effects, depth: int = 0) -> list:
+    out = []
+    for e in (effects or [])[:6]:
+        if not isinstance(e, dict) or e.get("type") not in _EFFECT_TYPES:
+            raise HTTPException(status_code=422, detail=f"bad effect: {e}")
+        e = dict(e)
+        t = e["type"]
+        if t == "cargo":
+            e["delta"] = {str(k): max(-500.0, min(500.0, float(v))) for k, v in (e.get("delta") or {}).items()}
+        elif t == "passengers":
+            e["delta"] = max(-30, min(30, int(e.get("delta", 0))))
+        elif t == "hull":
+            e["delta"] = max(-30.0, min(30.0, float(e.get("delta", 0))))
+        elif t == "standing":
+            e["delta"] = max(-30, min(30, int(e.get("delta", 0))))
+        elif t == "npc_behavior" and e.get("behavior") not in VALID_BEHAVIORS:
+            raise HTTPException(status_code=422, detail=f"bad behavior: {e.get('behavior')}")
+        elif t == "bluff":
+            if depth:
+                raise HTTPException(status_code=422, detail="nested bluff")
+            e["success"] = _clean_effects(e.get("success"), depth + 1)
+            e["failure"] = _clean_effects(e.get("failure"), depth + 1)
+        out.append(e)
+    return out
+
+
+class SituationOption(BaseModel):
+    id: str
+    label: str
+    hint: str = ""
+    requires: Optional[dict] = None
+    effects: list = []
+
+
+class SituationRequest(BaseModel):
+    title: str
+    body: str
+    options: list[SituationOption]
+    default_option: str
+    deadline_seconds: float = 60.0
+    source_id: Optional[str] = None
+    kind: str = "gm"
+
+
+class ObjectiveRequest(BaseModel):
+    title: str
+    detail: str = ""
+    kind: str = "visit"                 # visit | deliver_passengers | deliver_cargo
+    planet_id: Optional[str] = None
+    system_id: Optional[str] = None
+    amount: int = 0
+    deadline_seconds: Optional[float] = None
+    reward: Optional[dict] = None       # {"standing": {faction: n}, "cargo": {key: n}}
+    penalty: Optional[dict] = None
+
+
+@router.post("/situation", status_code=201)
+async def ai_situation(req: SituationRequest, x_ai_key: Optional[str] = Header(default=None)):
+    _check_auth(x_ai_key)
+    _require_running()
+    if not 2 <= len(req.options) <= 4:
+        raise HTTPException(status_code=422, detail="2-4 options required")
+    if req.default_option not in {o.id for o in req.options}:
+        raise HTTPException(status_code=422, detail="default_option must be one of the option ids")
+    if len(world.open_situations(game_state)) >= 3:
+        raise HTTPException(status_code=429, detail="crew already has 3 open situations")
+    opts = [{"id": o.id[:24], "label": o.label[:80], "hint": o.hint[:120],
+             "requires": o.requires or {}, "effects": _clean_effects(o.effects)} for o in req.options]
+    sit = world.create_situation(
+        game_state, kind=req.kind[:24], title=req.title[:120], body=req.body[:1200], options=opts,
+        default_option=req.default_option[:24],
+        deadline_ticks=int(max(15.0, min(600.0, req.deadline_seconds)) / TICK_RATE_SECONDS),
+        source_id=req.source_id, from_gm=True)
+    return {"id": sit["id"], "deadline_tick": sit["deadline_tick"]}
+
+
+@router.post("/objective", status_code=201)
+async def ai_objective(req: ObjectiveRequest, x_ai_key: Optional[str] = Header(default=None)):
+    _check_auth(x_ai_key)
+    _require_running()
+    if req.kind not in ("visit", "deliver_passengers", "deliver_cargo"):
+        raise HTTPException(status_code=422, detail="bad kind")
+    if req.planet_id and req.planet_id not in game_state.world["settlements"]:
+        raise HTTPException(status_code=422, detail="planet_id must be an inhabited planet")
+    ticks = int(req.deadline_seconds / TICK_RATE_SECONDS) if req.deadline_seconds else None
+    reward = {"standing": {k: max(-30, min(30, int(v))) for k, v in ((req.reward or {}).get("standing") or {}).items()},
+              "cargo": {k: max(-500, min(500, float(v))) for k, v in ((req.reward or {}).get("cargo") or {}).items()}}
+    penalty = {"standing": {k: max(-30, min(30, int(v))) for k, v in ((req.penalty or {}).get("standing") or {}).items()}}
+    obj = world.create_objective(game_state, title=req.title[:120], kind=req.kind, detail=req.detail[:600],
+                                 planet_id=req.planet_id, system_id=req.system_id, amount=req.amount,
+                                 deadline_ticks=ticks, reward=reward, penalty=penalty)
+    return {"id": obj["id"]}

@@ -27,6 +27,8 @@ export default function NavigationPanel({ gameState, sendCommand }) {
 
   const engaged     = (ship?.thrust ?? 0) > 0
   const engineSpeed = ship?.engine_thrust_au ?? 0
+  const course      = gameState?.world?.course ?? null
+  const warp        = gameState?.world?.warp ?? null
 
   const selectedPlanet = planets.find(p => p.id === selectedId) ?? null
 
@@ -339,6 +341,13 @@ export default function NavigationPanel({ gameState, sendCommand }) {
             className={s.canvas}
           />
 
+          {warp?.phase === 'transit' && (
+            <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center',
+                          background: 'rgba(20,0,40,0.75)', color: '#cc99ff', fontSize: 22, letterSpacing: 6, zIndex: 5 }}>
+              IN WARP → {warp.dest_name} · {warp.ticks_left}s
+            </div>
+          )}
+
           {/* Zoom controls */}
           <div className={s.zoomControls}>
             <IconBtn onClick={() => setZoom(z => Math.max(0.25, +(z / 1.5).toFixed(2)))}>−</IconBtn>
@@ -381,7 +390,7 @@ export default function NavigationPanel({ gameState, sendCommand }) {
             {/* NPC ship info if selected */}
             {npcSelected && (
               <Section label="CONTACT">
-                <NpcInfo npc={npcSelected} onClose={() => setNpcSelected(null)} />
+                <NpcInfo npc={npcSelected} onClose={() => setNpcSelected(null)} sendCommand={sendCommand} speed={engineSpeed} />
               </Section>
             )}
 
@@ -419,16 +428,39 @@ export default function NavigationPanel({ gameState, sendCommand }) {
             <Section label="ENGINES">
               <div className={s.engineSpeedLabel}>ENGINE SPEED</div>
               <div className={s.engineSpeedValue} style={{ color: engaged ? '#00ffcc' : 'var(--text-ghost)' }}>
-                {(engineSpeed * 1000).toFixed(3)}
-                <span className={s.engineSpeedUnit}>mAU/tk</span>
+                {engineSpeed.toFixed(2)}
+                <span className={s.engineSpeedUnit}> AU/s</span>
               </div>
               <div className={s.engineStatus} style={{ color: engaged ? '#00ffcc' : '#664433' }}>
                 {engaged ? '▶ ENGAGED' : '■ OFFLINE'}
               </div>
+              {engineSpeed < 0.01 && (
+                <div style={{ fontSize: 10, color: 'var(--hud-ca)', margin: '2px 0 4px' }}>
+                  Engines unpowered — ask Propulsion to bring them online.
+                </div>
+              )}
               <div className={s.btnRow}>
                 <Btn onClick={() => sendCommand({ type: 'stop' })} disabled={!isRunning || !engaged} bg="#550011" color="var(--text-bright)" borderColor="var(--border-faint)">STOP</Btn>
                 <Btn onClick={() => sendCommand({ type: 'set_thrust', value: 1.0 })} disabled={!isRunning || engaged} bg="#003322" color="var(--text-bright)" borderColor="var(--border-faint)">ENGAGE</Btn>
               </div>
+            </Section>
+
+            {/* Autopilot */}
+            <Section label="AUTOPILOT">
+              {course ? (
+                <>
+                  <div style={{ fontSize: 12, color: '#00ffcc' }}>→ {course.name}</div>
+                  <div style={{ fontSize: 11, color: 'var(--text-body)', margin: '2px 0 6px' }}>
+                    {course.distance_au} AU · {course.eta_ticks != null ? `ETA ${course.eta_ticks}s` : 'engage engines to move'}
+                  </div>
+                  <Btn small onClick={() => sendCommand({ type: 'clear_course' })} bg="#330011"
+                       color="var(--text-bright)" borderColor="var(--border-faint)" style={{ width: '100%' }}>
+                    CLEAR COURSE
+                  </Btn>
+                </>
+              ) : (
+                <div className={s.noPlanetText}>Select a planet or contact on the map and SET COURSE.</div>
+              )}
             </Section>
 
             {/* Orbit controls */}
@@ -464,7 +496,7 @@ export default function NavigationPanel({ gameState, sendCommand }) {
 }
 
 // ── Sub-components ────────────────────────────────────────────────────────────
-function NpcInfo({ npc, onClose }) {
+function NpcInfo({ npc, onClose, sendCommand, speed }) {
   const color = RACE_COLORS[npc.race] ?? '#aaaaaa'
   return (
     <div>
@@ -479,7 +511,12 @@ function NpcInfo({ npc, onClose }) {
         <span className={s.npcGridValue}>{npc.distance_au?.toFixed(2)} AU</span>
         <span className={s.npcGridLabel}>HULL</span>
         <span className={s.npcGridValue} style={{ textTransform: 'uppercase' }}>{npc.hull_category ?? '—'}</span>
+        {npc.name && <><span className={s.npcGridLabel}>ID</span><span className={s.npcGridValue}>{npc.name}</span></>}
       </div>
+      <Btn small data-testid="course-npc" onClick={() => sendCommand({ type: 'set_course', kind: 'npc', id: npc.id })}
+           bg="#002233" color="var(--text-bright)" borderColor="var(--border-faint)" style={{ width: '100%', marginTop: 6 }}>
+        SET COURSE{speed > 0.01 && npc.distance_au ? ` · ~${Math.round(npc.distance_au / speed)}s` : ''}
+      </Btn>
     </div>
   )
 }
@@ -537,8 +574,13 @@ function PlanetInfo({ planet, shipPos, ship, sendCommand, onClose }) {
       <PIRow label="HOSTILITY" value={<MiniBarInline value={planet.total_hostility} color="#cc3300" />} />
       {planet.inhabited && <PIRow label="INHABITED" value="YES" color="#ffcc00" />}
       {planet.moons?.length > 0 && <PIRow label="MOONS" value={planet.moons.length} />}
-      {isOrbiting && (
+      {isOrbiting ? (
         <div className={s.orbitingStatus}>⊙ Currently orbiting</div>
+      ) : (
+        <Btn small data-testid="course-planet" onClick={() => sendCommand({ type: 'set_course', kind: 'planet', id: planet.id })}
+             bg="#002233" color="var(--text-bright)" borderColor="var(--border-faint)" style={{ width: '100%', marginTop: 6 }}>
+          SET COURSE{(ship?.engine_thrust_au ?? 0) > 0.01 && distAU ? ` · ~${Math.round(distAU / ship.engine_thrust_au)}s` : ''}
+        </Btn>
       )}
     </div>
   )

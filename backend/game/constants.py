@@ -8,7 +8,7 @@ GALAXY_HEIGHT_LY  = 10.0       # thin-disk height (±)
 
 # ── Ship movement ─────────────────────────────────────────────────────────────
 # At full thrust the ship covers ~7.5 AU in 300 ticks (5 min between neighbours)
-MAX_SPEED_AU_PER_TICK   = 0.025   # AU per tick at thrust = 1.0
+MAX_SPEED_AU_PER_TICK   = 0.0     # initial thrust before engines are powered (engines set the real value)
 TURN_RATE_DEG_PER_TICK  = 45.0   # max heading change per tick (degrees)
 
 # ── Tick ──────────────────────────────────────────────────────────────────────
@@ -57,15 +57,15 @@ LIFE_SUPPORT_PER_100_PEOPLE_GW = 10.0  # extra GW per 100 people
 # Fuel:     500 MN max per engine ↔ 0.025 AU/tick
 # Electric: 100 MN max per engine ↔ 0.0125 AU/tick
 # Fuel consumption (spec): Fuel/tick = BASE_FUEL_COEFF × (throttle_pct ^ 2.5)
-FUEL_ENGINE_MAX_THRUST_AU = 0.025    # AU/tick at 100% throttle
+FUEL_ENGINE_MAX_THRUST_AU = 0.5      # AU/tick at 100% throttle (both engines full ≈ 1 AU/s: a system crossing takes ~1 min)
 FUEL_ENGINE_MAX_MN        = 500.0    # display unit max per fuel engine
-ELEC_ENGINE_MAX_THRUST_AU = 0.0125   # AU/tick at 100% power
+ELEC_ENGINE_MAX_THRUST_AU = 0.25     # AU/tick at 100% power
 ELEC_ENGINE_MAX_MN        = 100.0    # display unit max per electric engine
 BASE_FUEL_COEFF           = 0.001    # coefficient in throttle^2.5 consumption formula
 ENGINE_ROOM_FUEL_START    = 50_000.0 # units of fuel in Engine Room at game start
 
 # ── Warp capacitor ────────────────────────────────────────────────────────────
-WARP_CAPACITOR_MAX_TW  = 50_000.0   # maximum storable warp energy (TW)
+WARP_CAPACITOR_MAX_TW  = 4_000.0    # maximum storable warp energy (TW) — about two medium jumps, so charge is a budget
 WARP_CAPACITOR_LEAK_TW = 0.5        # TW lost per tick passively
 
 # ── Warp cost ─────────────────────────────────────────────────────────────────
@@ -192,7 +192,7 @@ METEOR_DAMAGE_MAP      = {"small": 8.0,  "medium": 20.0,  "large": 45.0}
 METEOR_HIT_RADIUS_AU   = 0.02   # must be within this distance to hit ship
 
 # ── Player missiles ───────────────────────────────────────────────────────────
-MISSILE_SPEED_AU          = 0.5    # AU per tick
+MISSILE_SPEED_AU          = 0.9    # AU per tick (faster than raiders)
 MISSILE_HEALTH            = 100.0
 MISSILE_BASE_DAMAGE       = 100.0  # base damage to NPC hull on hit
 MISSILE_HIT_RADIUS_AU     = 0.05   # proximity for impact

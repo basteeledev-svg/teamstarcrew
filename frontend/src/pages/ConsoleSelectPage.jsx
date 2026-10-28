@@ -95,7 +95,7 @@ export default function ConsoleSelectPage({ gameState, onEnter, onNewGame }) {
             {mode === 'role' ? (
               <StationPicker
                 stations={STATIONS}
-                onTake={s => onEnter({ role: 'crew', consoles: s.defaultPanels })}
+                onTake={s => onEnter({ role: 'crew', consoles: s.defaultPanels, stationName: s.name })}
                 onCustomise={openConfig}
               />
             ) : (

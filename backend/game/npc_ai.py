@@ -24,12 +24,12 @@ import random
 from typing import Optional
 
 # ── Tunables ─────────────────────────────────────────────────────────────────
-NPC_DEFAULT_SPEED_AU       = 0.018   # per tick
+NPC_DEFAULT_SPEED_AU       = 0.3     # per tick (player sublight tops out ~1 AU/tick)
 NPC_DEFAULT_WEAPON_RANGE   = 3.0     # AU
 NPC_DEFAULT_FLEE_DISTANCE  = 12.0    # AU
 NPC_WAYPOINT_TOLERANCE     = 0.3     # AU — close enough to "arrived"
-NPC_BEHAVIOR_TICK_INTERVAL = 5       # only run NPC steering every N ticks
-NPC_LASER_DPS_AT_RANGE     = 0.5     # NPC offensive damage per tick at point-blank
+NPC_BEHAVIOR_TICK_INTERVAL = 1       # re-steer every tick (speeds are high enough to overshoot otherwise)
+NPC_LASER_DPS_AT_RANGE     = 4.0     # NPC offensive damage per tick at point-blank (a small raider strips a hull side in ~2 min)
 NPC_LASER_DAMAGE_TO_PLAYER = 0.6     # multiplier when shooting the player ship
 
 
@@ -192,7 +192,7 @@ def _handle_attack(gs, npc: dict, fire: bool = True) -> None:
             npc.get("size", "medium"), 1.0
         )
         # Fall-off with distance
-        falloff = max(0.3, 1.0 - (d / weapon_range))
+        falloff = max(0.5, 1.0 - 0.5 * (d / weapon_range))
         dmg = NPC_LASER_DPS_AT_RANGE * size_mult * falloff * NPC_LASER_DAMAGE_TO_PLAYER
         if dmg > 0.01:
             _apply_damage_to_player(gs, dmg, npc["position"])
@@ -246,6 +246,8 @@ def update_npcs(gs) -> None:
     # Always integrate velocity → position (so motion is smooth between
     # behavior re-evaluations).
     for npc in gs.npc_ships:
+        if npc.get("system_id") != gs.ship.current_system_id:
+            continue   # other systems are frozen until the crew comes back
         v = npc.get("velocity") or {"x": 0.0, "y": 0.0, "z": 0.0}
         npc["velocity"] = v
         npc["position"]["x"] = round(npc["position"]["x"] + v["x"], 5)

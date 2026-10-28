@@ -39,8 +39,8 @@ def summarize_npcs(state: dict[str, Any]) -> str:
     for n in npcs:
         beh = n.get("behavior", "idle")
         tgt = f" → {n.get('target_id')}" if n.get("target_id") else ""
-        faction = n.get("ai_faction") or "?"
-        role = n.get("ai_role") or "?"
+        faction = n.get("faction") or n.get("ai_faction") or "?"
+        role = n.get("role") or n.get("ai_role") or "?"
         out.append(
             f"  {n['id']} \"{n.get('name','?')}\" {n.get('size','?')} "
             f"{faction}/{role} hull={n.get('hull_health','?')} "
@@ -61,6 +61,27 @@ def summarize_recent_events(state: dict[str, Any], last_n: int = 6) -> str:
     return "\n".join(out)
 
 
+def summarize_world(state: dict[str, Any]) -> str:
+    """Crew decisions, objectives and faction standings from the server's world layer."""
+    w = state.get("world") or {}
+    tick = state.get("tick", 0)
+    out = []
+    for s in w.get("situations", []):
+        if s.get("status") == "open":
+            opts = ", ".join(o["label"] for o in s.get("options", []))
+            out.append(f"  OPEN DECISION ({s['deadline_tick'] - tick}s left): {s['title']} — options: {opts}")
+        else:
+            out.append(f"  decided: {s['title']} → {s.get('outcome') or s.get('chosen')}")
+    for o in w.get("objectives", []):
+        left = f"{o['deadline_tick'] - tick}s left" if o.get("deadline_tick") and o["status"] == "active" else o["status"]
+        out.append(f"  OBJECTIVE [{left}]: {o['title']}")
+    facs = ((state.get("ai") or {}).get("factions")) or {}
+    for f in facs.values():
+        out.append(f"  faction {f['name']}: standing {f['standing']}, {', '.join(f.get('traits', []))}, speaks {f.get('speech','')}")
+    out.append(f"  passengers aboard: {w.get('passengers', 0)}, air left: {w.get('o2_ticks_left')}s")
+    return "\n".join(out) if out else "  (none)"
+
+
 def state_to_prompt(state: dict[str, Any]) -> str:
     """Compact human-readable snapshot for the LLM."""
     return (
@@ -68,7 +89,8 @@ def state_to_prompt(state: dict[str, Any]) -> str:
         f"SHIP: {summarize_ship(state)}\n\n"
         f"SYSTEMS:\n{summarize_systems(state)}\n\n"
         f"NPCS:\n{summarize_npcs(state)}\n\n"
-        f"RECENT MESSAGES:\n{summarize_recent_events(state)}"
+        f"RECENT MESSAGES:\n{summarize_recent_events(state)}\n\n"
+        f"CREW SITUATION:\n{summarize_world(state)}"
     )
 
 

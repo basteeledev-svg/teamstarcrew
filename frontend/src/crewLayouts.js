@@ -8,7 +8,7 @@ export const STATIONS = [
     icon: '◉',
     color: '#00ffcc',
     desc: 'Command decisions, comms, and galaxy oversight.',
-    defaultPanels: ['comms', 'long_range', 'universe'],
+    defaultPanels: ['mission', 'comms', 'long_range', 'universe'],
   },
   {
     id: 'pilot',
@@ -112,7 +112,7 @@ export const CREW_LAYOUTS = {
       icon: '⊕',
       color: '#00aaff',
       desc: 'Steer the ship, plot warp jumps, read incoming messages.',
-      consoles: ['navigation', 'short_range', 'long_range', 'comms'],
+      consoles: ['mission', 'navigation', 'short_range', 'long_range', 'comms'],
     },
     {
       id: 'gunner',
@@ -147,7 +147,7 @@ export const CREW_LAYOUTS = {
       icon: '◉',
       color: '#00ffcc',
       desc: 'Long-range scans, communications, mission decisions.',
-      consoles: ['comms', 'long_range', 'short_range'],
+      consoles: ['mission', 'comms', 'long_range', 'short_range'],
     },
     {
       id: 'pilot',
@@ -190,7 +190,7 @@ export const CREW_LAYOUTS = {
       icon: '◉',
       color: '#00ffcc',
       desc: 'Comms and galaxy oversight.',
-      consoles: ['comms', 'long_range'],
+      consoles: ['mission', 'comms', 'long_range'],
     },
     {
       id: 'pilot',
@@ -241,7 +241,7 @@ export const CREW_LAYOUTS = {
       icon: '◉',
       color: '#00ffcc',
       desc: 'Comms and galaxy oversight.',
-      consoles: ['comms', 'long_range'],
+      consoles: ['mission', 'comms', 'long_range'],
     },
     {
       id: 'pilot',
@@ -308,7 +308,7 @@ export const CREW_LAYOUTS = {
       icon: '◉',
       color: '#00ffcc',
       desc: 'Communications and command.',
-      consoles: ['comms'],
+      consoles: ['mission', 'comms'],
     },
     {
       id: 'pilot',

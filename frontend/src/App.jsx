@@ -24,6 +24,7 @@ export default function App() {
   const [urlCode]               = useState(_detectCode)
   const [page, setPage]         = useState(() => _detectCode() ? 'join' : 'landing')
   const [consoles, setConsoles] = useState([])
+  const [stationName, setStationName] = useState(null)
   const [scale, setScale]       = useState(() => Math.min(window.innerWidth / 1280, window.innerHeight / 800))
 
   useEffect(() => {
@@ -32,13 +33,14 @@ export default function App() {
     return () => window.removeEventListener('resize', onResize)
   }, [])
 
-  function handleEnter({ role, consoles: selected }) {
+  function handleEnter({ role, consoles: selected, stationName: name }) {
     if (role === 'admin') {
       setPage('admin')
     } else if (role === 'observer') {
       setPage('observer')
     } else {
       setConsoles(selected)
+      setStationName(name ?? null)
       setPage('game')
     }
   }
@@ -107,6 +109,7 @@ export default function App() {
           lastError={lastError}
           lastAck={lastAck}
           connected={connected}
+          stationName={stationName}
           onExit={() => setPage('select')}
         />
       )}

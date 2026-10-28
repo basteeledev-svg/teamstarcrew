@@ -119,7 +119,7 @@ export default function StationJoinPage({ code, gameState, onEnter }) {
 
                   {isRunning ? (
                     <button
-                      onClick={() => onEnter({ role: 'crew', consoles: station.panels })}
+                      onClick={() => onEnter({ role: 'crew', consoles: station.panels, stationName: station.name })}
                       className="hbtn hbtn-md grn"
                       style={{ letterSpacing: 3, marginTop: 4 }}
                     >

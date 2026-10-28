@@ -47,8 +47,24 @@ export default function GalaxyMap({ gameState, onSelectSystem }) {
 
     metaRef.current = { systems, minX, minZ, scale }
 
+    const objectiveIds = new Set((gameState?.world?.objectives ?? [])
+      .filter(o => o.status === 'active' && o.system_id).map(o => o.system_id))
+
     for (const s of systems) {
       const { cx, cy } = toCanvas(s)
+      // Objective destinations: amber diamond + name
+      if (objectiveIds.has(s.id)) {
+        ctx.save()
+        ctx.strokeStyle = '#ffaa00'
+        ctx.lineWidth = 1.5
+        ctx.beginPath()
+        ctx.moveTo(cx, cy - 10); ctx.lineTo(cx + 10, cy); ctx.lineTo(cx, cy + 10); ctx.lineTo(cx - 10, cy); ctx.closePath()
+        ctx.stroke()
+        ctx.fillStyle = '#ffaa00'
+        ctx.font = '9px Courier New'
+        ctx.fillText('◆ ' + s.name, cx + 12, cy - 6)
+        ctx.restore()
+      }
       const isCurrent  = s.id === currentId
       const isSelected = s.id === selected
 

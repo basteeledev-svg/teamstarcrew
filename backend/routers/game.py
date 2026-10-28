@@ -9,6 +9,7 @@ from game.ship import create_ship
 from game.state import game_state
 from game.constants import WARP_COST_BASE, WARP_COST_EXPONENT, WARP_COST_ADDITIVE, PC_TO_LY
 from game.vector3 import normalize
+from game import world
 
 router = APIRouter(prefix="/api", tags=["game"])
 
@@ -61,9 +62,12 @@ async def start_game(seed: Optional[int] = None, mode: str = "full", player_coun
     game_state._next_npc_ship_id = 1
     game_state._next_obj_id      = 1
 
+    game_state.pending_messages = []
     if mode == "full":
-        game_state.seed_npc_ships(starting_system.id)
+        world.init_world(game_state)        # factions, settlements, traffic + the opening derelict
         game_state.seed_initial_messages()
+    else:
+        game_state.world = world.new_world()
 
     return {
         "status": "started",
@@ -117,34 +121,9 @@ async def stop_ship():
 
 @router.post("/ship/warp")
 async def warp(req: WarpRequest):
+    """Start a timed warp (spool, then transit). Same rules as the WebSocket 'warp' command."""
     _require_running()
-    target = game_state.galaxy.get_system(req.system_id)
-    if not target:
-        raise HTTPException(status_code=404, detail="System not found")
-    if target.id == game_state.ship.current_system_id:
-        raise HTTPException(status_code=400, detail="Already in that system")
-
-    warp_health = game_state.ship.system_health.get("warp_drive", 100.0)
-    if warp_health <= 0:
-        raise HTTPException(status_code=400, detail="Warp drive non-functional")
-
-    dist_ly  = game_state.galaxy.distance_ly(game_state.ship.current_system_id, req.system_id)
-    dist_pc  = dist_ly / PC_TO_LY
-    cost_tw  = round(WARP_COST_BASE * (dist_pc ** WARP_COST_EXPONENT) + WARP_COST_ADDITIVE, 1)
-
-    if game_state.ship.warp_capacitor_gw < cost_tw:
-        raise HTTPException(
-            status_code=400,
-            detail=f"Insufficient warp charge ({game_state.ship.warp_capacitor_gw:,.0f} TW, need {cost_tw:,.0f} TW for {dist_pc:.1f} pc)",
-        )
-    game_state.ship.warp_capacitor_gw -= cost_tw
-
-    game_state.ship.warp_to(req.system_id, target.max_orbital_distance_au)
-    target.visited = True
-
-    return {
-        "status": "warped",
-        "destination": target.name,
-        "distance_pc": round(dist_pc, 2),
-        "warp_cost_tw": cost_tw,
-    }
+    ok, detail = world.begin_warp(game_state, req.system_id)
+    if not ok:
+        raise HTTPException(status_code=400, detail=detail)
+    return {"status": "spooling", "detail": detail, "warp": world.world_view(game_state)["warp"]}

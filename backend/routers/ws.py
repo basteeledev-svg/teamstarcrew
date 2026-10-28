@@ -6,6 +6,7 @@ from typing import Optional
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 
 from game.state import game_state, manager
+from game import world
 from game.vector3 import normalize
 from game.constants import WARP_COST_BASE, WARP_COST_EXPONENT, WARP_COST_ADDITIVE, PC_TO_LY, ORBIT_DISTANCE_AU
 
@@ -52,6 +53,7 @@ async def _handle_command(ws: WebSocket, cmd: dict) -> None:
     elif cmd_type == "set_target_direction":
         raw = {"x": float(cmd.get("x", 0)), "y": float(cmd.get("y", 0)), "z": float(cmd.get("z", 1))}
         game_state.ship.target_direction = normalize(raw)
+        game_state.ship.course = None          # manual heading overrides the autopilot
         await ws.send_text(json.dumps({"type": "ack", "cmd": "set_target_direction",
                                        "target_direction": game_state.ship.target_direction}))
 
@@ -60,30 +62,64 @@ async def _handle_command(ws: WebSocket, cmd: dict) -> None:
         await ws.send_text(json.dumps({"type": "ack", "cmd": "stop"}))
 
     elif cmd_type == "warp":
-        system_id = cmd.get("system_id")
-        target = game_state.galaxy.get_system(system_id) if system_id else None
-        if not target:
-            await ws.send_text(json.dumps({"type": "error", "detail": "System not found"}))
+        ok, detail = world.begin_warp(game_state, cmd.get("system_id"))
+        if not ok:
+            await ws.send_text(json.dumps({"type": "error", "detail": detail}))
             return
-        if target.id == game_state.ship.current_system_id:
-            await ws.send_text(json.dumps({"type": "error", "detail": "Already in that system"}))
+        await ws.send_text(json.dumps({"type": "ack", "cmd": "warp", "detail": detail}))
+
+    elif cmd_type == "cancel_warp":
+        ok, detail = world.cancel_warp(game_state)
+        await ws.send_text(json.dumps({"type": "ack" if ok else "error", "cmd": "cancel_warp", "detail": detail}))
+
+    elif cmd_type == "set_course":
+        kind = cmd.get("kind")
+        target_id = str(cmd.get("id", ""))
+        ship = game_state.ship
+        if ship.warp_phase:
+            await ws.send_text(json.dumps({"type": "error", "detail": "Can't plot a course while warping"}))
             return
-        if game_state.ship.system_health.get("warp_drive", 100.0) <= 0:
-            await ws.send_text(json.dumps({"type": "error", "detail": "Warp drive non-functional"}))
+        if kind == "planet":
+            sysobj = game_state.galaxy.get_system(ship.current_system_id)
+            p = sysobj.get_planet(target_id) if sysobj else None
+            if not p:
+                await ws.send_text(json.dumps({"type": "error", "detail": "Planet not found"}))
+                return
+            name = p.name
+        elif kind == "npc":
+            n = next((x for x in game_state.npc_ships if x["id"] == target_id
+                      and x["system_id"] == ship.current_system_id), None)
+            if not n:
+                await ws.send_text(json.dumps({"type": "error", "detail": "Contact not found"}))
+                return
+            name = n["name"]
+        else:
+            await ws.send_text(json.dumps({"type": "error", "detail": "kind must be planet or npc"}))
             return
-        dist_ly  = game_state.galaxy.distance_ly(game_state.ship.current_system_id, target.id)
-        dist_pc  = dist_ly / PC_TO_LY
-        cost_tw  = WARP_COST_BASE * (dist_pc ** WARP_COST_EXPONENT) + WARP_COST_ADDITIVE
-        if game_state.ship.warp_capacitor_gw < cost_tw:
-            await ws.send_text(json.dumps({
-                "type": "error",
-                "detail": f"Insufficient warp charge ({game_state.ship.warp_capacitor_gw:,.0f} TW, need {cost_tw:,.0f} TW for {dist_pc:.1f} pc)"
-            }))
-            return
-        game_state.ship.warp_capacitor_gw -= cost_tw
-        game_state.ship.warp_to(target.id, target.max_orbital_distance_au)
-        target.visited = True
-        await ws.send_text(json.dumps({"type": "ack", "cmd": "warp", "destination": target.name, "cost_tw": round(cost_tw), "dist_pc": round(dist_pc, 2)}))
+        if ship.orbiting_planet_id:
+            ship.leave_orbit()
+        ship.course = {"kind": kind, "id": target_id, "name": name}
+        await ws.send_text(json.dumps({"type": "ack", "cmd": "set_course", "detail": f"Course plotted: {name}"}))
+
+    elif cmd_type == "clear_course":
+        game_state.ship.course = None
+        await ws.send_text(json.dumps({"type": "ack", "cmd": "clear_course"}))
+
+    elif cmd_type == "situation_vote":
+        err = world.cast_vote(game_state, str(cmd.get("situation_id", "")), str(cmd.get("option_id", "")),
+                              str(cmd.get("voter_id", "anon")), str(cmd.get("voter_label", "Crew")))
+        await ws.send_text(json.dumps({"type": "error", "detail": err} if err else
+                                      {"type": "ack", "cmd": "situation_vote"}))
+
+    elif cmd_type == "situation_commit":
+        err = world.commit_situation(game_state, str(cmd.get("situation_id", "")), str(cmd.get("option_id", "")),
+                                     by=str(cmd.get("voter_label", "captain"))[:24])
+        await ws.send_text(json.dumps({"type": "error", "detail": err} if err else
+                                      {"type": "ack", "cmd": "situation_commit"}))
+
+    elif cmd_type == "settlement":
+        ok, detail = world.settlement_action(game_state, str(cmd.get("action", "")), cmd.get("trade"))
+        await ws.send_text(json.dumps({"type": "ack" if ok else "error", "cmd": "settlement", "detail": detail}))
 
     elif cmd_type == "orbit":
         planet_id = cmd.get("planet_id")
@@ -98,6 +134,7 @@ async def _handle_command(ws: WebSocket, cmd: dict) -> None:
         if math.sqrt(dx ** 2 + dz ** 2) > ORBIT_DISTANCE_AU:
             await ws.send_text(json.dumps({"type": "error", "detail": f"Too far to orbit (must be within {ORBIT_DISTANCE_AU} AU)"}))
             return
+        ship.course = None
         ship.orbit_planet(planet_id, planet.position)
         await ws.send_text(json.dumps({"type": "ack", "cmd": "orbit", "planet": planet.name}))
 
@@ -568,6 +605,7 @@ async def _handle_command(ws: WebSocket, cmd: dict) -> None:
             has_video=False,
             video_color=contact["video_color"],
         )
+        world.auto_reply(game_state, to_id, contact["name"], subject, body, contact["video_color"])
         await ws.send_text(json.dumps({"type": "ack", "cmd": "send_message", "message": msg}))
 
     elif cmd_type == "mark_read":

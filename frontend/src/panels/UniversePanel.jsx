@@ -35,11 +35,17 @@ export default function UniversePanel({ gameState, sendCommand }) {
     const dist_pc = dist / PC_TO_LY_C
     const cost    = WARP_COST_BASE * (dist_pc ** WARP_COST_EXPONENT) + WARP_COST_ADDITIVE
     const charge  = ship?.warp_capacitor_tw ?? 0
-    return { ...sys, cost: Math.round(cost), charge: Math.round(charge), canWarp: charge >= cost, dist, dist_pc }
+    const W = gameState?.world?.constants ?? {}
+    const transit = Math.round((W.WARP_TRANSIT_BASE ?? 10) + (W.WARP_TRANSIT_PER_PC ?? 2) * dist_pc)
+    return { ...sys, cost: Math.round(cost), charge: Math.round(charge), canWarp: charge >= cost, dist, dist_pc,
+             transit, spool: W.WARP_SPOOL_TICKS ?? 8 }
   }, [warpTargetId, gameState])
 
   const isRunning  = gameState?.status === 'running'
-  const capMax     = C.WARP_CAPACITOR_MAX_TW ?? 50_000
+  const capMax     = C.WARP_CAPACITOR_MAX_TW ?? 4_000
+  const warp       = gameState?.world?.warp ?? null
+  const objectiveSystems = new Set((gameState?.world?.objectives ?? [])
+    .filter(o => o.status === 'active' && o.system_id).map(o => o.system_id))
   const capCharge  = ship?.warp_capacitor_tw ?? 0
   const capPct     = Math.min(100, (capCharge / capMax) * 100)
 
@@ -76,12 +82,29 @@ export default function UniversePanel({ gameState, sendCommand }) {
         <div className={s.chargeBlock}>
           <div className={s.chargeRow}>
             <span className={s.chargeLbl}>WARP CHARGE</span>
-            <span className={s.chargeVal}>{Math.round(capCharge).toLocaleString()} GW</span>
+            <span className={s.chargeVal}>{Math.round(capCharge).toLocaleString()} / {capMax.toLocaleString()} TW</span>
           </div>
           <div className={s.chargeTrack}>
             <div className={s.chargeFill} style={{ width: `${capPct}%` }} />
           </div>
         </div>
+
+        {warp && (
+          <div className={s.warpPanel} style={{ borderColor: '#aa88ff' }}>
+            <div className={s.warpName} style={{ color: '#cc99ff' }}>
+              {warp.phase === 'spool' ? 'SPOOLING' : 'IN WARP'} → {warp.dest_name}
+            </div>
+            <div style={{ fontSize: 12, color: 'var(--text-body)', margin: '4px 0 8px' }}>
+              {warp.phase === 'spool'
+                ? `Jump in ${warp.ticks_left}s — abort now to recover half the charge.`
+                : `Arriving in ${warp.ticks_left}s. Nothing can reach you in warp.`}
+            </div>
+            {warp.phase === 'spool' && (
+              <Btn onClick={() => sendCommand({ type: 'cancel_warp' })} bg="#330011" color="var(--text-bright)"
+                   borderColor="var(--border-faint)" style={{ width: '100%' }}>ABORT WARP</Btn>
+            )}
+          </div>
+        )}
 
         {/* Selected system details + warp button */}
         {warpTarget && (
@@ -96,10 +119,16 @@ export default function UniversePanel({ gameState, sendCommand }) {
               <span style={{ color: 'var(--text-body)' }}>{warpTarget.dist_pc?.toFixed(2) ?? warpTarget.dist.toFixed(2)} pc</span>
               <span className={s.warpLbl}>COST</span>
               <span style={{ color: warpTarget.canWarp ? 'var(--accent-green)' : 'var(--accent-red)' }}>
-                {warpTarget.cost.toLocaleString()} GW
+                {warpTarget.cost.toLocaleString()} TW
               </span>
               <span className={s.warpLbl}>CHARGE</span>
-              <span style={{ color: 'var(--text-body)' }}>{warpTarget.charge.toLocaleString()} GW</span>
+              <span style={{ color: 'var(--text-body)' }}>{warpTarget.charge.toLocaleString()} TW</span>
+              <span className={s.warpLbl}>TIME</span>
+              <span style={{ color: 'var(--text-body)' }}>{warpTarget.spool}s spool + {warpTarget.transit}s transit</span>
+              {objectiveSystems.has(warpTarget.id) && <>
+                <span className={s.warpLbl}>MISSION</span>
+                <span style={{ color: 'var(--hud-ca)' }}>◆ objective destination</span>
+              </>}
             </div>
             {!warpTarget.canWarp && (
               <div className={s.warpInsufficient}>✕ INSUFFICIENT WARP CHARGE</div>
@@ -107,7 +136,7 @@ export default function UniversePanel({ gameState, sendCommand }) {
             <div className={s.warpBtnRow}>
               <Btn
                 onClick={() => { sendCommand({ type: 'warp', system_id: warpTargetId }); setWarpTarget(null) }}
-                disabled={!isRunning || !warpTarget.canWarp}
+                disabled={!isRunning || !warpTarget.canWarp || !!warp}
                 bg={warpTarget.canWarp ? '#002244' : '#1a1a1a'}
                 color="var(--text-bright)" borderColor="var(--border-faint)"
                 style={{ flex: 1 }}

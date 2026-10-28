@@ -2,6 +2,7 @@ import { useState, lazy, Suspense, useEffect, useRef } from 'react'
 import { CONSOLES } from '../consoles.js'
 import '../hud/hud.css'
 import { apiPath } from '../api/paths.js'
+import CrewBanner from '../components/CrewBanner.jsx'
 
 // Samsung Galaxy Tab S9 11" landscape: 1280 × 800 CSS px
 const W = 1280
@@ -25,9 +26,10 @@ const PANEL_MAP = {
   life_support:   lazy(() => import('../panels/LifeSupportPanel.jsx')),
   comms:          lazy(() => import('../panels/CommunicationsPanel.jsx')),
   mining:         lazy(() => import('../panels/MiningPanel.jsx')),
+  mission:        lazy(() => import('../panels/MissionPanel.jsx')),
 }
 
-export default function GamePage({ consoles, gameState, sendCommand, lastError, lastAck, onExit, connected = true }) {
+export default function GamePage({ consoles, gameState, sendCommand, lastError, lastAck, onExit, connected = true, stationName }) {
   const [index, setIndex] = useState(0)
   const count = consoles.length
 
@@ -133,6 +135,8 @@ export default function GamePage({ consoles, gameState, sendCommand, lastError, 
         <button className="hud-exit" onClick={onExit}>✕ EXIT</button>
       </div>
 
+      <CrewBanner gameState={gameState} sendCommand={sendCommand} stationName={stationName} />
+
       {/* ── Content area ───────────────────────────────────────────────── */}
       <div className="hud-content">
 
@@ -168,6 +172,7 @@ export default function GamePage({ consoles, gameState, sendCommand, lastError, 
                     sendCommand={sendCommand}
                     lastError={lastError}
                     lastAck={lastAck}
+                    stationName={stationName}
                   />
                 </Suspense>
 
