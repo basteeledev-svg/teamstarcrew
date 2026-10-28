@@ -8,7 +8,7 @@ from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 from game.state import game_state, manager
 from game import world
 from game.vector3 import normalize
-from game.constants import WARP_COST_BASE, WARP_COST_EXPONENT, WARP_COST_ADDITIVE, PC_TO_LY, ORBIT_DISTANCE_AU
+from game.constants import WARP_COST_BASE, WARP_COST_EXPONENT, WARP_COST_ADDITIVE, PC_TO_LY, ORBIT_DISTANCE_AU, SECTION_SIDES
 
 logger = logging.getLogger(__name__)
 
@@ -290,24 +290,24 @@ async def _handle_command(ws: WebSocket, cmd: dict) -> None:
                                        "engine": engine_key, "value": value}))
 
     elif cmd_type == "set_power_allocation":
-        SUM_KEYS = {
-            "engines", "warp_drive", "shields", "weapons",
-            "short_range_scanner", "long_range_scanner", "comms",
-            "life_support", "general_systems", "sub_deck_refinery", "charging_bay",
-        }
-        ALL_KEYS = SUM_KEYS | {"battery"}
-        allocations = cmd.get("allocations", {})
-        if not isinstance(allocations, dict) or not ALL_KEYS.issubset(allocations.keys()):
-            await ws.send_text(json.dumps({"type": "error", "detail": "allocations must include all 12 keys"}))
+        # The consoles send the ship's own allocation keys (scanner, synthesis,
+        # warp_drive, ...). Any key left out keeps its current value; "battery",
+        # if present, drives the battery slider (it sits outside the 100% sum).
+        SUM_KEYS = set(game_state.ship.power_allocation.keys())
+        ALL_KEYS = SUM_KEYS
+        raw = cmd.get("allocations", {})
+        if not isinstance(raw, dict) or not set(raw.keys()) & SUM_KEYS:
+            await ws.send_text(json.dumps({"type": "error", "detail": "allocations must include power station keys"}))
             return
-        # Validate ranges: battery -100..100, all others 0..100
+        unknown = set(raw.keys()) - SUM_KEYS - {"battery"}
+        if unknown:
+            await ws.send_text(json.dumps({"type": "error", "detail": f"Unknown power stations: {sorted(unknown)}"}))
+            return
         try:
-            for k, v in allocations.items():
-                v = float(v)
-                if k == "battery":
-                    allocations[k] = max(-100.0, min(100.0, v))
-                else:
-                    allocations[k] = max(0.0, min(100.0, v))
+            allocations = {k: max(0.0, min(100.0, float(raw.get(k, game_state.ship.power_allocation[k]))))
+                           for k in SUM_KEYS}
+            if "battery" in raw:
+                game_state.ship.battery_slider = round(max(-100.0, min(100.0, float(raw["battery"]))), 2)
         except (TypeError, ValueError):
             await ws.send_text(json.dumps({"type": "error", "detail": "Invalid allocation values"}))
             return
@@ -686,9 +686,9 @@ async def _handle_command(ws: WebSocket, cmd: dict) -> None:
             await ws.send_text(json.dumps({"type": "error", "detail": msg}))
 
     elif cmd_type == "set_shields_section_alloc":
-        # alloc: {front, back, port, starboard, above, below} — values normalized server-side
+        # alloc: {fore, aft, port, starboard, above, below} — values normalized server-side
         alloc = cmd.get("alloc", {})
-        _SIDES = {"front", "back", "port", "starboard", "above", "below"}
+        _SIDES = set(SECTION_SIDES)
         if not isinstance(alloc, dict) or not _SIDES.issubset(alloc.keys()):
             await ws.send_text(json.dumps({"type": "error", "detail": "alloc must include all 6 sides"}))
             return
@@ -706,7 +706,7 @@ async def _handle_command(ws: WebSocket, cmd: dict) -> None:
     elif cmd_type == "set_shields_component_alloc":
         section      = cmd.get("section", "")
         alloc        = cmd.get("alloc", {})  # {str(comp_id): weight}
-        if section not in {"front", "back", "port", "starboard", "above", "below"}:
+        if section not in set(SECTION_SIDES):
             await ws.send_text(json.dumps({"type": "error", "detail": "Unknown section"}))
             return
         if not isinstance(alloc, dict):
@@ -721,7 +721,7 @@ async def _handle_command(ws: WebSocket, cmd: dict) -> None:
         await ws.send_text(json.dumps({"type": "ack", "cmd": "set_shields_component_alloc", "section": section}))
 
     elif cmd_type == "set_weapons_alloc":
-        # targeting_pct: 0-100; section_alloc: {front,...} — normalized
+        # targeting_pct: 0-100; section_alloc: {fore,...} — normalized
         targeting_pct = cmd.get("targeting_pct")
         section_alloc = cmd.get("section_alloc", {})
         ship = game_state.ship
@@ -732,7 +732,7 @@ async def _handle_command(ws: WebSocket, cmd: dict) -> None:
                 await ws.send_text(json.dumps({"type": "error", "detail": "Invalid targeting_pct"}))
                 return
         if section_alloc:
-            _SIDES = {"front", "back", "port", "starboard", "above", "below"}
+            _SIDES = set(SECTION_SIDES)
             if not isinstance(section_alloc, dict) or not _SIDES.issubset(section_alloc.keys()):
                 await ws.send_text(json.dumps({"type": "error", "detail": "section_alloc must include all 6 sides"}))
                 return
@@ -750,7 +750,7 @@ async def _handle_command(ws: WebSocket, cmd: dict) -> None:
     elif cmd_type == "set_weapons_component_alloc":
         section      = cmd.get("section", "")
         alloc        = cmd.get("alloc", {})  # {str(comp_id): weight}
-        if section not in {"front", "back", "port", "starboard", "above", "below"}:
+        if section not in set(SECTION_SIDES):
             await ws.send_text(json.dumps({"type": "error", "detail": "Unknown section"}))
             return
         if not isinstance(alloc, dict):

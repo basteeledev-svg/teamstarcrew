@@ -186,7 +186,7 @@ export default function ManufacturingPanel({ gameState, sendCommand }) {
             {/* Bot count slider */}
             <div style={{ display:'flex', alignItems:'center', gap:8 }}>
               <span style={{ fontSize:9, color:MUTED, flexShrink:0 }}>BOTS</span>
-              <input type="range" min={0} max={totalBots} step={1} value={count}
+              <input type="range" data-testid={`fab-slider-${r.key}`} min={0} max={totalBots} step={1} value={count}
                 onChange={e => setCount(r.key, parseInt(e.target.value))}
                 disabled={!isRunning || totalBots === 0}
                 style={{ flex:1, accentColor: r.color }} />

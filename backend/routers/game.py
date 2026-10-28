@@ -1,5 +1,6 @@
 """REST endpoints for game lifecycle and ship control."""
 import math
+import random
 from typing import Optional
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
@@ -64,7 +65,7 @@ async def start_game(seed: Optional[int] = None, mode: str = "full", player_coun
 
     game_state.pending_messages = []
     if mode == "full":
-        world.init_world(game_state)        # factions, settlements, traffic + the opening derelict
+        world.init_world(game_state, random.Random(seed) if seed is not None else None)   # same seed → same world
         game_state.seed_initial_messages()
     else:
         game_state.world = world.new_world()

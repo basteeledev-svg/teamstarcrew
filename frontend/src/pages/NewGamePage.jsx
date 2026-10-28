@@ -58,6 +58,7 @@ export default function NewGamePage({ onCancel, onStarted }) {
                   ].map(m => (
                     <button
                       key={m.id}
+                      data-testid={`new-game-mode-${m.id}`}
                       onClick={() => setMode(m.id)}
                       className={`hud-chip${mode === m.id ? ' on' : ''}`}
                       style={{ height: 70, flexDirection: 'column', gap: 4, letterSpacing: 3 }}

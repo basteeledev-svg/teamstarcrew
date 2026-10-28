@@ -1,50 +1,45 @@
 /**
- * Ship Systems Acceptance Tests
+ * Ship Systems Acceptance Tests (browser)
  *
- * Two suites:
- *   A — Entry flow:        LandingPage → NewGamePage / JOIN role-picker / ADMIN
- *   B — Cross-system:      end-to-end interactions through the new entry flow,
- *                          covering stations from docs/05-stations-and-crew.md
+ * Three suites:
+ *   A — Entry flow:   Landing → New Game / Join (role or custom) / Admin
+ *   B — Cross-panel:  one console changes something another console depends on,
+ *                     driven through the real panels in separate "tablets"
+ *   C — Stations:     every crew role opens its first console against a live game
  *
- * The tests drive the UI in real browser contexts (one per "tablet"). All
- * game-state mutations go through the panels themselves; only GET
- * /api/game/state is used for verification.
+ * The backend tests (backend/tests/) cover the rules in depth and in seconds;
+ * these check the buttons and sliders on each console actually reach the server.
+ * Everything goes through the panels except flying (the map is a canvas): the
+ * helper `pilot()` sends the same WebSocket commands the Navigation console does.
  *
- * Prerequisites:
- *   - Backend  on http://localhost:8000   (./start-backend.sh)
- *   - Frontend on http://localhost:5173   (./start-frontend.sh)
- *
- * Run:  npx playwright test  (from workspace root)
+ * Prerequisites — either:
+ *   - backend serving the built frontend:  PLAYWRIGHT_BASE_URL=http://localhost:8010
+ *   - or backend :8050 + Vite dev server :5173 (default base URL)
+ * Run:  npx playwright test   (from the repo root; takes ~4 minutes)
  */
 
 import { test, expect } from '@playwright/test'
 
-// ── Shared state for serial integration suite ────────────────────────────────
-const shared = {}
-
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
-/** Fetch full game state via the frontend's proxy (avoids CORS). */
+/** Full game state, read through the page's own origin. */
 async function apiState(page) {
   return page.evaluate(() => fetch('/api/game/state').then(r => r.json()))
 }
 
-/** Poll the API until `predicate(state)` returns truthy. */
-async function waitFor(page, predicate, { timeout = 90_000, interval = 2_000 } = {}) {
+/** Poll until `predicate(state)` is truthy. */
+async function waitFor(page, predicate, { timeout = 90_000, interval = 1_000, what = 'condition' } = {}) {
   const deadline = Date.now() + timeout
+  let state
   while (Date.now() < deadline) {
-    const state = await apiState(page)
+    state = await apiState(page)
     if (predicate(state)) return state
     await page.waitForTimeout(interval)
   }
-  const state = await apiState(page)
-  throw new Error(
-    `waitFor: condition not met within ${timeout}ms.\n` +
-    `Last status: ${state?.status ?? 'unknown'}`
-  )
+  throw new Error(`waitFor(${what}) not met within ${timeout}ms (status: ${state?.status})`)
 }
 
-/** Move a React-controlled <input type="range"> via the native value setter. */
+/** Move a React-controlled <input type="range">. */
 async function setSlider(page, testId, value) {
   const loc = page.locator(`[data-testid="${testId}"]`)
   await loc.waitFor({ state: 'visible', timeout: 15_000 })
@@ -57,42 +52,44 @@ async function setSlider(page, testId, value) {
   await page.waitForTimeout(400)
 }
 
-/** REST-level helper: ensure a fresh game is running with the given crew size. */
-async function ensureGame(page, { playerCount = 6, mode = 'empty', seed = 42 } = {}) {
+/** Send one WebSocket command the way a console does; resolves with the ack/error. */
+async function pilot(page, payload) {
+  return page.evaluate(p => new Promise(resolve => {
+    const proto = location.protocol === 'https:' ? 'wss' : 'ws'
+    const ws = new WebSocket(`${proto}://${location.host}/ws`)
+    ws.onopen = () => ws.send(JSON.stringify(p))
+    ws.onmessage = e => {
+      const m = JSON.parse(e.data)
+      if (m.type === 'ack' || m.type === 'error') { ws.close(); resolve(m) }
+    }
+  }), payload)
+}
+
+/** Start a fresh game over REST and wait for the landing page to show it. */
+async function ensureGame(page, { mode = 'full', seed = 42, playerCount = 6 } = {}) {
   await page.goto('/')
   await page.evaluate(({ pc, m, s }) =>
-    fetch(`/api/game/start?mode=${m}&player_count=${pc}&seed=${s}`, { method: 'POST' })
-      .then(r => r.json()),
-    { pc: playerCount, m: mode, s: seed }
-  )
-  // Reload so the LandingPage observes the running state via WS.
+    fetch(`/api/game/start?mode=${m}&player_count=${pc}&seed=${s}`, { method: 'POST' }).then(r => r.json()),
+    { pc: playerCount, m: mode, s: seed })
   await page.goto('/')
   await page.waitForFunction(() => /IN PROGRESS/.test(document.body.innerText), { timeout: 10_000 })
 }
 
-/**
- * Land → JOIN → CUSTOM → pick consoles → ENTER. Returns { page, ctx }.
- * Use ctx.close() when done.
- */
+/** Landing → JOIN → CUSTOM → pick consoles → ENTER. */
 async function openConsole(browser, consoleIds) {
   const ctx  = await browser.newContext()
   const page = await ctx.newPage()
   await page.goto('/')
   await page.click('[data-testid="join-btn"]')
   await page.click('[data-testid="mode-custom-btn"]')
-  for (const id of consoleIds) {
-    await page.click(`[data-testid="console-btn-${id}"]`)
-  }
+  for (const id of consoleIds) await page.click(`[data-testid="console-btn-${id}"]`)
   await page.click('[data-testid="enter-btn"]')
-  await page.waitForFunction(
-    () => document.body.innerText.includes('● LIVE'),
-    { timeout: 15_000 }
-  )
+  await page.waitForFunction(() => document.body.innerText.includes('● LIVE'), { timeout: 15_000 })
   await page.waitForTimeout(500)
   return { page, ctx }
 }
 
-/** Land → JOIN → ROLE → pick role-btn-{id}. Returns { page, ctx }. */
+/** Landing → JOIN → ROLE → role-btn-{id}. */
 async function openRole(browser, roleId) {
   const ctx  = await browser.newContext()
   const page = await ctx.newPage()
@@ -100,352 +97,248 @@ async function openRole(browser, roleId) {
   await page.click('[data-testid="join-btn"]')
   await page.click('[data-testid="mode-role-btn"]')
   await page.click(`[data-testid="role-btn-${roleId}"]`)
-  await page.waitForFunction(
-    () => document.body.innerText.includes('● LIVE'),
-    { timeout: 15_000 }
-  )
+  await page.waitForFunction(() => document.body.innerText.includes('● LIVE'), { timeout: 15_000 })
   await page.waitForTimeout(500)
   return { page, ctx }
 }
 
-/** Land → ADMIN. Returns { page, ctx }. */
-async function openAdmin(browser) {
-  const ctx  = await browser.newContext()
-  const page = await ctx.newPage()
-  await page.goto('/')
-  await page.click('[data-testid="admin-btn"]')
-  await page.waitForTimeout(400)
-  return { page, ctx }
+/** Transport console: source → item → destination → amount → dispatch. */
+async function dispatch(page, src, item, dst, amount) {
+  await page.click(`[data-testid="src-${src}"]`);   await page.waitForTimeout(250)
+  await page.click(`[data-testid="item-${item}"]`); await page.waitForTimeout(250)
+  await page.click(`[data-testid="dst-${dst}"]`);   await page.waitForTimeout(250)
+  if (amount != null) await page.locator('[data-testid="amount-input"]').fill(String(amount))
+  await page.waitForTimeout(200)
+  await page.click('[data-testid="dispatch-btn"]')
 }
 
 
 // ═════════════════════════════════════════════════════════════════════════════
-// SUITE A — Entry flow (LandingPage / NewGamePage / ConsoleSelectPage / Admin)
+// SUITE A — Entry flow
 // ═════════════════════════════════════════════════════════════════════════════
 test.describe.serial('A · Entry flow', () => {
 
-  // A1 — Verify Landing reflects the running game (IN PROGRESS state).
-  // (Reaching STANDBY would require a full backend restart — the /game/stop
-  // endpoint pauses ticks but doesn't tear down ship/galaxy state.)
-  test('A1 – landing shows IN PROGRESS with a JOIN button when game is running', async ({ browser }) => {
-    const ctx  = await browser.newContext()
-    const page = await ctx.newPage()
-    // Make sure a game is running.
-    await ensureGame(page, { playerCount: 6, mode: 'empty', seed: 99 })
-    await page.waitForFunction(() => /IN PROGRESS/.test(document.body.innerText), { timeout: 10_000 })
-
+  test('A1 – landing shows IN PROGRESS with JOIN/NEW GAME/ADMIN when a game is running', async ({ page }) => {
+    await ensureGame(page, { mode: 'empty', seed: 99 })
     await expect(page.locator('[data-testid="new-game-btn"]')).toBeVisible()
     await expect(page.locator('[data-testid="join-btn"]')).toBeVisible()
-    await expect(page.locator('[data-testid="admin-btn"]')).toBeVisible()
-    await ctx.close()
+    await expect(page.locator('[data-testid="admin-btn"]').first()).toBeVisible()
   })
 
-  // A2 — Walk the NEW GAME flow with player_count=6 and verify the API.
-  test('A2 – NEW GAME flow starts a 6-player game', async ({ browser }) => {
-    const ctx  = await browser.newContext()
-    const page = await ctx.newPage()
+  test('A2 – NEW GAME (full mode) starts a living galaxy and opens Station Setup', async ({ page }) => {
     await page.goto('/')
     await page.click('[data-testid="new-game-btn"]')
-    await page.click('[data-testid="pc-btn-6"]')
+    await page.click('[data-testid="new-game-mode-full"]')
     await page.click('[data-testid="confirm-new-game-btn"]')
-
-    // After generation, App routes us to ConsoleSelectPage (running game) or
-    // straight back to landing if start callback only refreshed state. Either
-    // way, the API state should now be running with player_count=6.
-    const s = await waitFor(page, st => st?.status === 'running', { timeout: 15_000, interval: 1_000 })
+    const s = await waitFor(page, st => st?.status === 'running' && st.tick < 30, { what: 'new game' })
     expect(s.player_count).toBe(6)
-    await ctx.close()
+    expect(s.world.factions.length).toBe(6)
+    await page.waitForFunction(() => /STATION/i.test(document.body.innerText), { timeout: 10_000 })
   })
 
-  // A3 — From ConsoleSelectPage in ROLE mode, taking a role enters the game
-  //       with that role's full console set.
-  test('A3 – role-picker enters game with the role consoles', async ({ browser }) => {
+  test('A3 – role picker enters with that role\'s consoles (bosun → REPAIRS)', async ({ browser }) => {
     const { page, ctx } = await openRole(browser, 'bosun')
-    // Bosun's primary console (first in the 6P layout) is REPAIRS — verify it
-    // rendered and the WS is live.
     const txt = await page.locator('body').innerText()
     expect(txt).toMatch(/REPAIRS/i)
     expect(txt).toMatch(/● LIVE/)
     await ctx.close()
   })
 
-  // A4 — CUSTOM picker enforces the 4-station selection cap.
-  test('A4 – custom-picker enforces 4-station max', async ({ browser }) => {
-    const ctx  = await browser.newContext()
-    const page = await ctx.newPage()
+  test('A4 – custom picker allows at most 4 consoles', async ({ page }) => {
     await page.goto('/')
     await page.click('[data-testid="join-btn"]')
     await page.click('[data-testid="mode-custom-btn"]')
-
-    // Pick four valid stations.
-    for (const id of ['power', 'engines', 'shields', 'weapons']) {
-      await page.click(`[data-testid="console-btn-${id}"]`)
-    }
-    // The 5th button should be disabled now (visible but unclickable).
-    const fifth = page.locator('[data-testid="console-btn-navigation"]')
-    await expect(fifth).toBeDisabled()
-
-    // ENTER button is enabled with our four picks.
+    for (const id of ['power', 'engines', 'shields', 'weapons']) await page.click(`[data-testid="console-btn-${id}"]`)
+    await expect(page.locator('[data-testid="console-btn-navigation"]')).toBeDisabled()
     await expect(page.locator('[data-testid="enter-btn"]')).toBeEnabled()
-    await ctx.close()
   })
 
-  // A5 — From the Admin page, the GAME CONTROL tab can start a fresh game.
-  test('A5 – admin GAME CONTROL tab starts a new game', async ({ browser }) => {
-    const { page, ctx } = await openAdmin(browser)
+  test('A5 – admin GAME CONTROL starts a new game', async ({ page }) => {
+    await page.goto('/')
+    await page.locator('[data-testid="admin-btn"]').first().click()
     await page.click('[data-testid="admin-tab-game"]')
-    await page.waitForTimeout(300)
+    const t0 = (await apiState(page)).tick
     await page.click('[data-testid="start-game-btn"]')
-    await waitFor(page, s => s?.status === 'running', { timeout: 15_000, interval: 1_000 })
-    await ctx.close()
+    await waitFor(page, s => s?.status === 'running' && s.tick < Math.max(t0, 5), { timeout: 15_000, what: 'restart' })
   })
 })
 
 
 // ═════════════════════════════════════════════════════════════════════════════
-// SUITE B — Cross-system integration (FULL mode game; serial)
+// SUITE B — Cross-panel interactions (full game, serial)
 // ═════════════════════════════════════════════════════════════════════════════
-test.describe.serial('B · Cross-system integration', () => {
+test.describe.serial('B · Cross-panel interactions', () => {
 
-  // B1 — Reset to a known-good FULL-mode game with seeded resources.
-  test('B1 – fresh FULL-mode game has seeded resources', async ({ browser }) => {
-    const ctx  = await browser.newContext()
-    const page = await ctx.newPage()
-    await ensureGame(page, { playerCount: 6, mode: 'full', seed: 7 })
+  test('B1 – a fresh game is stocked for every station', async ({ page }) => {
+    await ensureGame(page, { mode: 'full', seed: 7 })
+    const s = await apiState(page)
+    const r = s.ship.rooms
+    expect(r.cargo_bay.metals).toBeGreaterThanOrEqual(5000)
+    expect(r.tactical_bridge.shield_generators).toBeGreaterThanOrEqual(3)
+    expect(r.sub_deck_refinery.metals).toBeGreaterThan(2500)   // refining starts on tick 1
+    expect(r.reactor_room.warp_batteries).toBeGreaterThanOrEqual(1)
+    expect(s.ship.transport_bots.length).toBe(2)
+    expect(s.ship.warp_capacitor_max_tw).toBe(7500)
+  })
 
-    const state = await apiState(page)
-    expect(state.status).toBe('running')
-    expect(state.player_count).toBe(6)
-    expect(state.ship.rooms.cargo_bay.metals).toBeGreaterThanOrEqual(5000)
-    expect(state.ship.rooms.cargo_bay.shield_batteries).toBeGreaterThanOrEqual(4)
-    expect(state.ship.rooms.shields_room.shield_batteries).toBeGreaterThanOrEqual(3)
-    expect(state.ship.rooms.manufacturing.metals).toBeGreaterThanOrEqual(3000)
+  test('B2 – POWER scanner slider → SHORT RANGE SCAN gets more power', async ({ browser }) => {
+    const { page: power, ctx: pc } = await openConsole(browser, ['power'])
+    const { page: scan,  ctx: sc } = await openConsole(browser, ['short_range'])
+    const before = (await apiState(scan)).short_range_scan.scan_gw
+    await setSlider(power, 'alloc-slider-scanner', 30)
+    await waitFor(scan, s => s.short_range_scan.scan_gw > before * 1.5, { timeout: 10_000, what: 'scan power up' })
+    await pc.close(); await sc.close()
+  })
+
+  test('B3 – POWER battery slider → net power rises while the battery drains', async ({ browser }) => {
+    const { page, ctx } = await openConsole(browser, ['battery'])
+    const s0 = await apiState(page)
+    await pilot(page, { type: 'set_battery_slider', value: 2 })   // 10 TW/tick: the 50 TW start charge lasts ~5 ticks
+    await waitFor(page, s => s.ship.net_power_tw > s0.ship.net_power_tw &&
+                             s.ship.battery_energy_tw < s0.ship.battery_energy_tw, { timeout: 10_000, what: 'discharge' })
+    await pilot(page, { type: 'set_battery_slider', value: 0 })
     await ctx.close()
   })
 
-  // B2 — POWER station's allocation slider drives short-range scanner GW.
-  // Verifies cross-tablet visibility: sliding on tablet A is visible in
-  // the API state read by tablet B.
-  test('B2 – power allocation change increases scan_gw', async ({ browser }) => {
-    const { page: powerPage, ctx: powerCtx } = await openConsole(browser, ['power'])
-    const { page: scanPage,  ctx: scanCtx  } = await openConsole(browser, ['short_range'])
-
-    const before = await apiState(scanPage)
-    const initialScanGw = before.short_range_scan.scan_gw
-    expect(before.ship.net_power_gw).toBeGreaterThan(0)
-
-    await setSlider(powerPage, 'alloc-slider-short_range_scanner', 25)
-    await powerPage.waitForTimeout(1_000)
-
-    const after = await apiState(scanPage)
-    expect(after.short_range_scan.scan_gw).toBeGreaterThan(initialScanGw)
-    shared.netPowerGw = after.ship.net_power_gw
-
-    await powerCtx.close()
-    await scanCtx.close()
-  })
-
-  // B3 — TRANSPORTATION moves cargo between rooms.
-  test('B3 – transport moves metals from cargo bay to manufacturing', async ({ browser }) => {
-    const { page: apiPage, ctx: apiCtx } = await openConsole(browser, ['short_range'])
-    const before = await apiState(apiPage)
-    const initialMfgMetals = before.ship.rooms.manufacturing.metals
-    await apiCtx.close()
-
+  test('B4 – TRANSPORT moves metals from the cargo bay to the refinery', async ({ browser }) => {
     const { page, ctx } = await openConsole(browser, ['transportation'])
-    await page.click('[data-testid="src-cargo_bay"]');     await page.waitForTimeout(300)
-    await page.click('[data-testid="item-metals"]');       await page.waitForTimeout(300)
-    await page.click('[data-testid="dst-manufacturing"]'); await page.waitForTimeout(300)
-    await page.locator('[data-testid="amount-input"]').fill('500')
-    await page.waitForTimeout(200)
-    await page.click('[data-testid="dispatch-btn"]')
-
-    await waitFor(
-      page,
-      s => s.ship.rooms.manufacturing.metals > initialMfgMetals,
-      { timeout: 30_000, interval: 2_000 }
-    )
-    const after = await apiState(page)
-    expect(after.ship.rooms.manufacturing.metals).toBeCloseTo(initialMfgMetals + 500, 0)
+    const m0 = (await apiState(page)).ship.rooms.sub_deck_refinery.metals
+    await dispatch(page, 'cargo_bay', 'metals', 'sub_deck_refinery', 500)
+    await waitFor(page, s => s.ship.rooms.sub_deck_refinery.metals > m0 + 400, { timeout: 30_000, what: 'metals delivered' })
     await ctx.close()
   })
 
-  // B4 — MANUFACTURING produces components from staged inputs.
-  // Note: completed air_scrubbers auto-deliver to living_quarters per the
-  // ROOM_PERMISSIONS routing in ship.py.
-  test('B4 – manufacturing produces air scrubbers (delivered to living_quarters)', async ({ browser }) => {
-    // Ensure manufacturing has enough power allocation — prior tests may have
-    // shifted percentages around (especially with general_systems GW-locked).
-    const { page: powerPage, ctx: powerCtx } = await openConsole(browser, ['power'])
-    await setSlider(powerPage, 'alloc-slider-manufacturing', 30)
-    await powerPage.waitForTimeout(500)
-    await powerCtx.close()
-
+  test('B5 – MANUFACTURING builds a warp battery → ENGINES/UNIVERSE warp capacity rises', async ({ browser }) => {
+    const { page: power, ctx: pc } = await openConsole(browser, ['power'])
+    await setSlider(power, 'alloc-slider-synthesis', 12)      // fabrication halts at ≤5% synthesis power
+    await pc.close()
     const { page, ctx } = await openConsole(browser, ['manufacturing'])
-    const before = await apiState(page)
-    const initialScrubbers = before.ship.rooms.living_quarters.air_scrubbers ?? 0
-
-    await setSlider(page, 'mfg-slider-air_scrubbers', 100)
-    await waitFor(
-      page,
-      s => (s.ship.rooms.living_quarters.air_scrubbers ?? 0) > initialScrubbers,
-      { timeout: 60_000, interval: 2_000 }
-    )
-    const after = await apiState(page)
-    expect(after.ship.rooms.living_quarters.air_scrubbers).toBeGreaterThan(initialScrubbers)
+    await pilot(page, { type: 'set_fabrication_choice', recipe: 'battery', output: 'warp_batteries' })
+    const cap0 = (await apiState(page)).ship.warp_capacitor_max_tw
+    await setSlider(page, 'fab-slider-battery', 2)
+    await waitFor(page, s => s.ship.warp_capacitor_max_tw > cap0, { timeout: 60_000, what: 'warp battery built' })
+    await setSlider(page, 'fab-slider-battery', 0)
     await ctx.close()
   })
 
-  // B5 — TRANSPORTATION delivers an item between two arbitrary rooms
-  // (cargo_bay → shields_room) using the dispatch flow.
-  test('B5 – transport delivers shield batteries from cargo bay to shields room', async ({ browser }) => {
-    const { page, ctx } = await openConsole(browser, ['transportation'])
-    const before = await apiState(page)
-    const initialShieldsRoom = before.ship.rooms.shields_room.shield_batteries ?? 0
-    const availableInCargo  = before.ship.rooms.cargo_bay.shield_batteries  ?? 0
-    expect(availableInCargo).toBeGreaterThan(0)
-
-    await page.click('[data-testid="src-cargo_bay"]');         await page.waitForTimeout(300)
-    await page.click('[data-testid="item-shield_batteries"]'); await page.waitForTimeout(300)
-    await page.click('[data-testid="dst-shields_room"]');      await page.waitForTimeout(300)
-    await page.locator('[data-testid="amount-input"]').fill('1')
-    await page.waitForTimeout(200)
-    await page.click('[data-testid="dispatch-btn"]')
-
-    await waitFor(
-      page,
-      s => (s.ship.rooms.shields_room.shield_batteries ?? 0) > initialShieldsRoom,
-      { timeout: 30_000, interval: 2_000 }
-    )
-    const after = await apiState(page)
-    expect(after.ship.rooms.shields_room.shield_batteries).toBeGreaterThan(initialShieldsRoom)
-    await ctx.close()
-  })
-
-  // B6 — SHIELDS officer installs hull-section components.
-  // Install takes ~100 GW-ticks via station power; ensure shields has alloc.
-  test('B6 – shields installs a defense laser on the front section', async ({ browser }) => {
-    // Bump shields alloc + reactor output so the install job progresses fast.
-    const { page: powerPage, ctx: powerCtx } = await openConsole(browser, ['power'])
-    await setSlider(powerPage, 'reactor-slider-reactor_1_fuel', 50)
-    await setSlider(powerPage, 'alloc-slider-shields', 30)
-    await powerPage.waitForTimeout(800)
-    await powerCtx.close()
+  test('B6 – TRANSPORT brings shield generators to the bridge → SHIELDS installs one on FORE', async ({ browser }) => {
+    const { page: tr, ctx: tc } = await openConsole(browser, ['transportation'])
+    const b0 = (await apiState(tr)).ship.rooms.tactical_bridge.shield_generators
+    await dispatch(tr, 'cargo_bay', 'shield_generators', 'tactical_bridge', 1)
+    await waitFor(tr, s => s.ship.rooms.tactical_bridge.shield_generators > b0, { timeout: 30_000, what: 'generator on bridge' })
+    await tc.close()
 
     const { page, ctx } = await openConsole(browser, ['shields'])
-    const before = await apiState(page)
-    const initialLasers = before.ship.hull_sections.front.defense_lasers.length
-
-    await page.click('[data-testid="sec-btn-front"]');    await page.waitForTimeout(500)
-    await page.click('[data-testid="install-def-laser-btn"]')
-
-    // Install queues a component_job; it appears in defense_lasers only after
-    // the 100-GW-tick job completes.
-    await waitFor(
-      page,
-      s => s.ship.hull_sections.front.defense_lasers.length > initialLasers,
-      { timeout: 60_000, interval: 2_000 }
-    )
-    const after = await apiState(page)
-    expect(after.ship.hull_sections.front.defense_lasers.length).toBeGreaterThan(initialLasers)
+    await page.click('[data-testid="sec-btn-fore"]'); await page.waitForTimeout(400)
+    await page.click('[data-testid="install-shield-bat-btn"]')
+    await waitFor(page, s => (s.ship.hull_sections.fore.shield_generators ?? []).length > 0,
+                  { timeout: 150_000, interval: 3_000, what: 'generator installed' })
     await ctx.close()
   })
 
-  // B7 — Reactor overheat → REPAIRS dispatch flow.
-  test('B7 – reactor overheat damages reactor; repair bot restores it', async ({ browser }) => {
-    const { page: powerPage,   ctx: powerCtx   } = await openConsole(browser, ['power'])
-    const { page: repairsPage, ctx: repairsCtx } = await openConsole(browser, ['repairs'])
+  test('B7 – POWER redlines a reactor → it overheats → REPAIRS fixes it', async ({ browser }) => {
+    const { page: power,   ctx: pc } = await openConsole(browser, ['power'])
+    const { page: repairs, ctx: rc } = await openConsole(browser, ['repairs'])
+    await setSlider(power, 'reactor-slider-reactor_1_fuel', 100)
+    const h0 = (await apiState(power)).ship.system_health.reactor_1_fuel
+    await waitFor(power, s => s.ship.system_health.reactor_1_fuel < h0 - 0.5, { timeout: 120_000, interval: 2_000, what: 'overheat damage' })
+    await setSlider(power, 'reactor-slider-reactor_1_fuel', 30)
+    const damaged = (await apiState(power)).ship.system_health.reactor_1_fuel
 
-    await setSlider(powerPage, 'reactor-slider-reactor_1_fuel', 100)
-    const beforeHealth = (await apiState(powerPage)).ship.system_health.reactor_1_fuel
-
-    await waitFor(
-      powerPage,
-      s => (s.ship.system_health.reactor_1_fuel ?? 100) < beforeHealth - 0.5,
-      { timeout: 120_000, interval: 3_000 }
-    )
-    const damagedHealth = (await apiState(powerPage)).ship.system_health.reactor_1_fuel
-    expect(damagedHealth).toBeLessThan(beforeHealth)
-
-    await repairsPage.click('[data-testid="rep-bot-1"]');                          await repairsPage.waitForTimeout(300)
-    await repairsPage.click('[data-testid="rep-tab-systems"]');                    await repairsPage.waitForTimeout(300)
-    await repairsPage.click('[data-testid="rep-target-system-reactor_1_fuel"]');   await repairsPage.waitForTimeout(300)
-    await repairsPage.click('[data-testid="rep-dispatch-btn"]')
-
-    await waitFor(
-      repairsPage,
-      s => s.ship.system_health.reactor_1_fuel > damagedHealth + 0.5,
-      { timeout: 90_000, interval: 3_000 }
-    )
-    const finalState = await apiState(repairsPage)
-    expect(finalState.ship.system_health.reactor_1_fuel).toBeGreaterThan(damagedHealth)
-    await powerCtx.close()
-    await repairsCtx.close()
+    await repairs.click('[data-testid="rep-bot-1"]');                        await repairs.waitForTimeout(300)
+    await repairs.click('[data-testid="rep-tab-systems"]');                  await repairs.waitForTimeout(300)
+    await repairs.click('[data-testid="rep-target-system-reactor_1_fuel"]'); await repairs.waitForTimeout(300)
+    await repairs.click('[data-testid="rep-dispatch-btn"]')
+    await waitFor(repairs, s => s.ship.system_health.reactor_1_fuel >= Math.min(100, damaged + 0.5), { timeout: 90_000, interval: 2_000, what: 'repaired' })
+    await pc.close(); await rc.close()
   })
 
-  // B8 — REGRESSION: GW-locks must hold delivered GW within rounding tolerance.
-  // Bug fixed in commit a286fac: `update_gw_locks` rounded percentages to
-  // 4 decimals, which lost ~0.45 GW at high total power. After the fix,
-  // delivered GW for a locked station should match its target within 0.05 GW.
-  test('B8 – GW lock holds 20 GW for general_systems across reactor swings', async ({ browser }) => {
+  test('B8 – a GW-locked station keeps its power while reactor output swings', async ({ browser }) => {
     const { page, ctx } = await openConsole(browser, ['power'])
-
-    // Baseline state: read current general_systems target and confirm it's locked.
-    const s0 = await apiState(page)
-    const targetGw = s0.ship.power_allocation_gw_targets?.general_systems
-    expect(typeof targetGw).toBe('number')
-    expect(targetGw).toBeGreaterThan(0)
-
-    // Stress the rounding: bump several reactor sliders so total power changes
-    // dramatically while general_systems lock should hold its delivered GW.
-    await setSlider(page, 'reactor-slider-reactor_1_fuel', 80)
-    await page.waitForTimeout(1_500)
+    await pilot(page, { type: 'set_gw_lock', station: 'general_systems', gw_target: 20 })
+    const locked = await waitFor(page, s => s.ship.power_allocation_tw_targets?.general_systems === 20, { what: 'TW lock' })
+    const target = locked.ship.power_allocation_tw_targets.general_systems
     await setSlider(page, 'reactor-slider-reactor_2_fuel', 60)
-    await page.waitForTimeout(1_500)
-
-    // Sample delivered GW for general_systems across several ticks and verify
-    // it stays within 0.05 GW of the target every time.
-    const tolerance = 0.05
-    const samples = []
-    for (let i = 0; i < 6; i++) {
+    await page.waitForTimeout(2_000)
+    for (let i = 0; i < 4; i++) {
       const s = await apiState(page)
-      const pct = s.ship.power_allocation.general_systems / 100
-      const net = s.ship.net_power_gw
-      const delivered = pct * net
-      samples.push({ delivered, target: targetGw })
-      expect(Math.abs(delivered - targetGw)).toBeLessThanOrEqual(tolerance)
+      const delivered = s.ship.power_allocation.general_systems / 100 * s.ship.net_power_tw
+      expect(Math.abs(delivered - target)).toBeLessThanOrEqual(0.05)
+      await page.waitForTimeout(1_000)
+    }
+    await setSlider(page, 'reactor-slider-reactor_2_fuel', 30)
+    await ctx.close()
+  })
+
+  test('B9 – mayday: fly alongside, TRANSPORT evacuates survivors, CAPTAIN\'S LOG records it', async ({ browser }) => {
+    const { page, ctx } = await openConsole(browser, ['transportation', 'mission'])
+    await ensureGame(page, { mode: 'full', seed: 11 })
+    await page.goto('/'); await page.click('[data-testid="join-btn"]'); await page.click('[data-testid="mode-custom-btn"]')
+    await page.click('[data-testid="console-btn-transportation"]'); await page.click('[data-testid="console-btn-mission"]')
+    await page.click('[data-testid="enter-btn"]')
+    const s0 = await waitFor(page, s => s.comms.messages.some(m => /MAYDAY/.test(m.subject)), { timeout: 30_000, what: 'mayday' })
+    const mayday = s0.comms.messages.find(m => /MAYDAY/.test(m.subject))
+
+    // Engines + autopilot (the Navigation map is a canvas, so fly by command)
+    await pilot(page, { type: 'set_engine_output', engine: 'engine_3_fuel', value: 0.6 })
+    await pilot(page, { type: 'set_engine_output', engine: 'engine_4_fuel', value: 0.6 })
+    expect((await pilot(page, { type: 'set_course', kind: 'npc', id: mayday.from_id })).type).toBe('ack')
+    await pilot(page, { type: 'set_thrust', value: 1.0 })
+    await waitFor(page, s => !s.world.course, { timeout: 90_000, what: 'alongside' })
+
+    const sid = `ship:${mayday.from_id}`
+    for (let trip = 0; trip < 4; trip++) {
+      const s = await apiState(page)
+      const t = s.world.transport_targets.find(x => x.id === sid)
+      if (!t?.cargo?.people) break
+      await waitFor(page, st => st.ship.transport_bots.some(b => b.state === 'idle'), { timeout: 40_000, what: 'idle bot' })
+      await dispatch(page, sid, 'people', 'living_quarters', null)
       await page.waitForTimeout(1_500)
     }
+    const done = await waitFor(page, s => s.world.passengers > 0 &&
+      !s.world.transport_targets.find(x => x.id === sid)?.cargo?.people, { timeout: 90_000, what: 'evacuated' })
+    expect(done.world.log.some(l => /collected .* people/.test(l.text))).toBeTruthy()
 
+    // Captain's Log shows it
+    await page.locator('.hud-nav-arrow').last().click()
+    await page.waitForTimeout(800)
+    await expect(page.locator('body')).toContainText(/passengers/i)
     await ctx.close()
+  })
+
+  test('B10 – CAPTAIN\'S LOG plan board is shared between tablets', async ({ browser }) => {
+    const { page: a, ctx: ac } = await openConsole(browser, ['mission'])
+    const { page: b, ctx: bc } = await openConsole(browser, ['mission'])
+    await a.locator('[data-testid="note-input"]').fill('Bring oxygen to the Osprey')
+    await a.keyboard.press('Enter')
+    await expect(b.locator('[data-testid="note"]').filter({ hasText: 'Bring oxygen' })).toBeVisible({ timeout: 10_000 })
+    await ac.close(); await bc.close()
   })
 })
 
 
 // ═════════════════════════════════════════════════════════════════════════════
-// SUITE C — Doc-05 station coverage smoke (every 6P role can be entered)
+// SUITE C — every crew role opens its first console
 // ═════════════════════════════════════════════════════════════════════════════
-test.describe.serial('C · Doc-05 station coverage', () => {
-  // The 6P crew layout (from frontend/src/crewLayouts.js) covers every console
-  // documented in docs/05-stations-and-crew.md exactly once. Entering each role
-  // verifies its panels load against a live game without crashing.
-  // GamePage shows ONE panel at a time (with arrow nav between consoles), so we
-  // verify that each role's PRIMARY console renders and the WS is live.
-  const SIX_P_ROLES = [
-    { id: 'captain',  primary: /COMMUNICATIONS/i },
+test.describe.serial('C · Station coverage', () => {
+  const ROLES = [
+    { id: 'captain',  primary: /CAPTAIN'S LOG/i },
     { id: 'pilot',    primary: /NAVIGATION/i },
-    { id: 'weapons',  primary: /WEAPONS/i },
+    { id: 'tactical', primary: /WEAPONS/i },
     { id: 'shields',  primary: /SHIELDS/i },
     { id: 'engineer', primary: /POWER/i },
+    { id: 'science',  primary: /LONG RANGE SCAN/i },
     { id: 'bosun',    primary: /REPAIRS/i },
   ]
-
-  for (const role of SIX_P_ROLES) {
-    test(`C · role "${role.id}" loads its primary console`, async ({ browser }) => {
+  for (const role of ROLES) {
+    test(`C · role "${role.id}" loads its first console`, async ({ browser }) => {
       const { page, ctx } = await openRole(browser, role.id)
+      const errors = []
+      page.on('pageerror', e => errors.push(e.message))
       const txt = await page.locator('body').innerText()
       expect(txt).toMatch(role.primary)
       expect(txt).toMatch(/● LIVE/)
+      expect(errors).toEqual([])
       await ctx.close()
     })
   }
