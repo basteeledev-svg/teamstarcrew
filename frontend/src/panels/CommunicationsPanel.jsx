@@ -334,6 +334,7 @@ function EmptyState({ onCompose, unread, inRange }) {
 }
 
 // ── Main panel ────────────────────────────────────────────────────────────────
+// TODO (N-13): add a readOnly prop — when true, hide the Send button and show a read-only inbox
 export default function CommunicationsPanel({ gameState, sendCommand }) {
   const [tab,            setTab]            = useState('inbox')
   const [selectedMsg,    setSelectedMsg]    = useState(null)
@@ -409,7 +410,7 @@ export default function CommunicationsPanel({ gameState, sendCommand }) {
           ◉ COMMUNICATIONS
         </span>
         <span className={s.headerStatus}>
-          {commsGw.toFixed(0)} GW · RANGE {rangeLy.toFixed(1)} LY · {inRangeContacts.length} IN RANGE
+          {commsGw.toFixed(0)} TW · RANGE {rangeLy.toFixed(1)} LY · {inRangeContacts.length} IN RANGE
         </span>
         <div className={s.headerTabs}>
           {TABS.map(([t, label]) => (

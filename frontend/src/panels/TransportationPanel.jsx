@@ -8,22 +8,21 @@ const ACCENT  = '#ff88cc'
 const ACCENT2 = 'var(--accent-cyan)'
 
 const ROOM_LABELS = {
-  power_room:       'POWER ROOM',
-  engine_room:      'ENGINE ROOM',
-  weapons_room:     'WEAPONS',
-  shields_room:     'SHIELDS',
-  living_quarters:  'LIVING QTRS',
-  cargo_bay:        'CARGO BAY',
-  manufacturing:    'MANUFACTURING',
-  charging_bay:     'CHARGING BAY',
-  planet:           'PLANET',
+  reactor_room:      'REACTOR ROOM',
+  engine_bay:        'ENGINE BAY',
+  tactical_bridge:   'TACTICAL BRIDGE',
+  living_quarters:   'LIVING QTRS',
+  cargo_bay:         'CARGO BAY',
+  sub_deck_refinery: 'SUB-DECK REFINERY',
+  charging_bay:      'CHARGING BAY',
+  planet:            'PLANET',
 }
 
 // Rooms excluded from item transport (bots-only or internal)
 const TRANSPORT_EXCLUDED_ROOMS = new Set(['charging_bay'])
 
 const LARGE_ITEMS = new Set([
-  'lasers', 'missiles', 'shield_batteries', 'power_batteries',
+  'lasers', 'missiles', 'shield_generators', 'power_batteries',
   'air_scrubbers', 'transport_bots',
 ])
 
@@ -124,7 +123,7 @@ export default function TransportationPanel({ gameState, sendCommand }) {
             TRANSPORT FLEET ({bots.length})
           </div>
           {(() => {
-            const totalGw = ship.net_power_gw ?? 0
+            const totalGw = ship.net_power_tw ?? 0
             const bayPct  = ship.power_allocation?.charging_bay ?? 0
             const bayGw   = totalGw * bayPct / 100
             const chargeRate = gameState?.constants?.CHARGING_BAY_CHARGE_RATE_PER_GW ?? 2

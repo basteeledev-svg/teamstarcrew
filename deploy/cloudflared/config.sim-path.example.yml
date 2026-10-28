@@ -1,0 +1,27 @@
+# Cloudflared config for steeledev.org/sim
+# This tunnel must own steeledev.org routing. Non-/sim traffic is forwarded to your existing origin.
+# Replace placeholders before use.
+
+tunnel: YOUR_TUNNEL_ID
+credentials-file: /etc/cloudflared/YOUR_TUNNEL_ID.json
+
+ingress:
+  # TeamStarCrew app (subpath mode)
+  - hostname: steeledev.org
+    path: /sim/ws*
+    service: http://localhost:8000/sim/ws
+  - hostname: steeledev.org
+    path: /sim/api/*
+    service: http://localhost:8000/sim/api
+  - hostname: steeledev.org
+    path: /sim/health
+    service: http://localhost:8000/sim/health
+  - hostname: steeledev.org
+    path: /sim*
+    service: http://localhost:8000/sim
+
+  # Existing site origin for all other traffic
+  - hostname: steeledev.org
+    service: https://YOUR_EXISTING_STEELEDEV_ORIGIN
+
+  - service: http_status:404

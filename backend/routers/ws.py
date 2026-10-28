@@ -7,7 +7,7 @@ from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 
 from game.state import game_state, manager
 from game.vector3 import normalize
-from game.constants import WARP_COST_BASE, WARP_COST_EXPONENT, ORBIT_DISTANCE_AU
+from game.constants import WARP_COST_BASE, WARP_COST_EXPONENT, WARP_COST_ADDITIVE, PC_TO_LY, ORBIT_DISTANCE_AU
 
 logger = logging.getLogger(__name__)
 
@@ -39,7 +39,12 @@ async def _handle_command(ws: WebSocket, cmd: dict) -> None:
 
     cmd_type = cmd.get("type")
 
-    if cmd_type == "set_thrust":
+    if cmd_type == "set_battery_slider":
+        value = max(-100.0, min(100.0, float(cmd.get("value", 0.0))))
+        game_state.ship.battery_slider = round(value, 2)
+        await ws.send_text(json.dumps({"type": "ack", "cmd": "set_battery_slider", "value": value}))
+
+    elif cmd_type == "set_thrust":
         value = max(0.0, min(1.0, float(cmd.get("value", 0.0))))
         game_state.ship.thrust = value
         await ws.send_text(json.dumps({"type": "ack", "cmd": "set_thrust", "value": value}))
@@ -66,18 +71,19 @@ async def _handle_command(ws: WebSocket, cmd: dict) -> None:
         if game_state.ship.system_health.get("warp_drive", 100.0) <= 0:
             await ws.send_text(json.dumps({"type": "error", "detail": "Warp drive non-functional"}))
             return
-        dist_ly = game_state.galaxy.distance_ly(game_state.ship.current_system_id, target.id)
-        cost_gw = WARP_COST_BASE * (dist_ly ** WARP_COST_EXPONENT)
-        if game_state.ship.warp_capacitor_gw < cost_gw:
+        dist_ly  = game_state.galaxy.distance_ly(game_state.ship.current_system_id, target.id)
+        dist_pc  = dist_ly / PC_TO_LY
+        cost_tw  = WARP_COST_BASE * (dist_pc ** WARP_COST_EXPONENT) + WARP_COST_ADDITIVE
+        if game_state.ship.warp_capacitor_gw < cost_tw:
             await ws.send_text(json.dumps({
                 "type": "error",
-                "detail": f"Insufficient warp charge ({game_state.ship.warp_capacitor_gw:,.0f} GW, need {cost_gw:,.0f} GW for {dist_ly:.1f} LY)"
+                "detail": f"Insufficient warp charge ({game_state.ship.warp_capacitor_gw:,.0f} TW, need {cost_tw:,.0f} TW for {dist_pc:.1f} pc)"
             }))
             return
-        game_state.ship.warp_capacitor_gw -= cost_gw
+        game_state.ship.warp_capacitor_gw -= cost_tw
         game_state.ship.warp_to(target.id, target.max_orbital_distance_au)
         target.visited = True
-        await ws.send_text(json.dumps({"type": "ack", "cmd": "warp", "destination": target.name, "cost_gw": round(cost_gw), "dist_ly": round(dist_ly, 1)}))
+        await ws.send_text(json.dumps({"type": "ack", "cmd": "warp", "destination": target.name, "cost_tw": round(cost_tw), "dist_pc": round(dist_pc, 2)}))
 
     elif cmd_type == "orbit":
         planet_id = cmd.get("planet_id")
@@ -151,6 +157,94 @@ async def _handle_command(ws: WebSocket, cmd: dict) -> None:
         game_state.ship.reactor_outputs[reactor] = value
         await ws.send_text(json.dumps({"type": "ack", "cmd": "set_reactor_output", "reactor": reactor, "value": value}))
 
+    elif cmd_type == "set_generation_target_gw":
+        raw_value = cmd.get("value", 0.0)
+        try:
+            target_gw = float(raw_value)
+        except (TypeError, ValueError):
+            await ws.send_text(json.dumps({"type": "error", "detail": "value must be a number"}))
+            return
+        achieved = game_state.ship.set_generation_target_gw(target_gw)
+        await ws.send_text(json.dumps({
+            "type": "ack",
+            "cmd": "set_generation_target_gw",
+            "target_gw": round(max(0.0, target_gw), 2),
+            "achieved_gw": achieved,
+            "reactor_outputs": game_state.ship.reactor_outputs,
+        }))
+
+    elif cmd_type == "scan":
+        scan = game_state._get_scan_data()
+        planets = scan.get("planets", [])
+        ships = scan.get("npc_ships", [])
+        await ws.send_text(json.dumps({
+            "type": "ack",
+            "cmd": "scan",
+            "summary": {
+                "scan_gw": scan.get("scan_gw", 0.0),
+                "planet_contacts": len(planets),
+                "ship_contacts": len(ships),
+                "high_detail_planets": sum(1 for p in planets if p.get("tier", 0) >= 3),
+                "high_detail_ships": sum(1 for s in ships if s.get("tier", 0) >= 3),
+            },
+        }))
+
+    elif cmd_type == "interact_planet":
+        action = str(cmd.get("action", "survey")).strip().lower()
+        ship = game_state.ship
+        if not ship.orbiting_planet_id:
+            await ws.send_text(json.dumps({"type": "error", "detail": "Not orbiting a planet"}))
+            return
+
+        current_system = game_state.galaxy.get_system(ship.current_system_id)
+        planet = current_system.get_planet(ship.orbiting_planet_id) if current_system else None
+        if not planet:
+            await ws.send_text(json.dumps({"type": "error", "detail": "Orbited planet not found"}))
+            return
+
+        if action == "survey":
+            await ws.send_text(json.dumps({
+                "type": "ack",
+                "cmd": "interact_planet",
+                "action": "survey",
+                "planet": {
+                    "id": planet.id,
+                    "name": planet.name,
+                    "type": planet.type,
+                    "inhabited": planet.inhabited,
+                    "hostility": round(planet.total_hostility, 1),
+                    "resources": {
+                        "metals": round(planet.metals, 1),
+                        "rare_earth": round(planet.rare_earth, 1),
+                        "radioactive": round(planet.radioactive, 1),
+                        "hydrocarbons": round(planet.hydrocarbons, 1),
+                    },
+                    "stockpile": planet.stockpile,
+                },
+            }))
+            return
+
+        if action == "extract_basic":
+            cargo = ship.rooms.get("cargo_bay", {})
+            gains = {
+                "metals": round(max(0.5, planet.metals / 25.0), 2),
+                "rare_earth": round(max(0.2, planet.rare_earth / 40.0), 2),
+                "radioactive": round(max(0.2, planet.radioactive / 40.0), 2),
+                "hydrocarbons": round(max(0.5, planet.hydrocarbons / 25.0), 2),
+            }
+            for key, value in gains.items():
+                cargo[key] = round(cargo.get(key, 0.0) + value, 2)
+            await ws.send_text(json.dumps({
+                "type": "ack",
+                "cmd": "interact_planet",
+                "action": "extract_basic",
+                "planet": planet.name,
+                "gains": gains,
+            }))
+            return
+
+        await ws.send_text(json.dumps({"type": "error", "detail": "Unknown planet action"}))
+
     elif cmd_type == "set_engine_output":
         _VALID_ENGINES = {"engine_1_electric", "engine_2_electric", "engine_3_fuel", "engine_4_fuel"}
         engine_key = cmd.get("engine")
@@ -166,7 +260,7 @@ async def _handle_command(ws: WebSocket, cmd: dict) -> None:
         SUM_KEYS = {
             "engines", "warp_drive", "shields", "weapons",
             "short_range_scanner", "long_range_scanner", "comms",
-            "life_support", "general_systems", "manufacturing", "charging_bay",
+            "life_support", "general_systems", "sub_deck_refinery", "charging_bay",
         }
         ALL_KEYS = SUM_KEYS | {"battery"}
         allocations = cmd.get("allocations", {})
@@ -352,6 +446,19 @@ async def _handle_command(ws: WebSocket, cmd: dict) -> None:
         else:
             await ws.send_text(json.dumps({"type": "error", "detail": msg}))
 
+    elif cmd_type == "set_synthesis_alloc":
+        alloc = cmd.get("alloc", {})
+        SYNTHESIS_KEYS = {"fuel", "enriched_nuclear", "electronics", "repair_patches", "space_scrap"}
+        if not isinstance(alloc, dict) or not set(alloc.keys()).issubset(SYNTHESIS_KEYS):
+            await ws.send_text(json.dumps({"type": "error", "detail": "Invalid synthesis alloc keys"}))
+            return
+        total = sum(float(v) for v in alloc.values())
+        scale = 100.0 / total if total > 0.01 else 1.0
+        for k in SYNTHESIS_KEYS:
+            game_state.ship.synthesis_alloc[k] = round(max(0.0, float(alloc.get(k, 0.0)) * scale), 2)
+        await ws.send_text(json.dumps({"type": "ack", "cmd": "set_synthesis_alloc",
+                                       "alloc": game_state.ship.synthesis_alloc}))
+
     elif cmd_type == "set_manufacturing_alloc":
         item = cmd.get("item")
         pct  = cmd.get("pct", 0)
@@ -366,6 +473,64 @@ async def _handle_command(ws: WebSocket, cmd: dict) -> None:
         game_state.ship.manufacturing_alloc[item] = round(max(0.0, min(100.0, pct)), 1)
         await ws.send_text(json.dumps({"type": "ack", "cmd": "set_manufacturing_alloc",
                                        "item": item, "pct": game_state.ship.manufacturing_alloc[item]}))
+
+    elif cmd_type == "set_fabrication_assignment":
+        assignment = cmd.get("assignment", {})
+        RECIPE_KEYS = set(game_state.ship.fabrication_assignment.keys())
+        if not isinstance(assignment, dict) or not set(assignment.keys()).issubset(RECIPE_KEYS):
+            await ws.send_text(json.dumps({"type": "error", "detail": "Invalid fabrication assignment keys"}))
+            return
+        total_assigned = sum(int(v) for v in assignment.values())
+        total_bots = len(game_state.ship.fabrication_bots)
+        if total_assigned > total_bots:
+            await ws.send_text(json.dumps({"type": "error", "detail": f"Cannot assign {total_assigned} bots; only {total_bots} available"}))
+            return
+        for k in RECIPE_KEYS:
+            game_state.ship.fabrication_assignment[k] = max(0, int(assignment.get(k, 0)))
+        await ws.send_text(json.dumps({"type": "ack", "cmd": "set_fabrication_assignment",
+                                       "assignment": game_state.ship.fabrication_assignment}))
+
+    elif cmd_type == "toggle_laser_mode":
+        section  = cmd.get("section", "")
+        laser_id = int(cmd.get("laser_id", -1))
+        list_key = cmd.get("list_key", "offense_lasers")  # "defense_lasers" | "offense_lasers"
+        ok, msg  = game_state.ship.toggle_laser_mode(section, laser_id, list_key)
+        await ws.send_text(json.dumps({"type": "ack" if ok else "error", "cmd": "toggle_laser_mode",
+                                       "ok": ok, "detail": msg}))
+
+    elif cmd_type == "fire_weapon_pool":
+        fraction = float(cmd.get("fraction", 1.0))
+        locked_id = game_state.ship.weapons_locked_target_id
+        npc = next((n for n in game_state.npc_ships if n["id"] == locked_id), None) if locked_id else None
+        fired_tw = game_state.ship.fire_weapon_pool(fraction)
+        damage = 0.0
+        if npc and fired_tw > 0:
+            from game.constants import OFFENSE_LASER_DPS_PER_TW
+            damage = round(fired_tw * OFFENSE_LASER_DPS_PER_TW, 2)
+            npc["hull_health"] = round(max(0.0, npc["hull_health"] - damage), 2)
+            if npc["hull_health"] <= 0:
+                game_state.npc_ships = [n for n in game_state.npc_ships if n["id"] != locked_id]
+                game_state.ship.weapons_locked_target_id = None
+        await ws.send_text(json.dumps({"type": "ack", "cmd": "fire_weapon_pool",
+                                       "fired_tw": fired_tw, "damage": damage}))
+
+    elif cmd_type == "retrieve_mining_hopper":
+        resource = cmd.get("resource")
+        amount   = float(cmd.get("amount", 0))
+        current  = game_state.galaxy.get_system(game_state.ship.current_system_id) if game_state.is_started() else None
+        planet   = current.get_planet(game_state.ship.orbiting_planet_id) if (current and game_state.ship.orbiting_planet_id) else None
+        if not planet:
+            await ws.send_text(json.dumps({"type": "error", "detail": "Not in orbit"})); return
+        available = planet.stockpile.get(resource, 0.0)
+        actual    = min(amount if amount > 0 else available, available)
+        if actual <= 0:
+            await ws.send_text(json.dumps({"type": "error", "detail": f"No {resource} in planetary hopper"})); return
+        ok, msg, _ = game_state.ship.queue_transport(
+            "planet", "cargo_bay", resource, actual,
+            planet_stockpile=planet.stockpile
+        )
+        await ws.send_text(json.dumps({"type": "ack" if ok else "error", "cmd": "retrieve_mining_hopper",
+                                       "ok": ok, "detail": msg, "amount": actual, "resource": resource}))
 
     elif cmd_type == "send_message":
         to_id   = cmd.get("to_id", "").strip()
@@ -579,7 +744,7 @@ async def _handle_command(ws: WebSocket, cmd: dict) -> None:
         if npc["system_id"] != game_state.ship.current_system_id:
             await ws.send_text(json.dumps({"type": "error", "detail": "Target not in current system"}))
             return
-        weapons_room = game_state.ship.rooms.get("weapons_room", {})
+        weapons_room = game_state.ship.rooms.get("tactical_bridge", {})
         if weapons_room.get("missiles", 0) < 1:
             await ws.send_text(json.dumps({"type": "error", "detail": "No missiles in weapons room"}))
             return

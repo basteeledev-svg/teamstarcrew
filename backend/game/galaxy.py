@@ -49,29 +49,23 @@ STAR_COLORS: dict[str, str] = {
 # Each entry: weight, resource (min,max), base_hostility (min,max),
 #             can_be_inhabited, moon_count (min,max)
 PLANET_TYPE_CONFIG: dict[str, dict] = {
-    "Barren/Rocky":    {"weight": 30, "metals": (20,60), "rare_earth": (10,30), "radioactive": (5,20),  "hydrocarbons": (0,10),  "base_hostility": (20,50), "can_inhabit": False, "moons": (0,2)},
-    "Terrestrial":     {"weight": 15, "metals": (20,60), "rare_earth": (10,40), "radioactive": (5,20),  "hydrocarbons": (10,50), "base_hostility": (10,40), "can_inhabit": True,  "moons": (0,2)},
-    "Desert/Arid":     {"weight": 12, "metals": (30,70), "rare_earth": (20,60), "radioactive": (10,30), "hydrocarbons": (5,30),  "base_hostility": (30,60), "can_inhabit": True,  "moons": (0,2)},
-    "Ice World":       {"weight": 10, "metals": (10,40), "rare_earth": (10,30), "radioactive": (5,15),  "hydrocarbons": (20,50), "base_hostility": (20,50), "can_inhabit": False, "moons": (0,3)},
-    "Gas Giant":       {"weight": 10, "metals": (0,10),  "rare_earth": (0,5),   "radioactive": (5,20),  "hydrocarbons": (70,100),"base_hostility": (80,100),"can_inhabit": False, "moons": (2,20)},
-    "Ice Giant":       {"weight":  8, "metals": (0,10),  "rare_earth": (5,20),  "radioactive": (5,15),  "hydrocarbons": (30,70), "base_hostility": (65,90), "can_inhabit": False, "moons": (2,15)},
-    "Ocean World":     {"weight":  5, "metals": (5,30),  "rare_earth": (10,40), "radioactive": (0,15),  "hydrocarbons": (30,70), "base_hostility": (20,50), "can_inhabit": True,  "moons": (0,2)},
-    "Jungle/Lush":     {"weight":  4, "metals": (10,40), "rare_earth": (10,30), "radioactive": (0,10),  "hydrocarbons": (40,80), "base_hostility": (30,60), "can_inhabit": True,  "moons": (0,2)},
-    "Tidally Locked":  {"weight":  3, "metals": (20,50), "rare_earth": (15,40), "radioactive": (5,25),  "hydrocarbons": (5,30),  "base_hostility": (40,70), "can_inhabit": False, "moons": (0,1)},
-    "Toxic/Corrosive": {"weight":  3, "metals": (10,40), "rare_earth": (30,60), "radioactive": (10,30), "hydrocarbons": (10,40), "base_hostility": (60,90), "can_inhabit": False, "moons": (0,1)},
-    "Volcanic/Magma":  {"weight":  2, "metals": (60,100),"rare_earth": (30,70), "radioactive": (20,50), "hydrocarbons": (0,5),   "base_hostility": (75,100),"can_inhabit": False, "moons": (0,2)},
-    "Irradiated":      {"weight":  2, "metals": (20,60), "rare_earth": (40,80), "radioactive": (60,100),"hydrocarbons": (0,5),   "base_hostility": (75,95), "can_inhabit": False, "moons": (0,1)},
-    "Super-Earth":     {"weight":  1, "metals": (40,80), "rare_earth": (20,50), "radioactive": (10,30), "hydrocarbons": (10,40), "base_hostility": (20,50), "can_inhabit": True,  "moons": (0,3)},
-    "Crystalline":     {"weight":  1, "metals": (10,30), "rare_earth": (60,100),"radioactive": (20,50), "hydrocarbons": (0,10),  "base_hostility": (30,60), "can_inhabit": False, "moons": (0,2)},
-    "Rogue/Dark":      {"weight":  1, "metals": (5,30),  "rare_earth": (10,25), "radioactive": (5,15),  "hydrocarbons": (0,20),  "base_hostility": (60,80), "can_inhabit": False, "moons": (0,0)},
+    "Rocky":        {"weight": 20, "metals": (0.60,1.00), "silicates": (0.40,0.80), "rare_earth": (0.10,0.30), "hydrocarbons": (0.00,0.10), "radioactive": (0.05,0.20), "base_hostility": (20,50), "can_inhabit": False, "moons": (0,2)},
+    "Desert":       {"weight": 15, "metals": (0.20,0.50), "silicates": (0.70,1.00), "rare_earth": (0.10,0.40), "hydrocarbons": (0.05,0.20), "radioactive": (0.00,0.10), "base_hostility": (30,60), "can_inhabit": True,  "moons": (0,2)},
+    "Volcanic":     {"weight": 12, "metals": (0.50,0.90), "silicates": (0.10,0.40), "rare_earth": (0.20,0.60), "hydrocarbons": (0.00,0.05), "radioactive": (0.40,0.80), "base_hostility": (60,90), "can_inhabit": False, "moons": (0,2)},
+    "Gas Giant":    {"weight": 10, "metals": (0.00,0.05), "silicates": (0.00,0.05), "rare_earth": (0.00,0.05), "hydrocarbons": (0.80,1.00), "radioactive": (0.00,0.05), "base_hostility": (80,100),"can_inhabit": False, "moons": (2,20)},
+    "Frozen":       {"weight": 10, "metals": (0.10,0.30), "silicates": (0.50,0.80), "rare_earth": (0.05,0.20), "hydrocarbons": (0.20,0.50), "radioactive": (0.00,0.05), "base_hostility": (20,50), "can_inhabit": False, "moons": (0,3)},
+    "Earth-Like":   {"weight":  8, "metals": (0.30,0.60), "silicates": (0.30,0.60), "rare_earth": (0.05,0.20), "hydrocarbons": (0.20,0.50), "radioactive": (0.01,0.10), "base_hostility": (10,40), "can_inhabit": True,  "moons": (0,2)},
+    "Gaia":         {"weight":  5, "metals": (0.40,0.70), "silicates": (0.40,0.70), "rare_earth": (0.20,0.40), "hydrocarbons": (0.30,0.60), "radioactive": (0.00,0.05), "base_hostility": (5,25),  "can_inhabit": True,  "moons": (0,2)},
+    "Radioactive":  {"weight":  5, "metals": (0.20,0.50), "silicates": (0.10,0.40), "rare_earth": (0.30,0.60), "hydrocarbons": (0.00,0.10), "radioactive": (0.70,1.00), "base_hostility": (70,95), "can_inhabit": False, "moons": (0,1)},
+    "Toxic":        {"weight":  5, "metals": (0.10,0.40), "silicates": (0.20,0.50), "rare_earth": (0.30,0.60), "hydrocarbons": (0.50,0.80), "radioactive": (0.10,0.30), "base_hostility": (60,90), "can_inhabit": False, "moons": (0,1)},
 }
 
 _PLANET_TYPE_NAMES = list(PLANET_TYPE_CONFIG.keys())
 _PLANET_TYPE_WEIGHTS = [PLANET_TYPE_CONFIG[t]["weight"] for t in _PLANET_TYPE_NAMES]
 
-# Moons only draw from this subset
-MOON_TYPES  = ["Barren/Rocky", "Ice World", "Ocean World", "Crystalline", "Rogue/Dark"]
-MOON_WEIGHTS = [50, 25, 10, 10, 5]
+# Moons draw from rocky/frozen types
+MOON_TYPES   = ["Rocky", "Frozen", "Radioactive"]
+MOON_WEIGHTS = [60, 30, 10]
 
 _NAME_PREFIXES = [
     "Alpha","Beta","Gamma","Delta","Epsilon","Zeta","Eta","Theta",
@@ -88,6 +82,7 @@ class Moon:
     name: str
     type: str
     metals: float
+    silicates: float
     rare_earth: float
     radioactive: float
     hydrocarbons: float
@@ -95,7 +90,8 @@ class Moon:
     inhabited: bool
     position: dict = field(default_factory=lambda: {"x": 0.0, "y": 0.0, "z": 0.0})
     stockpile: dict = field(default_factory=lambda: {
-        "metals": 0.0, "rare_earth": 0.0, "radioactive": 0.0, "hydrocarbons": 0.0
+        "metals": 0.0, "silicates": 0.0, "rare_earth": 0.0,
+        "radioactive": 0.0, "hydrocarbons": 0.0
     })
 
     def to_dict(self) -> dict:
@@ -110,6 +106,7 @@ class Planet:
     orbital_distance_au: float
     position: dict          # (x,y,z) relative to system star
     metals: float
+    silicates: float
     rare_earth: float
     radioactive: float
     hydrocarbons: float
@@ -120,7 +117,8 @@ class Planet:
     orbit_angle_rad: float = 0.0   # current angle in the orbital plane
     orbit_speed_rad: float = 0.0   # radians advanced per tick
     stockpile: dict = field(default_factory=lambda: {
-        "metals": 0.0, "rare_earth": 0.0, "radioactive": 0.0, "hydrocarbons": 0.0
+        "metals": 0.0, "silicates": 0.0, "rare_earth": 0.0,
+        "radioactive": 0.0, "hydrocarbons": 0.0
     })
 
     @property
@@ -141,17 +139,14 @@ class Planet:
         }
 
     def mine_tick(self, bots: dict) -> None:
-        """Accumulate resources per assigned bot count.
-
-        Formula: gained = count * richness / 100
-        (richness is 0-100 percentage)
-        """
-        for resource in ("metals", "rare_earth", "radioactive", "hydrocarbons"):
+        """Accumulate resources. Spec: Tick Yield = 10 × richness × (bot_health/100).
+        Richness is now 0.00–1.00; bot health defaults to 100% if not tracked per-bot."""
+        for resource in ("metals", "silicates", "rare_earth", "radioactive", "hydrocarbons"):
             count = bots.get(resource, 0)
             if count <= 0:
                 continue
-            richness = getattr(self, resource)  # 0-100
-            gained   = count * richness / 100.0
+            richness = getattr(self, resource)  # 0.0 – 1.00
+            gained   = round(10.0 * count * richness, 2)
             self.stockpile[resource] = round(self.stockpile[resource] + gained, 2)
 
     def to_dict(self) -> dict:
@@ -268,6 +263,7 @@ def _generate_moon(parent_name: str, moon_index: int, parent_distance_au: float)
         name=f"{parent_name}-Moon-{chr(65 + moon_index)}",
         type=moon_type,
         metals=_rng_range(*cfg["metals"]),
+        silicates=_rng_range(*cfg["silicates"]),
         rare_earth=_rng_range(*cfg["rare_earth"]),
         radioactive=_rng_range(*cfg["radioactive"]),
         hydrocarbons=_rng_range(*cfg["hydrocarbons"]),
@@ -301,6 +297,7 @@ def _generate_planet(system_name: str, index: int, n_planets: int) -> Planet:
         orbital_distance_au=orbital_dist,
         position=position,
         metals=_rng_range(*cfg["metals"]),
+        silicates=_rng_range(*cfg["silicates"]),
         rare_earth=_rng_range(*cfg["rare_earth"]),
         radioactive=_rng_range(*cfg["radioactive"]),
         hydrocarbons=_rng_range(*cfg["hydrocarbons"]),

@@ -7,9 +7,9 @@ import s from './ShieldsPanel.module.css'
 const MUTED  = 'var(--text-ghost)'
 const ACCENT = '#00ccff'   // cyan
 
-const SIDES = ['front', 'back', 'port', 'starboard', 'above', 'below']
-const SIDE_LABELS = { front: 'Front', back: 'Back', port: 'Port', starboard: 'Starboard', above: 'Above', below: 'Below' }
-const SIDE_ICON   = { front: '▲', back: '▼', port: '◄', starboard: '►', above: '△', below: '▽' }
+const SIDES = ['fore', 'aft', 'port', 'starboard', 'above', 'below']
+const SIDE_LABELS = { fore: 'Fore', aft: 'Aft', port: 'Port', starboard: 'Starboard', above: 'Above', below: 'Below' }
+const SIDE_ICON   = { fore: '▲', aft: '▼', port: '◄', starboard: '►', above: '△', below: '▽' }
 
 function HealthBar({ value, width = '100%', height = 4 }) {
   return (
@@ -27,16 +27,26 @@ function PowerBar({ value, width = '100%', height = 4 }) {
 }
 
 // ── Component row ─────────────────────────────────────────────────────────────
-function CompRow({ comp, role, section, weight, totalWeight, onWeightChange, onUninstall }) {
+function CompRow({ comp, role, section, weight, totalWeight, onWeightChange, onUninstall, onToggleMode }) {
   const pct = totalWeight > 0 ? Math.round((weight / totalWeight) * 100) : Math.round(100 / 1)
   const roleLabel = { defense_laser: 'DEF LASER', shield_battery: 'SHIELD BAT' }[role] ?? role
   const roleColor = role === 'defense_laser' ? 'var(--accent-amber)' : ACCENT
+  const mode = comp.mode ?? 'defense'
+  const isAtk = mode === 'attack'
   return (
     <div className={s.compRow}>
       <div className={s.compRowHead}>
         <span className={s.compRowRoleLabel} style={{ color: roleColor }}>{roleLabel} #{comp.id}</span>
         <div className={s.compRowStats}>
           <span className={s.compRowHp} style={{ color: healthColor(comp.health) }}>{Math.round(comp.health)}% HP</span>
+          {role === 'defense_laser' && onToggleMode && (
+            <button onClick={() => onToggleMode(comp.id)} style={{
+              fontSize: 7, padding: '1px 5px', cursor: 'pointer', letterSpacing: 1,
+              border: `1px solid ${isAtk ? '#ff4444' : '#4488ff'}`,
+              background: isAtk ? 'rgba(255,68,68,0.12)' : 'rgba(68,136,255,0.12)',
+              color: isAtk ? '#ff4444' : '#4488ff', fontFamily: 'var(--font-mono)',
+            }}>{isAtk ? 'ATK' : 'DEF'}</button>
+          )}
           <Btn small onClick={() => onUninstall(section, role, comp.id)}
             bg="var(--tint-danger)" color="var(--status-bad)" borderColor="var(--accent-red)"
             style={{ padding: '1px 5px', fontSize: 7 }}>
@@ -62,12 +72,12 @@ function CompRow({ comp, role, section, weight, totalWeight, onWeightChange, onU
 function SectionDetail({ section, ship, sendCommand, shipGw, threats }) {
   const secData   = ship.hull_sections?.[section] ?? {}
   const defLasers = secData.defense_lasers ?? []
-  const shields   = secData.shield_batteries ?? []
+  const shields   = secData.shield_generators ?? []
   const compAlloc = ship.shields_component_alloc?.[section] ?? {}
   const sectionGw = shipGw * (ship.shields_section_alloc?.[section] ?? 0) / 100
 
-  const uninstalled_lasers     = ship.rooms?.shields_room?.lasers ?? 0
-  const uninstalled_batteries  = ship.rooms?.shields_room?.shield_batteries ?? 0
+  const uninstalled_lasers     = ship.rooms?.tactical_bridge?.lasers ?? 0
+  const uninstalled_batteries  = ship.rooms?.tactical_bridge?.shield_generators ?? 0
 
   const defInfo   = ship.section_defense?.[section]
   const reduction = ship.section_shield_reduction?.[section] ?? 0
@@ -146,7 +156,8 @@ function SectionDetail({ section, ship, sendCommand, shipGw, threats }) {
         {defLasers.map(c => (
           <CompRow key={c.id} comp={c} role="defense_laser" section={section}
             weight={compAlloc[String(c.id)] ?? 50} totalWeight={totalWeight}
-            onWeightChange={setCompWeight} onUninstall={uninstallComp} />
+            onWeightChange={setCompWeight} onUninstall={uninstallComp}
+            onToggleMode={id => sendCommand({ type: 'toggle_laser_mode', section, laser_id: id, list_key: 'defense_lasers' })} />
         ))}
         {defLasers.length < 5 && uninstalled_lasers > 0 && (
           <div className={s.installWrap}>
@@ -193,7 +204,7 @@ function SectionOverview({ ship, shipGw, onSelect, pendingSectionAlloc, onSectio
       {SIDES.map(side => {
         const secData = ship.hull_sections?.[side] ?? {}
         const defLasers = secData.defense_lasers ?? []
-        const shields   = secData.shield_batteries ?? []
+        const shields   = secData.shield_generators ?? []
         const allPct    = pendingSectionAlloc[side] ?? (ship.shields_section_alloc?.[side] ?? 16.67)
         const secGw     = shipGw * allPct / 100
         const defInfo   = ship.section_defense?.[side]
@@ -235,19 +246,19 @@ export default function ShieldsPanel({ gameState, sendCommand }) {
   const [pendingSectionAlloc, setPendingSectionAlloc] = useState({})
 
   const ship    = gameState?.ship
-  const shipGw  = ship?.shields_gw ?? 0
+  const shipGw  = ship?.shields_tw ?? 0
   const threats = (gameState?.dynamic_objects ?? []).filter(o => o.from_sides)
 
   // Uninstalled inventory
-  const uninstalledLasers     = ship?.rooms?.shields_room?.lasers ?? 0
-  const uninstalledBatteries  = ship?.rooms?.shields_room?.shield_batteries ?? 0
+  const uninstalledLasers     = ship?.rooms?.tactical_bridge?.lasers ?? 0
+  const uninstalledBatteries  = ship?.rooms?.tactical_bridge?.shield_generators ?? 0
 
   // Total installed count
   const totalInstalled = useMemo(() => {
     if (!ship?.hull_sections) return 0
     let n = 0
     for (const sd of Object.values(ship.hull_sections)) {
-      n += (sd.defense_lasers?.length ?? 0) + (sd.shield_batteries?.length ?? 0)
+      n += (sd.defense_lasers?.length ?? 0) + (sd.shield_generators?.length ?? 0)
     }
     return n
   }, [ship?.hull_sections])
@@ -283,7 +294,7 @@ export default function ShieldsPanel({ gameState, sendCommand }) {
           {totalInstalled} COMPONENTS · {threats.length} THREAT{threats.length !== 1 ? 'S' : ''}
         </span>
         <span className={s.headerGw} style={{ color: shipGw > 0 ? ACCENT : 'var(--text-dim)' }}>
-          {shipGw.toFixed(1)} GW
+          {shipGw.toFixed(1)} TW
         </span>
       </div>
 

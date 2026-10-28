@@ -7,7 +7,7 @@ from pydantic import BaseModel, Field
 from game.galaxy import generate_galaxy
 from game.ship import create_ship
 from game.state import game_state
-from game.constants import WARP_COST_BASE, WARP_COST_EXPONENT
+from game.constants import WARP_COST_BASE, WARP_COST_EXPONENT, WARP_COST_ADDITIVE, PC_TO_LY
 from game.vector3 import normalize
 
 router = APIRouter(prefix="/api", tags=["game"])
@@ -35,12 +35,12 @@ async def start_game(seed: Optional[int] = None, mode: str = "full", player_coun
 
     mode="full"  – seed NPC ships and initial messages (default)
     mode="empty" – pure physics sandbox: no NPCs, no story messages
-    player_count – crew size (4, 5, 6, 8, or 10); controls station-role layout
+    player_count – crew size (1, 4, 5, 6, 8, or 10); controls station-role layout
     """
     if mode not in ("full", "empty"):
         raise HTTPException(status_code=400, detail="mode must be 'full' or 'empty'")
-    if player_count not in (4, 5, 6, 8, 10):
-        raise HTTPException(status_code=400, detail="player_count must be 4, 5, 6, 8, or 10")
+    if player_count not in (1, 4, 5, 6, 8, 10):
+        raise HTTPException(status_code=400, detail="player_count must be 1, 4, 5, 6, 8, or 10")
 
     galaxy = generate_galaxy(seed)
     starting_system = galaxy.systems[0]
@@ -48,12 +48,16 @@ async def start_game(seed: Optional[int] = None, mode: str = "full", player_coun
 
     game_state.galaxy          = galaxy
     game_state.ship            = create_ship(starting_system.id)
+    game_state.ship.auto_repair_enabled = (player_count == 1)
     game_state.tick            = 0
     game_state.running         = True
     game_state.player_count    = player_count
     game_state.npc_ships       = []
     game_state.messages        = []
     game_state.dynamic_objects = []
+    game_state.stations        = {}
+    game_state.game_over_reason      = None
+    game_state.life_support_countdown = 0
     game_state._next_npc_ship_id = 1
     game_state._next_obj_id      = 1
 
@@ -124,18 +128,16 @@ async def warp(req: WarpRequest):
     if warp_health <= 0:
         raise HTTPException(status_code=400, detail="Warp drive non-functional")
 
-    dist_ly = game_state.galaxy.distance_ly(
-        game_state.ship.current_system_id, req.system_id
-    )
-    cost_gw = round(WARP_COST_BASE * (dist_ly ** WARP_COST_EXPONENT), 1)
+    dist_ly  = game_state.galaxy.distance_ly(game_state.ship.current_system_id, req.system_id)
+    dist_pc  = dist_ly / PC_TO_LY
+    cost_tw  = round(WARP_COST_BASE * (dist_pc ** WARP_COST_EXPONENT) + WARP_COST_ADDITIVE, 1)
 
-    # Enforce capacitor charge
-    if game_state.ship.warp_capacitor_gw < cost_gw:
+    if game_state.ship.warp_capacitor_gw < cost_tw:
         raise HTTPException(
             status_code=400,
-            detail=f"Insufficient warp charge ({game_state.ship.warp_capacitor_gw:,.0f} GW, need {cost_gw:,.0f} GW for {dist_ly:.1f} LY)",
+            detail=f"Insufficient warp charge ({game_state.ship.warp_capacitor_gw:,.0f} TW, need {cost_tw:,.0f} TW for {dist_pc:.1f} pc)",
         )
-    game_state.ship.warp_capacitor_gw -= cost_gw
+    game_state.ship.warp_capacitor_gw -= cost_tw
 
     game_state.ship.warp_to(req.system_id, target.max_orbital_distance_au)
     target.visited = True
@@ -143,6 +145,6 @@ async def warp(req: WarpRequest):
     return {
         "status": "warped",
         "destination": target.name,
-        "distance_ly": round(dist_ly, 2),
-        "warp_cost_gw": cost_gw,
+        "distance_pc": round(dist_pc, 2),
+        "warp_cost_tw": cost_tw,
     }

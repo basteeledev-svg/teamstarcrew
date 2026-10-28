@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { CONSOLES } from '../consoles.js'
-import { CREW_LAYOUTS } from '../crewLayouts.js'
+import { STATIONS } from '../crewLayouts.js'
 import '../hud/hud.css'
 
 const W = 1280
@@ -16,11 +16,10 @@ const MAX_CUSTOM_SELECTION = 4
  * workflow + existing tests).
  */
 export default function ConsoleSelectPage({ gameState, onEnter, onNewGame }) {
-  const playerCount = gameState?.player_count ?? 6
-  const layout      = CREW_LAYOUTS[playerCount] ?? CREW_LAYOUTS[6]
-
-  const [mode, setMode]         = useState('role')   // 'role' | 'custom'
-  const [selected, setSelected] = useState([])
+  const [mode, setMode]              = useState('role')   // 'role' | 'custom'
+  const [selected, setSelected]      = useState([])
+  const [configStation, setConfig]   = useState(null)
+  const [configPanels, setConfigPnl] = useState([])
 
   function toggleCustom(id) {
     setSelected(prev => {
@@ -30,8 +29,25 @@ export default function ConsoleSelectPage({ gameState, onEnter, onNewGame }) {
     })
   }
 
-  function pickRole(role) {
-    onEnter({ role: 'crew', consoles: role.consoles })
+  function openConfig(station) {
+    setConfig(station)
+    setConfigPnl([...station.defaultPanels])
+  }
+  function closeConfig() { setConfig(null); setConfigPnl([]) }
+  function toggleConfigPanel(id) {
+    setConfigPnl(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id])
+  }
+
+  if (configStation) {
+    return (
+      <ConfigureOverlay
+        station={configStation}
+        panels={configPanels}
+        onToggle={toggleConfigPanel}
+        onBack={closeConfig}
+        onEnter={() => { onEnter({ role: 'crew', consoles: configPanels }); closeConfig() }}
+      />
+    )
   }
 
   return (
@@ -40,15 +56,13 @@ export default function ConsoleSelectPage({ gameState, onEnter, onNewGame }) {
       <div className="hud-top">
         <span className="hud-logo">★ TEAM STAR CREW</span>
         <span className="hud-pip" />
-        <span className="hud-tag">
-          STATION SELECT · <b>{playerCount}-PLAYER CREW</b>
-        </span>
+        <span className="hud-tag">STATION SELECT</span>
         <span className="hud-sp" />
         <div style={{ display: 'flex', gap: 8 }}>
           <button data-testid="mode-role-btn"
                   className={`hud-chip${mode === 'role' ? ' on' : ''}`}
                   onClick={() => setMode('role')}
-                  style={{ width: 110, height: 50 }}>ROLES</button>
+                  style={{ width: 110, height: 50 }}>STATIONS</button>
           <button data-testid="mode-custom-btn"
                   className={`hud-chip${mode === 'custom' ? ' on' : ''}`}
                   onClick={() => setMode('custom')}
@@ -71,7 +85,7 @@ export default function ConsoleSelectPage({ gameState, onEnter, onNewGame }) {
               </span>
               <span className="pstat">
                 {mode === 'role' ? (
-                  <span>TAP A ROLE TO TAKE THAT TABLET</span>
+                  <span>TAP A STATION TO ENTER · ⚙ TO CUSTOMISE PANELS</span>
                 ) : (
                   <span>SELECT 1–{MAX_CUSTOM_SELECTION} STATIONS · <span className="vc">{selected.length}</span>/{MAX_CUSTOM_SELECTION}</span>
                 )}
@@ -79,7 +93,11 @@ export default function ConsoleSelectPage({ gameState, onEnter, onNewGame }) {
             </div>
 
             {mode === 'role' ? (
-              <RolePicker layout={layout} onPick={pickRole} />
+              <StationPicker
+                stations={STATIONS}
+                onTake={s => onEnter({ role: 'crew', consoles: s.defaultPanels })}
+                onCustomise={openConfig}
+              />
             ) : (
               <CustomPicker selected={selected} toggle={toggleCustom} />
             )}
@@ -142,9 +160,9 @@ export default function ConsoleSelectPage({ gameState, onEnter, onNewGame }) {
   )
 }
 
-// ── Role-picker body ─────────────────────────────────────────────────────────
-function RolePicker({ layout, onPick }) {
-  const cols = layout.length <= 6 ? 3 : layout.length <= 8 ? 4 : 5
+// ── Station-picker (default flow: take station with default panels) ──────────
+function StationPicker({ stations, onTake, onCustomise }) {
+  const cols = stations.length <= 6 ? 3 : stations.length <= 9 ? 3 : 4
   return (
     <div style={{ flex: 1, padding: '16px 20px', overflowY: 'auto', minHeight: 0 }}>
       <div style={{
@@ -152,39 +170,36 @@ function RolePicker({ layout, onPick }) {
         gridTemplateColumns: `repeat(${cols}, 1fr)`,
         gap: 12, alignContent: 'start',
       }}>
-        {layout.map(role => (
-          <div key={role.id} style={{
-            border: `1px solid ${role.color}`,
-            background: `${role.color}14`,
-            boxShadow: `0 0 8px ${role.color}33`,
+        {stations.map(station => (
+          <div key={station.id} style={{
+            border: `1px solid ${station.color}`,
+            background: `${station.color}14`,
+            boxShadow: `0 0 8px ${station.color}33`,
             padding: '14px 14px 12px',
             display: 'flex', flexDirection: 'column', gap: 8,
           }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-              <span style={{ fontSize: 28, color: role.color, textShadow: `0 0 8px ${role.color}` }}>
-                {role.icon}
+              <span style={{ fontSize: 28, color: station.color, textShadow: `0 0 8px ${station.color}` }}>
+                {station.icon}
               </span>
               <span style={{
-                fontSize: 14, color: role.color, letterSpacing: 3,
-                fontWeight: 'bold', textShadow: `0 0 6px ${role.color}66`,
+                fontSize: 14, color: station.color, letterSpacing: 3,
+                fontWeight: 'bold', textShadow: `0 0 6px ${station.color}66`,
               }}>
-                {role.name}
+                {station.name}
               </span>
             </div>
             <div style={{ fontSize: 12, color: 'var(--hud-tx)', letterSpacing: 1, lineHeight: 1.5 }}>
-              {role.desc}
+              {station.desc}
             </div>
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, marginTop: 2 }}>
-              {role.consoles.map(cid => {
+              {station.defaultPanels.map(cid => {
                 const c = CONSOLES.find(x => x.id === cid)
                 if (!c) return null
                 return (
                   <span key={cid} style={{
-                    fontSize: 10, padding: '2px 8px',
-                    color: c.color,
-                    border: `1px solid ${c.color}55`,
-                    background: `${c.color}10`,
-                    letterSpacing: 1.5,
+                    fontSize: 10, padding: '2px 8px', color: c.color,
+                    border: `1px solid ${c.color}55`, background: `${c.color}10`, letterSpacing: 1.5,
                   }}>
                     {c.icon} {c.name}
                   </span>
@@ -193,17 +208,102 @@ function RolePicker({ layout, onPick }) {
             </div>
             <div style={{ display: 'flex', gap: 6, marginTop: 'auto', paddingTop: 4 }}>
               <button
-                data-testid={`role-btn-${role.id}`}
-                onClick={() => onPick(role)}
+                data-testid={`role-btn-${station.id}`}
+                onClick={() => onTake(station)}
                 className="hbtn grn"
-                style={{
-                  flex: 1, height: 48, fontSize: 13, letterSpacing: 3,
-                }}>
+                style={{ flex: 1, height: 44, fontSize: 12, letterSpacing: 2 }}>
                 TAKE STATION →
+              </button>
+              <button
+                onClick={() => onCustomise(station)}
+                className="hud-chip"
+                title="Customise panels"
+                style={{ width: 44, height: 44, fontSize: 14, padding: 0 }}>
+                ⚙
               </button>
             </div>
           </div>
         ))}
+      </div>
+    </div>
+  )
+}
+
+// ── Panel-customisation overlay ───────────────────────────────────────────────
+function ConfigureOverlay({ station, panels, onToggle, onBack, onEnter }) {
+  return (
+    <div className="hud-wrap" style={{ width: W, height: H, display: 'flex', flexDirection: 'column' }}>
+      <div className="hud-top">
+        <span className="hud-logo">★ TEAM STAR CREW</span>
+        <span className="hud-pip" />
+        <span className="hud-tag" style={{ color: station.color }}>
+          {station.icon} {station.name} — CONFIGURE PANELS
+        </span>
+        <span className="hud-sp" />
+        <button onClick={onBack} className="hud-exit">← BACK</button>
+      </div>
+      <div className="hud-content" style={{ padding: '12px' }}>
+        <div className="po" style={{ flex: 1 }}>
+          <span className="corn tl" /><span className="corn tr" />
+          <span className="corn bl" /><span className="corn br" />
+          <div className="hud-panel">
+            <div className="phdr">
+              <span className="pico" style={{ color: station.color }}>{station.icon}</span>
+              <span className="ptitle">SELECT PANELS</span>
+              <span className="pstat"><span className="vc">{panels.length}</span> SELECTED</span>
+            </div>
+            <div style={{ flex: 1, padding: '16px 20px', overflowY: 'auto' }}>
+              <div style={{ fontSize: 11, color: 'var(--hud-txd)', letterSpacing: 2, marginBottom: 12 }}>
+                DEFAULTS PRE-SELECTED — TOGGLE ANY PANEL TO ADD OR REMOVE
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 10 }}>
+                {CONSOLES.map(c => {
+                  const on = panels.includes(c.id)
+                  return (
+                    <button key={c.id} onClick={() => onToggle(c.id)} style={{
+                      background: on ? `${c.color}22` : 'rgba(0,229,255,0.04)',
+                      border: `1px solid ${on ? c.color : 'rgba(0,229,255,0.2)'}`,
+                      boxShadow: on ? `0 0 10px ${c.color}66` : 'none',
+                      padding: '14px 12px', cursor: 'pointer',
+                      display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 8,
+                      textAlign: 'left', fontFamily: 'var(--font-mono)', color: 'var(--hud-tx)',
+                    }}>
+                      <span style={{ fontSize: 26, color: on ? c.color : 'var(--hud-txd)', textShadow: on ? `0 0 6px ${c.color}` : 'none' }}>
+                        {c.icon}
+                      </span>
+                      <span style={{ fontSize: 11, letterSpacing: 1.5, color: on ? c.color : 'var(--hud-tx)' }}>
+                        {c.name}
+                      </span>
+                      <span style={{ fontSize: 10, color: 'var(--hud-txd)', letterSpacing: 1, lineHeight: 1.4 }}>
+                        {c.desc}
+                      </span>
+                    </button>
+                  )
+                })}
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div style={{
+        padding: '12px 20px',
+        borderTop: '1px solid rgba(0,229,255,0.18)',
+        background: 'linear-gradient(90deg, transparent, rgba(0,229,255,0.04) 60%, rgba(0,229,255,0.10))',
+        display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12,
+      }}>
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', flex: 1 }}>
+          {panels.map(id => {
+            const c = CONSOLES.find(x => x.id === id)
+            return c ? (
+              <span key={id} style={{ fontSize: 13, padding: '5px 12px', border: `1px solid ${c.color}`, color: c.color, background: `${c.color}14`, letterSpacing: 2, boxShadow: `0 0 4px ${c.color}66` }}>
+                {c.icon} {c.name}
+              </span>
+            ) : null
+          })}
+        </div>
+        <button disabled={panels.length === 0} onClick={onEnter} className="hbtn hbtn-md grn" style={{ letterSpacing: 3 }}>
+          ENTER SHIP →
+        </button>
       </div>
     </div>
   )

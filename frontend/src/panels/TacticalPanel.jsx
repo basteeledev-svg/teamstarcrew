@@ -7,9 +7,9 @@ import s from './TacticalPanel.module.css'
 const MUTED  = 'var(--text-ghost)'
 const ACCENT = 'var(--status-bad)'
 
-const SIDES = ['front', 'back', 'port', 'starboard', 'above', 'below']
-const SIDE_LABELS = { front: 'Front', back: 'Back', port: 'Port', starboard: 'Starboard', above: 'Above', below: 'Below' }
-const SIDE_ICON   = { front: '▲', back: '▼', port: '◄', starboard: '►', above: '△', below: '▽' }
+const SIDES = ['fore', 'aft', 'port', 'starboard', 'above', 'below']
+const SIDE_LABELS = { fore: 'Fore', aft: 'Aft', port: 'Port', starboard: 'Starboard', above: 'Above', below: 'Below' }
+const SIDE_ICON   = { fore: '▲', aft: '▼', port: '◄', starboard: '►', above: '△', below: '▽' }
 
 function HealthBar({ value, height = 4, color }) {
   return (
@@ -21,14 +21,22 @@ function HealthBar({ value, height = 4, color }) {
 
 
 // ── Offense laser row ────────────────────────────────────────────────────────
-function LaserRow({ comp, section, weight, totalWeight, onWeightChange, onUninstall }) {
-  const pct = totalWeight > 0 ? Math.round((weight / totalWeight) * 100) : 100
+function LaserRow({ comp, section, weight, totalWeight, onWeightChange, onUninstall, onToggleMode }) {
+  const pct  = totalWeight > 0 ? Math.round((weight / totalWeight) * 100) : 100
+  const mode = comp.mode ?? 'attack'
+  const isAtk = mode === 'attack'
   return (
     <div className={s.laserRow}>
       <div className={s.laserRowHeader}>
         <span className={s.laserRowLabel}>OFF LASER #{comp.id}</span>
         <div className={s.laserRowActions}>
           <span className={s.laserRowHp} style={{ color: healthColor(comp.health) }}>{Math.round(comp.health)}% HP</span>
+          <button onClick={() => onToggleMode(comp.id)} style={{
+            fontSize: 7, padding: '1px 5px', cursor: 'pointer', letterSpacing: 1,
+            border: `1px solid ${isAtk ? '#ff4444' : '#4488ff'}`,
+            background: isAtk ? 'rgba(255,68,68,0.15)' : 'rgba(68,136,255,0.15)',
+            color: isAtk ? '#ff4444' : '#4488ff', fontFamily: 'var(--font-mono)',
+          }}>{isAtk ? 'ATK' : 'DEF'}</button>
           <Btn small onClick={() => onUninstall(section, comp.id)} bg="var(--tint-danger)" color="var(--status-bad)" borderColor="var(--accent-red)" style={{ padding: '1px 5px', fontSize: 7 }}>✕</Btn>
         </div>
       </div>
@@ -38,7 +46,7 @@ function LaserRow({ comp, section, weight, totalWeight, onWeightChange, onUninst
           <span className={s.laserRowPwrLabel}>PWR</span>
           <input type="range" min={0} max={100} step={1} value={weight ?? 50}
             onChange={e => onWeightChange(comp.id, parseFloat(e.target.value))}
-            className={s.laserRowSlider} style={{ accentColor: ACCENT }} />
+            className={s.laserRowSlider} style={{ accentColor: isAtk ? ACCENT : '#4488ff' }} />
           <span className={s.laserRowPct}>{pct}%</span>
         </div>
       </div>
@@ -54,7 +62,7 @@ function SectionDetail({ section, ship, sendCommand, laserGw }) {
   const totalW    = lasers.reduce((s, l) => s + (compAlloc[String(l.id)] ?? 50), 0) || 1
   const sectionGw = laserGw * (ship?.weapons_section_alloc?.[section] ?? 16.67) / 100
 
-  const uninstalled = ship?.rooms?.weapons_room?.lasers ?? 0
+  const uninstalled = ship?.rooms?.tactical_bridge?.lasers ?? 0
 
   function setCompWeight(compId, w) {
     const cur = { ...compAlloc }
@@ -73,7 +81,7 @@ function SectionDetail({ section, ship, sendCommand, laserGw }) {
             {SIDE_ICON[section]} {SIDE_LABELS[section].toUpperCase()}
           </span>
           <div className={s.sectionDetailGw}>
-            <span className={s.mutedText}>SECTION GW </span>
+            <span className={s.mutedText}>SECTION TW </span>
             <span className={s.accentText}>{sectionGw.toFixed(1)}</span>
           </div>
         </div>
@@ -88,7 +96,8 @@ function SectionDetail({ section, ship, sendCommand, laserGw }) {
         {lasers.map(l => (
           <LaserRow key={l.id} comp={l} section={section}
             weight={compAlloc[String(l.id)] ?? 50} totalWeight={totalW}
-            onWeightChange={setCompWeight} onUninstall={uninstall} />
+            onWeightChange={setCompWeight} onUninstall={uninstall}
+            onToggleMode={id => sendCommand({ type: 'toggle_laser_mode', section, laser_id: id, list_key: 'offense_lasers' })} />
         ))}
         {lasers.length < 5 && uninstalled > 0 && (
           <div className={s.installRow}>
@@ -170,20 +179,21 @@ function TargetCard({ target, lockedId, onLock, onUnlock, onFireMissile, missile
 }
 
 // ── Main panel ─────────────────────────────────────────────────────────────────
+// TODO (N-13): add a readOnly prop — when true, show threat display but disable all fire controls
 export default function TacticalPanel({ gameState, sendCommand }) {
   const [tab, setTab] = useState('TARGETING')  // 'TARGETING' | 'SECTIONS'
   const [selectedSection, setSelectedSection] = useState(null)
   const [pendingSectionAlloc, setPendingSectionAlloc] = useState({})
 
   const ship       = gameState?.ship
-  const weaponsGw  = ship?.weapons_gw ?? 0
+  const weaponsGw  = ship?.weapons_tw ?? 0
   const tgtPct     = ship?.weapons_targeting_pct ?? 30
   const laserGw    = weaponsGw * Math.max(0, 100 - tgtPct) / 100
   const targetingGw= weaponsGw * tgtPct / 100
   const tgtRange   = ship?.targeting_range_au ?? 0
   const contacts   = gameState?.targeting_contacts ?? []
   const lockedId   = ship?.weapons_locked_target_id ?? null
-  const missiles   = ship?.rooms?.weapons_room?.missiles ?? 0
+  const missiles   = ship?.rooms?.tactical_bridge?.missiles ?? 0
   const missiles_cargo = ship?.rooms?.cargo_bay?.missiles ?? 0
   const playerMissiles = (gameState?.dynamic_objects ?? []).filter(o => o.type === 'player_missile')
   const isRunning  = gameState?.status === 'running'
@@ -194,7 +204,7 @@ export default function TacticalPanel({ gameState, sendCommand }) {
     return Object.values(ship.hull_sections).reduce((n, sd) => n + (sd.offense_lasers?.length ?? 0), 0)
   }, [ship?.hull_sections])
 
-  const uninstalled = ship?.rooms?.weapons_room?.lasers ?? 0
+  const uninstalled = ship?.rooms?.tactical_bridge?.lasers ?? 0
 
   function lock(id) {
     sendCommand({ type: 'set_weapons_target', target_id: id })
@@ -236,7 +246,7 @@ export default function TacticalPanel({ gameState, sendCommand }) {
           {totalLasers} LASERS · {contacts.length} TARGET{contacts.length !== 1 ? 'S' : ''} · {missiles} MISSILES ARMED
         </span>
         <span className={s.headerGw} style={{ color: weaponsGw > 0 ? ACCENT : 'var(--text-dim)' }}>
-          {weaponsGw.toFixed(1)} GW
+          {weaponsGw.toFixed(1)} TW
         </span>
       </div>
 
@@ -265,12 +275,40 @@ export default function TacticalPanel({ gameState, sendCommand }) {
             <Slider label="PWR %" value={tgtPct} accent={ACCENT}
               onChange={v => sendCommand({ type: 'set_weapons_alloc', targeting_pct: v })} />
             <div className={s.statsLine}>
-              <span className={s.mutedText}>T-GW </span>
+              <span className={s.mutedText}>T-TW </span>
               <span className={s.accentText}>{targetingGw.toFixed(1)}</span>
               <span className={s.mutedText}> · RANGE </span>
               <span className={s.amberText}>{tgtRange.toFixed(2)} AU</span>
             </div>
           </div>
+
+          {/* Weapon energy pool */}
+          {(() => {
+            const pool    = ship?.weapon_energy_pool ?? 0
+            const poolMax = 5000
+            const poolPct = Math.min(100, (pool / poolMax) * 100)
+            const hasPool = pool >= 1
+            return (
+              <div className={s.poolArea}>
+                <div className={s.sectionLabel}>WEAPON POOL</div>
+                <div style={{ display:'flex', justifyContent:'space-between', fontSize:10, marginBottom:3 }}>
+                  <span style={{ color: hasPool ? '#ff4444' : MUTED }}>{Math.round(pool)} TW</span>
+                  <span style={{ color: MUTED }}>{poolMax} MAX</span>
+                </div>
+                <div style={{ height:5, background:'var(--bg-base)', border:'1px solid var(--border-faint)', marginBottom:6 }}>
+                  <div style={{ height:'100%', width:`${poolPct}%`, background:'#ff4444', transition:'width 0.3s' }} />
+                </div>
+                <Btn disabled={!isRunning || !hasPool || !lockedId}
+                  onClick={() => sendCommand({ type: 'fire_weapon_pool', fraction: 1.0 })}
+                  color={hasPool && lockedId ? '#fff' : MUTED}
+                  bg={hasPool && lockedId ? '#550000' : 'var(--bg-base)'}
+                  borderColor={hasPool && lockedId ? '#ff4444' : 'var(--border-faint)'}
+                  style={{ width:'100%', padding:'4px 0', fontSize:9, letterSpacing:2 }}>
+                  {hasPool && lockedId ? `⚡ FIRE ${Math.round(pool)} TW` : lockedId ? 'POOL EMPTY' : 'NO TARGET LOCKED'}
+                </Btn>
+              </div>
+            )
+          })()}
 
           <div className={s.missilesArea}>
             <div className={s.sectionLabel}>MISSILES</div>

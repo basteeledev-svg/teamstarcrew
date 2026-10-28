@@ -74,13 +74,18 @@ export default function LifeSupportPanel({ gameState, sendCommand }) {
   const ship = gameState?.ship ?? {}
 
   // Power data
-  const minGw    = ship.life_support_min_gw ?? 5
-  const netGw    = ship.net_power_gw ?? 0
-  const gwTarget = ship.power_allocation_gw_targets?.life_support ?? minGw
+  const minGw    = ship.life_support_min_tw ?? 5
+  const netGw    = ship.net_power_tw ?? 0
+  const gwTarget = ship.power_allocation_tw_targets?.life_support ?? minGw
   const lsPct    = ship.power_allocation?.life_support ?? 0
   const actualGw = gwTarget != null
     ? Math.min(netGw, gwTarget)
     : (netGw * lsPct / 100)
+
+  // Consumable reserves (crew survival)
+  const o2Reserves    = ship.oxygen_reserves     ?? 0
+  const rationReserves= ship.bio_matter_rations  ?? 0
+  const lsCountdown   = gameState?.life_support_countdown ?? 0
 
   // Passengers
   const passengers = ship.people_on_board ?? 0
@@ -89,7 +94,7 @@ export default function LifeSupportPanel({ gameState, sendCommand }) {
   // Air scrubbers
   const scrubberCount  = ship.rooms?.living_quarters?.air_scrubbers ?? 0
   const cargoScrubbers = ship.rooms?.cargo_bay?.air_scrubbers ?? 0
-  const mfgScrubbers   = ship.rooms?.manufacturing?.air_scrubbers ?? 0
+  const mfgScrubbers   = ship.rooms?.sub_deck_refinery?.air_scrubbers ?? 0
   const scrubberHealth = ship.item_health?.air_scrubbers ?? 100
 
   // Atmosphere quality (0–100)
@@ -170,7 +175,7 @@ export default function LifeSupportPanel({ gameState, sendCommand }) {
             </div>
             <Row
               label="POWER REQ / 100 PASSENGERS"
-              value={`+10.0 GW`}
+              value={`+10.0 TW`}
               valueColor={MUTED}
             />
           </Section>
@@ -182,13 +187,13 @@ export default function LifeSupportPanel({ gameState, sendCommand }) {
 
           {/* Power systems */}
           <Section title="POWER SYSTEMS">
-            <Row label="MINIMUM REQUIRED" value={`${minGw.toFixed(1)} GW`} valueColor="var(--text-body)" />
+            <Row label="MINIMUM REQUIRED" value={`${minGw.toFixed(1)} TW`} valueColor="var(--text-body)" />
             <Row
               label="CURRENT DELIVERY"
-              value={`${actualGw.toFixed(1)} GW`}
+              value={`${actualGw.toFixed(1)} TW`}
               valueColor={actualGw >= minGw ? 'var(--status-good)' : 'var(--status-danger)'}
             />
-            <Row label="NET SHIP POWER" value={`${netGw.toFixed(1)} GW`} valueColor={MUTED} />
+            <Row label="NET SHIP POWER" value={`${netGw.toFixed(1)} TW`} valueColor={MUTED} />
 
             <div className={s.powerBlock}>
               <div className={s.powerHeader}>
@@ -202,8 +207,8 @@ export default function LifeSupportPanel({ gameState, sendCommand }) {
 
             <div className={s.powerBlock}>
               <div className={s.gwRow}>
-                <span className={s.gwLabel}>GW TARGET</span>
-                <span className={s.gwValue}>{displayGw.toFixed(1)} GW</span>
+                <span className={s.gwLabel}>TW TARGET</span>
+                <span className={s.gwValue}>{displayGw.toFixed(1)} TW</span>
               </div>
               <input type="range"
                 min={minGw} max={sliderMax} step={0.1}
@@ -214,9 +219,33 @@ export default function LifeSupportPanel({ gameState, sendCommand }) {
                 className={s.gwSlider}
               />
               <div className={s.gwHint}>
-                Floor locked at {minGw.toFixed(1)} GW — set higher to buffer against power fluctuations
+                Floor locked at {minGw.toFixed(1)} TW — set higher to buffer against power fluctuations
               </div>
             </div>
+          </Section>
+
+          {/* Consumable reserves */}
+          <Section title="CONSUMABLE RESERVES">
+            {lsCountdown > 0 && (
+              <div style={{ background:'rgba(200,0,0,0.2)', border:'1px solid var(--status-danger)', padding:'6px 8px', marginBottom:6, fontSize:9, letterSpacing:2, color:'var(--status-danger)' }}>
+                ⚠ CRITICAL — GAME OVER IN {20 - lsCountdown} TICKS
+              </div>
+            )}
+            <div style={{ display:'flex', justifyContent:'space-between', marginBottom:4 }}>
+              <span style={{ fontSize:9, letterSpacing:2, color:'var(--text-muted)' }}>OXYGEN RESERVES</span>
+              <span style={{ fontSize:11, color: o2Reserves > 100 ? 'var(--status-good)' : o2Reserves > 30 ? 'var(--accent-amber)' : 'var(--status-danger)' }}>
+                {Math.round(o2Reserves)}
+              </span>
+            </div>
+            <Bar value={Math.min(100, o2Reserves / 5)} color={o2Reserves > 100 ? 'var(--status-good)' : o2Reserves > 30 ? 'var(--accent-amber)' : 'var(--status-danger)'} height={6} />
+            <div style={{ display:'flex', justifyContent:'space-between', marginTop:8, marginBottom:4 }}>
+              <span style={{ fontSize:9, letterSpacing:2, color:'var(--text-muted)' }}>BIO-MATTER RATIONS</span>
+              <span style={{ fontSize:11, color: rationReserves > 100 ? 'var(--status-good)' : rationReserves > 30 ? 'var(--accent-amber)' : 'var(--status-danger)' }}>
+                {Math.round(rationReserves)}
+              </span>
+            </div>
+            <Bar value={Math.min(100, rationReserves / 5)} color={rationReserves > 100 ? 'var(--status-good)' : rationReserves > 30 ? 'var(--accent-amber)' : 'var(--status-danger)'} height={6} />
+            <div style={{ fontSize:8, color:'var(--text-ghost)', letterSpacing:1, marginTop:4 }}>Drain: 1 per crew per 100 ticks</div>
           </Section>
 
           {/* Air scrubbers */}
@@ -241,7 +270,7 @@ export default function LifeSupportPanel({ gameState, sendCommand }) {
             <div className={s.scrubberExtra}>
               <Row label="IN CARGO BAY" value={cargoScrubbers} valueColor={cargoScrubbers > 0 ? 'var(--text-body)' : MUTED} />
               {mfgScrubbers > 0 && (
-                <Row label="IN MANUFACTURING" value={mfgScrubbers} valueColor="var(--text-body)" />
+                <Row label="IN REFINERY" value={mfgScrubbers} valueColor="var(--text-body)" />
               )}
             </div>
 

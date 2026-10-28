@@ -3,6 +3,7 @@ import GalaxyMap    from '../components/GalaxyMap.jsx'
 import SystemView   from '../components/SystemView.jsx'
 import ShipControls from '../components/ShipControls.jsx'
 import ShipStatus   from '../components/ShipStatus.jsx'
+import { apiPath }  from '../api/paths.js'
 import '../hud/hud.css'
 
 const W = 1280
@@ -15,7 +16,7 @@ export default function ObserverPage({ gameState, sendCommand, onExit }) {
   async function handleStartGame() {
     setStarting(true)
     try {
-      await fetch('/api/game/start', { method: 'POST' })
+      await fetch(apiPath('/api/game/start'), { method: 'POST' })
     } finally {
       setStarting(false)
     }

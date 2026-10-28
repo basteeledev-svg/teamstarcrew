@@ -47,7 +47,7 @@ function Section({ title, children }) {
 function ResourceCard({ resource, richness, botCount, planetHealth, stockpile, inOrbit, onSetBots, maxBots }) {
   const cfg  = RES_CONFIG[resource]
   const rate = (inOrbit && richness != null && botCount > 0)
-    ? (botCount * richness * (planetHealth ?? 100) / 100).toFixed(1)
+    ? (10 * botCount * richness).toFixed(1)
     : '0'
 
   const [local, setLocal] = useState(null)
@@ -77,7 +77,7 @@ function ResourceCard({ resource, richness, botCount, planetHealth, stockpile, i
         <div>
           <div className={s.resRow}>
             <span className={s.resSmall}>RICHNESS</span>
-            <span className={s.resSmallVal} style={{ color: 'var(--text-body)' }}>{richness.toFixed(1)}%</span>
+            <span className={s.resSmallVal} style={{ color: 'var(--text-body)' }}>{(richness * 100).toFixed(0)}%</span>
           </div>
           <Bar value={richness} color={cfg.color} height={5} />
         </div>
@@ -209,6 +209,54 @@ export default function MiningPanel({ gameState, sendCommand }) {
               )
             })}
           </div>
+
+          {/* Planetary hopper retrieve (N-11) */}
+          {inOrbit && planet && (() => {
+            const hopperTotal = RESOURCES.reduce((s, r) => s + (planet?.stockpile?.[r] ?? 0), 0)
+            const hasHopper   = hopperTotal > 0.01
+            return (
+              <Section title="PLANETARY HOPPER">
+                {hasHopper ? (
+                  <>
+                    <div style={{ display:'flex', flexWrap:'wrap', gap:4, marginBottom:6 }}>
+                      {RESOURCES.filter(r => (planet?.stockpile?.[r] ?? 0) > 0).map(r => (
+                        <div key={r} style={{
+                          fontSize:9, padding:'2px 8px',
+                          border:`1px solid ${RES_CONFIG[r].color}55`,
+                          color: RES_CONFIG[r].color, background:`${RES_CONFIG[r].color}10`,
+                          letterSpacing:1,
+                        }}>
+                          {RES_CONFIG[r].icon} {Math.round(planet.stockpile[r])} u
+                        </div>
+                      ))}
+                    </div>
+                    <div style={{ display:'flex', gap:6 }}>
+                      {RESOURCES.filter(r => (planet?.stockpile?.[r] ?? 0) > 0).map(r => (
+                        <button key={r} onClick={() => sendCommand({
+                          type: 'retrieve_mining_hopper', resource: r,
+                          amount: planet.stockpile[r],
+                        })} style={{
+                          flex:1, padding:'4px 0', fontSize:8, cursor:'pointer',
+                          border:`1px solid ${RES_CONFIG[r].color}`,
+                          background:`${RES_CONFIG[r].color}14`, color: RES_CONFIG[r].color,
+                          fontFamily:'var(--font-mono)', letterSpacing:1,
+                        }}>
+                          RETRIEVE {RES_CONFIG[r].label}
+                        </button>
+                      ))}
+                    </div>
+                    <div style={{ fontSize:8, color:'var(--text-ghost)', letterSpacing:1, marginTop:4 }}>
+                      Transport bot dispatched on retrieve — 30 tick delivery
+                    </div>
+                  </>
+                ) : (
+                  <div style={{ fontSize:10, color:'var(--text-ghost)', letterSpacing:1 }}>
+                    Hopper empty — deploy mining bots to fill it
+                  </div>
+                )}
+              </Section>
+            )
+          })()}
 
           {!inOrbit && (
             <div className={s.warningBox}>

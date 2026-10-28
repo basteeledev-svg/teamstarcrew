@@ -9,24 +9,23 @@ const REACTOR_LABELS = {
   reactor_3_rad:  'R3 RAD',  reactor_4_rad:  'R4 RAD',
 }
 
-// Keys shown as draggable sliders in the grid (warp_drive and battery handled separately)
+// Keys shown as draggable sliders (battery has its own panel)
 const SLIDER_KEYS = [
   'engines', 'shields', 'weapons',
-  'short_range_scanner', 'long_range_scanner', 'comms', 'life_support',
-  'general_systems', 'manufacturing', 'charging_bay',
+  'scanner', 'comms', 'life_support',
+  'general_systems', 'synthesis', 'charging_bay', 'warp_reserve',
 ]
-// All 12 keys the server tracks
-const ALL_ALLOC_KEYS = [...SLIDER_KEYS, 'warp_drive', 'battery']
+const ALL_ALLOC_KEYS = [...SLIDER_KEYS, 'warp_drive']
 const ALLOC_LABELS = {
   engines: 'ENGINES', shields: 'SHIELDS', weapons: 'WEAPONS',
-  short_range_scanner: 'SHORT SCAN', long_range_scanner: 'LONG SCAN',
-  comms: 'COMMS', life_support: 'LIFE SUPPORT',
-  general_systems: 'GENERAL SYS', manufacturing: 'MANUFACTURE', charging_bay: 'CHARGING BAY',
+  scanner: 'SCANNER', comms: 'COMMS', life_support: 'LIFE SUPPORT',
+  general_systems: 'GENERAL SYS', synthesis: 'SYNTHESIS',
+  charging_bay: 'CHARGING BAY', warp_reserve: 'WARP RESERVE',
 }
 
 const ACCENT   = 'var(--accent-amber)'
 const ACCENT2  = 'var(--accent-cyan)'
-const MAX_REACTOR_GW = 1000  // fallback; overridden by server
+const MAX_REACTOR_TW = 1000  // 2x100 TW fuel + 2x400 TW nuclear
 
 // ── Normalise allocations so sum stays at exactly 100 % ───────────────────
 // `station` is one of SLIDER_KEYS; redistributes delta among other unlocked SLIDER_KEYS.
@@ -37,6 +36,7 @@ function normalise(current, locks, station, newPct) {
   if (Math.abs(delta) < 0.001) return current
 
   const others = SLIDER_KEYS.filter(k => !locks[k] && k !== station)
+  if (others.length === 0) return current  // P3-C hard safeguard
   const next   = { ...current, [station]: clamped }
 
   const otherSum = others.reduce((s, k) => s + Math.max(0, next[k] ?? 0), 0)
@@ -84,18 +84,15 @@ export default function PowerPanel({ gameState, sendCommand }) {
       setLocks({ ...ship.power_allocation_locked })
   }, [ship?.power_allocation_locked])
   useEffect(() => {
-    if (ship?.power_allocation_gw_targets && !gwTargets)
-      setGwTargets({ ...ship.power_allocation_gw_targets })
-  }, [ship?.power_allocation_gw_targets])
+    if (ship?.power_allocation_tw_targets && !gwTargets)
+      setGwTargets({ ...ship.power_allocation_tw_targets })
+  }, [ship?.power_allocation_tw_targets])
 
   // For GW-locked stations the server recomputes pct each tick — always
   // pull those from server so the local slider stays in sync.
-  const curGwTargets = gwTargets ?? ship?.power_allocation_gw_targets ?? {}
+  const curGwTargets = gwTargets ?? ship?.power_allocation_tw_targets ?? {}
   const localAlloc   = alloc     ?? ship?.power_allocation ?? {}
   const curAlloc = { ...localAlloc }
-  // Battery pct is always authoritative from server — server snaps it to 0 on full/empty
-  if (ship?.power_allocation?.battery !== undefined)
-    curAlloc.battery = ship.power_allocation.battery
   // Override GW-locked stations with server values (server recomputes them every tick)
   // and redistribute the resulting drift to free stations so sum stays exactly 100.
   let gwDrift = 0
@@ -107,7 +104,7 @@ export default function PowerPanel({ gameState, sendCommand }) {
     }
   }
   if (Math.abs(gwDrift) > 0.01) {
-    // Only SLIDER_KEYS absorb the drift (warp_drive and battery float independently)
+    // Only SLIDER_KEYS absorb the drift (warp_drive floats independently)
     const freeKeys = SLIDER_KEYS.filter(k =>
       (curGwTargets[k] === null || curGwTargets[k] === undefined) &&
       !(locks ?? ship?.power_allocation_locked ?? {})[k]
@@ -126,13 +123,13 @@ export default function PowerPanel({ gameState, sendCommand }) {
   const rOuts      = reactorOutputs         ?? ship?.reactor_outputs ?? {}
   const curLocks   = locks ?? ship?.power_allocation_locked ?? {}
 
-  const totalPowerGW   = ship?.net_power_gw ?? 0
-  const batteryEnergy  = ship?.battery_energy_gw  ?? 0
-  const batteryCap     = ship?.battery_capacity_gw ?? 500
-  const lsMinGW        = ship?.life_support_min_gw ?? 5
-  const lsActualGW     = ((curAlloc.life_support ?? 0) / 100) * totalPowerGW
-  const lsBelowMin     = lsActualGW < lsMinGW - 0.01
-  const powerRoom      = ship?.rooms?.power_room ?? { fuel: 0, radioactive: 0 }
+  const totalPowerTW   = ship?.net_power_tw ?? 0
+  const batteryEnergy  = ship?.battery_energy_tw  ?? 0
+  const batteryCap     = ship?.battery_capacity_tw ?? 500
+  const lsMinTW        = ship?.life_support_min_tw ?? 5
+  const lsActualTW     = ((curAlloc.life_support ?? 0) / 100) * totalPowerTW
+  const lsBelowMin     = lsActualTW < lsMinTW - 0.01
+  const powerRoom      = ship?.rooms?.reactor_room ?? { fuel: 0, radioactive: 0 }
 
   // ── Reactor output change ─────────────────────────────────────────────────
   function handleReactorOutput(reactor, rawValue) {
@@ -156,7 +153,7 @@ export default function PowerPanel({ gameState, sendCommand }) {
   }
 
   // ── Battery charge slider: sets battery contribution, no redistribution needed ─
-  // Battery is outside the 100% sum — changing it grows/shrinks net_power_gw.
+  // Battery is outside the 100% sum — changing it grows/shrinks net_power_tw.
   function handleBatteryChargeChange(newPct) {
     const isFull  = batteryEnergy >= batteryCap - 0.1
     const isEmpty = batteryEnergy <= 0.1
@@ -168,13 +165,13 @@ export default function PowerPanel({ gameState, sendCommand }) {
 
   // ── GW-locked slider: user manually adjusts the GW target ────────────────
   function handleGwAllocChange(station, newPct) {
-    const minGW     = station === 'life_support' ? lsMinGW : 0
-    const newGW     = (newPct / 100) * totalPowerGW
-    const clampedGW = Math.max(minGW, Math.min(totalPowerGW, newGW))
+    const minTW     = station === 'life_support' ? lsMinTW : 0
+    const newTW     = (newPct / 100) * totalPowerTW
+    const clampedTW = Math.max(minTW, Math.min(totalPowerTW, newTW))
     // Don't touch setAlloc — curAlloc always reads GW-locked stations from the server,
     // so a local setAlloc would cause a false gwDrift and move the free sliders.
-    setGwTargets(prev => ({ ...prev, [station]: clampedGW }))
-    sendCommand({ type: 'set_gw_lock', station, gw_target: clampedGW })
+    setGwTargets(prev => ({ ...prev, [station]: clampedTW }))
+    sendCommand({ type: 'set_gw_lock', station, gw_target: clampedTW })
   }
 
   // ── Lock cycle: none → % lock → GW lock → none ────────────────────────
@@ -193,11 +190,11 @@ export default function PowerPanel({ gameState, sendCommand }) {
       sendCommand({ type: 'toggle_power_lock', station })
     } else if (isPctLocked) {
       // → GW lock (capture current GW)
-      const currentGW = ((curAlloc[station] ?? 0) / 100) * totalPowerGW
+      const currentTW = ((curAlloc[station] ?? 0) / 100) * totalPowerTW
       const newLocks  = { ...curLocks, [station]: false }
       setLocks(newLocks)
-      setGwTargets(prev => ({ ...prev, [station]: currentGW }))
-      sendCommand({ type: 'set_gw_lock', station, gw_target: currentGW })
+      setGwTargets(prev => ({ ...prev, [station]: currentTW }))
+      sendCommand({ type: 'set_gw_lock', station, gw_target: currentTW })
     } else {
       // GW locked → none
       setGwTargets(prev => ({ ...prev, [station]: null }))
@@ -225,7 +222,7 @@ export default function PowerPanel({ gameState, sendCommand }) {
           ⚡ POWER MANAGEMENT
         </span>
         <div className={s.headerStats}>
-          <span style={{ color: ACCENT2 }}>OUTPUT <b>{totalPowerGW.toFixed(0)}</b> GW</span>
+          <span style={{ color: ACCENT2 }}>OUTPUT <b>{totalPowerTW.toFixed(0)}</b> TW</span>
           <span className={s.headerSigma} style={{ color: totalAllocSum.toFixed(1) === '100.0' ? 'var(--text-secondary)' : 'var(--status-bad)' }}>
             Σ {totalAllocSum.toFixed(1)}%
           </span>
@@ -276,14 +273,14 @@ export default function PowerPanel({ gameState, sendCommand }) {
       {/* ── Life support warning ── */}
       {lsBelowMin && (
         <div className={s.lsWarning}>
-          ⚠ LIFE SUPPORT BELOW MINIMUM ({lsActualGW.toFixed(0)} GW &lt; {lsMinGW.toFixed(0)} GW REQ)
+          {'⚠'} LIFE SUPPORT BELOW MINIMUM ({lsActualTW.toFixed(0)} TW {'<'} {lsMinTW.toFixed(0)} TW REQ)
         </div>
       )}
 
       {/* ── Allocation label ── */}
       <div className={s.allocLabel}>
         <div className={s.allocLabelText} style={{ color: ACCENT }}>
-          POWER DISTRIBUTION — {totalPowerGW.toFixed(0)} GW AVAILABLE
+          POWER DISTRIBUTION — {totalPowerTW.toFixed(0)} TW AVAILABLE
         </div>
       </div>
 
@@ -300,7 +297,7 @@ export default function PowerPanel({ gameState, sendCommand }) {
               gwLocked={curGwTargets[key] !== null && curGwTargets[key] !== undefined}
               gwTarget={curGwTargets[key] ?? null}
               isLifeSupport={key === 'life_support'}
-              totalPowerGW={totalPowerGW}
+              totalPowerTW={totalPowerTW}
               lsMinGW={key === 'life_support' ? lsMinGW : undefined}
               onPct={v => curGwTargets[key] !== null ? handleGwAllocChange(key, v) : handleAllocChange(key, v)}
               onLockCycle={() => handleLockCycle(key)}
@@ -317,7 +314,7 @@ export default function PowerPanel({ gameState, sendCommand }) {
 // REACTOR CARD
 // ══════════════════════════════════════════════════════════════════════════════
 function ReactorCard({ label, reactorKey, output, health, heat, shutdown, onOutput }) {
-  const outputGW = output * (health / 100) * MAX_REACTOR_GW
+  const outputTW = output * (health / 100) * MAX_REACTOR_TW
   const borderCol = shutdown ? 'var(--status-bad)' : heat >= 90 ? 'var(--accent-amber)' : `${ACCENT}33`
 
   return (
@@ -367,7 +364,7 @@ function ReactorCard({ label, reactorKey, output, health, heat, shutdown, onOutp
 
       {/* GW output */}
       <div className={s.reactorGw} style={{ color: ACCENT2 }}>
-        {outputGW.toFixed(0)} GW
+        {outputTW.toFixed(0)} TW
       </div>
     </div>
   )

@@ -9,10 +9,11 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
 from game.tick import tick_loop
-from routers.game import router as game_router
-from routers.ws   import router as ws_router
-from routers.ai   import router as ai_router
+from routers.game     import router as game_router
+from routers.ws       import router as ws_router
+from routers.ai       import router as ai_router
 from routers.feedback import router as feedback_router
+from routers.stations import router as stations_router
 
 
 @asynccontextmanager
@@ -37,10 +38,18 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-app.include_router(game_router)
-app.include_router(ws_router)
-app.include_router(ai_router)
-app.include_router(feedback_router)
+def include_app_routers(prefix: str = ""):
+    app.include_router(game_router,     prefix=prefix)
+    app.include_router(ws_router,       prefix=prefix)
+    app.include_router(ai_router,       prefix=prefix)
+    app.include_router(feedback_router, prefix=prefix)
+    app.include_router(stations_router, prefix=prefix)
+
+
+include_app_routers()
+
+# Optional mirrored routes for subpath deployments (e.g., /sim/api, /sim/ws).
+include_app_routers(prefix="/sim")
 
 
 @app.get("/health")
@@ -48,8 +57,15 @@ async def health():
     return {"status": "ok"}
 
 
+@app.get("/sim/health")
+async def sim_health():
+    return {"status": "ok"}
+
+
 # Serve built frontend in production (static files at ../frontend/dist)
 _static_dir = Path(__file__).resolve().parent.parent / "frontend" / "dist"
 if _static_dir.is_dir():
+    # Optional mount for subpath deployments. Keep mounted before root fallback.
+    app.mount("/sim", StaticFiles(directory=str(_static_dir), html=True), name="frontend-sim")
     # Mount at root LAST so /api and /ws routes take priority
     app.mount("/", StaticFiles(directory=str(_static_dir), html=True), name="frontend")

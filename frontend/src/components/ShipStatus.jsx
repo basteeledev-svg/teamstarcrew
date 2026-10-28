@@ -6,7 +6,7 @@ export default function ShipStatus({ gameState }) {
   const pos   = ship.position
   const dist  = Math.sqrt(pos.x ** 2 + pos.y ** 2 + pos.z ** 2).toFixed(2)
   const dir   = ship.direction
-  const power = ship.effective_power_gw?.toFixed(0) ?? '—'
+  const power = ship.effective_power_tw?.toFixed(0) ?? '—'
 
   return (
     <div style={{ padding: '8px 10px', borderTop: '1px solid var(--border-faint)', fontSize: '11px', lineHeight: '1.7' }}>
@@ -16,7 +16,7 @@ export default function ShipStatus({ gameState }) {
       <Row label="HEADING"  value={`(${dir.x.toFixed(2)}, ${dir.y.toFixed(2)}, ${dir.z.toFixed(2)})`} />
       <Row label="THRUST"   value={`${(ship.thrust * 100).toFixed(0)}%`} />
       <Row label="HULL"     value={<HealthBar value={ship.hull_health} />} />
-      <Row label="POWER"    value={`${power} GW`} />
+      <Row label="POWER"    value={`${power} TW`} />
       <Row label="TICK"     value={gameState.tick} />
     </div>
   )

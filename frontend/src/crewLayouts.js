@@ -1,8 +1,110 @@
-// Role rosters per crew size — derived from docs/05-stations-and-crew.md
-// Each role lists the consoles available on that tablet. The first console
-// listed is the role's PRIMARY station (shown first on the tab strip).
+// Flat station definitions — player_count still controls life-support math on the backend
+// but panel assignment is now fully decoupled and user-configurable.
 
+export const STATIONS = [
+  {
+    id: 'captain',
+    name: 'CAPTAIN',
+    icon: '◉',
+    color: '#00ffcc',
+    desc: 'Command decisions, comms, and galaxy oversight.',
+    defaultPanels: ['comms', 'long_range', 'universe'],
+  },
+  {
+    id: 'pilot',
+    name: 'PILOT',
+    icon: '⊕',
+    color: '#00aaff',
+    desc: 'In-system navigation, warp jumps, situational awareness.',
+    defaultPanels: ['navigation', 'short_range'],
+  },
+  {
+    id: 'tactical',
+    name: 'TACTICAL',
+    icon: '◈',
+    color: '#ff6688',
+    desc: 'Combined weapons and shields — for smaller crews.',
+    defaultPanels: ['weapons', 'shields'],
+  },
+  {
+    id: 'weapons',
+    name: 'WEAPONS OFFICER',
+    icon: '◆',
+    color: '#ff4444',
+    desc: 'Offensive lasers, missiles, and targeting lock.',
+    defaultPanels: ['weapons'],
+  },
+  {
+    id: 'shields',
+    name: 'SHIELDS OFFICER',
+    icon: '❖',
+    color: '#4488ff',
+    desc: 'Defense lasers, shield batteries, hull-section power.',
+    defaultPanels: ['shields'],
+  },
+  {
+    id: 'engineer',
+    name: 'ENGINEER',
+    icon: '⚡',
+    color: '#ffee00',
+    desc: 'Reactors, power distribution, and life-support monitoring.',
+    defaultPanels: ['power', 'engines', 'life_support'],
+  },
+  {
+    id: 'power_engineer',
+    name: 'POWER ENGINEER',
+    icon: '⚡',
+    color: '#eecc00',
+    desc: 'Reactor heat, output, and station-wide power allocation.',
+    defaultPanels: ['power', 'life_support'],
+  },
+  {
+    id: 'propulsion',
+    name: 'PROPULSION ENG.',
+    icon: '⚙',
+    color: '#ff6600',
+    desc: 'Engine management and warp-drive charging.',
+    defaultPanels: ['engines'],
+  },
+  {
+    id: 'science',
+    name: 'SCIENCE OFFICER',
+    icon: '⊙',
+    color: '#88ddff',
+    desc: 'Deep-space scanning, stellar cartography, intelligence.',
+    defaultPanels: ['long_range', 'short_range'],
+  },
+  {
+    id: 'bosun',
+    name: 'BOSUN',
+    icon: '✦',
+    color: '#ffaa00',
+    desc: 'Repairs, manufacturing, transport bots, and mining ops.',
+    defaultPanels: ['repairs', 'manufacturing', 'transportation', 'mining'],
+  },
+  {
+    id: 'operations',
+    name: 'OPERATIONS',
+    icon: '⬡',
+    color: '#ffcc44',
+    desc: 'Manufacturing, fabrication, and mining logistics.',
+    defaultPanels: ['manufacturing', 'mining', 'transportation'],
+  },
+]
+
+// KEPT FOR LEGACY — the old per-count layout map; used only by ConsoleSelectPage fallback.
 export const CREW_LAYOUTS = {
+  1: [
+    {
+      id: 'solo_captain',
+      name: 'SOLO CAPTAIN',
+      icon: '◉',
+      color: '#00ffcc',
+      desc: 'Single-player cockpit flow: scan, thrust, generation, and planet interaction.',
+      consoles: ['navigation', 'short_range', 'power', 'engines'],
+    },
+  ],
+
   4: [
     {
       id: 'captain_pilot',
@@ -284,4 +386,4 @@ export const CREW_LAYOUTS = {
 }
 
 // Allowed crew sizes
-export const ALLOWED_PLAYER_COUNTS = [4, 5, 6, 8, 10]
+export const ALLOWED_PLAYER_COUNTS = [1, 4, 5, 6, 8, 10]

@@ -5,8 +5,8 @@ import s from './EnginesPanel.module.css'
 // ── Constants (fallback defaults; overridden by server-sent values) ────────────
 const _FUEL_ENGINE_MAX_THRUST = 0.025
 const _ELEC_ENGINE_MAX_THRUST = 0.0125
-const _WARP_CAP_MAX           = 100_000
-const _WARP_LEAK_GW           = 0.5
+const _WARP_CAP_MAX           = 50_000
+const _WARP_LEAK_TW           = 0.5
 
 const ENGINE_KEYS = {
   fuel: ['engine_3_fuel', 'engine_4_fuel'],
@@ -47,7 +47,7 @@ export default function EnginesPanel({ gameState, sendCommand }) {
   const C = gameState?.constants ?? {}
   const FUEL_ENGINE_MAX_THRUST = C.FUEL_ENGINE_MAX_THRUST_AU ?? _FUEL_ENGINE_MAX_THRUST
   const ELEC_ENGINE_MAX_THRUST = C.ELEC_ENGINE_MAX_THRUST_AU ?? _ELEC_ENGINE_MAX_THRUST
-  const WARP_CAP_MAX           = C.WARP_CAPACITOR_MAX_GW ?? _WARP_CAP_MAX
+  const WARP_CAP_MAX           = C.WARP_CAPACITOR_MAX_TW ?? _WARP_CAP_MAX
   const WARP_LEAK_GW           = C.WARP_CAPACITOR_LEAK_GW ?? _WARP_LEAK_GW
 
   const [engineOutputs, setEngineOutputs] = useState(null)
@@ -76,13 +76,13 @@ export default function EnginesPanel({ gameState, sendCommand }) {
   const curWarpPct  = warpDrivePct  ?? ship?.power_allocation?.warp_drive ?? 0
 
   // Derive display values
-  const totalPowerGW   = ship?.net_power_gw ?? 0
+  const totalPowerGW   = ship?.net_power_tw ?? 0
   const engineAllocGW  = (ship?.power_allocation?.engines ?? 0) / 100 * totalPowerGW
   const warpAllocGW    = (curWarpPct / 100) * totalPowerGW
   const warpNetRate    = warpAllocGW - WARP_LEAK_GW
-  const warpCapGW      = ship?.warp_capacitor_gw ?? 0
+  const warpCapGW      = ship?.warp_capacitor_tw ?? 0
 
-  const engineRoomFuel = ship?.rooms?.engine_room?.fuel ?? 0
+  const engineRoomFuel = ship?.rooms?.engine_bay?.fuel ?? 0
   const sysHealth      = ship?.system_health ?? {}
   const engineThrustAU = ship?.engine_thrust_au ?? 0
 
@@ -143,10 +143,10 @@ export default function EnginesPanel({ gameState, sendCommand }) {
             THRUST <b>{(engineThrustAU * 1000).toFixed(2)}</b> mAU/tk
           </span>
           <span className={s.headerStatSmall} style={{ color: overBudget ? 'var(--status-bad)' : 'var(--text-secondary)' }}>
-            ELEC {elecDraw.toFixed(0)}/{engineAllocGW.toFixed(0)} GW
+            ELEC {elecDraw.toFixed(0)}/{engineAllocGW.toFixed(0)} TW
           </span>
           <span className={s.headerStatSmall} style={{ color: WARP }}>
-            WARP {Math.round(warpCapGW).toLocaleString()} GW
+            WARP {Math.round(warpCapGW).toLocaleString()} TW
           </span>
         </div>
       </div>
@@ -174,7 +174,7 @@ export default function EnginesPanel({ gameState, sendCommand }) {
         <div className={s.allocSection}>
           <span className={s.allocLabel}>ENGINES ALLOC</span>
           <span style={{ color: overBudget ? 'var(--status-bad)' : ACCENT2 }}>
-            {engineAllocGW.toFixed(0)} GW
+            {engineAllocGW.toFixed(0)} TW
           </span>
         </div>
       </div>
@@ -203,13 +203,13 @@ export default function EnginesPanel({ gameState, sendCommand }) {
           )}
         </div>
         <div className={s.budgetLegend}>
-          <span style={{ color: ELEC }}>▬ ELEC {elecDraw.toFixed(0)} GW</span>
-          <span style={{ color: WARP }}>▬ WARP {warpAllocGW.toFixed(0)} GW</span>
+          <span style={{ color: ELEC }}>▬ ELEC {elecDraw.toFixed(0)} TW</span>
+          <span style={{ color: WARP }}>▬ WARP {warpAllocGW.toFixed(0)} TW</span>
           {!overBudget && (
-            <span style={{ color: 'var(--text-dim)' }}>▬ FREE {Math.max(0, engineAllocGW - engineBudgetUsedGW).toFixed(0)} GW</span>
+            <span style={{ color: 'var(--text-dim)' }}>▬ FREE {Math.max(0, engineAllocGW - engineBudgetUsedGW).toFixed(0)} TW</span>
           )}
           {overBudget && (
-            <span style={{ color: 'var(--status-bad)' }}>⚠ OVER BY {(engineBudgetUsedGW - engineAllocGW).toFixed(0)} GW</span>
+            <span style={{ color: 'var(--status-bad)' }}>⚠ OVER BY {(engineBudgetUsedGW - engineAllocGW).toFixed(0)} TW</span>
           )}
         </div>
       </div>
@@ -276,7 +276,7 @@ function EngineCard({ label, output, health, isFuel, maxOutputFrac = 1,
   const consume      = engineConsumption(output)
   const consumeLabel = isFuel
     ? `${consume.toLocaleString()} fuel/tk`
-    : `${consume.toLocaleString()} GW/tk`
+    : `${consume.toLocaleString()} TW/tk`
   const thrustMax    = isFuel ? fuelMaxThrust : elecMaxThrust
   const thrustContrib = output * (health / 100) * thrustMax
 
@@ -344,8 +344,8 @@ function WarpCapacitorSection({ capacitorGW, warpAllocGW, netRate,
   const barColor = pct < 15 ? 'var(--status-bad)' : pct < 40 ? ACCENT : WARP
   const netColor = netRate >= 0 ? WARP : '#ff6644'
   const netLabel = netRate >= 0
-    ? `▲ +${netRate.toFixed(1)} GW/tk`
-    : `▼ ${netRate.toFixed(1)} GW/tk`
+    ? `▲ +${netRate.toFixed(1)} TW/tk`
+    : `▼ ${netRate.toFixed(1)} TW/tk`
 
   return (
     <div className={s.warpCard}>
@@ -359,7 +359,7 @@ function WarpCapacitorSection({ capacitorGW, warpAllocGW, netRate,
           <span style={{ color: netColor }}>{netLabel}</span>
           <span className={s.warpLeakLabel}>−{WARP_LEAK_GW} GW/tk leak</span>
           <span style={{ color: WARP }}>
-            {Math.round(capacitorGW).toLocaleString()} / {WARP_CAP_MAX.toLocaleString()} GW
+            {Math.round(capacitorGW).toLocaleString()} / {WARP_CAP_MAX.toLocaleString()} TW
           </span>
           <span className={s.warpCapPct}>{pct.toFixed(2)}%</span>
         </div>

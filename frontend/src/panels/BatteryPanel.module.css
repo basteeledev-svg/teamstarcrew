@@ -1,0 +1,28 @@
+.container {
+  flex: 1; display: flex; flex-direction: column; gap: 10px;
+  padding: 12px; overflow-y: auto; font-family: var(--font-mono);
+  background: var(--bg-label);
+}
+.noSignal { flex:1; display:flex; align-items:center; justify-content:center;
+  color:var(--text-ghost); letter-spacing:4px; font-family:var(--font-mono); }
+.header { font-size: 11px; letter-spacing: 3px; color: var(--accent-cyan);
+  padding-bottom: 6px; border-bottom: 1px solid var(--border-faint); }
+.card { background: var(--bg-raised); border: 1px solid var(--border-faint);
+  padding: 12px; display: flex; flex-direction: column; gap: 8px; }
+.cardTitle { font-size: 9px; letter-spacing: 3px; color: var(--text-muted); }
+.bigPct { font-size: 48px; font-weight: bold; letter-spacing: 2px; text-align: center;
+  font-family: var(--font-mono); line-height: 1; }
+.barTrack { height: 8px; background: var(--bg-base); border: 1px solid var(--border-faint); }
+.barFill  { height: 100%; transition: width 0.3s; }
+.statsRow { display: flex; justify-content: space-between; font-size: 10px;
+  color: var(--text-muted); letter-spacing: 1px; }
+.sliderLabel { text-align: center; font-size: 13px; letter-spacing: 2px; font-weight: bold; }
+.sliderWrap { display: flex; align-items: center; gap: 8px; }
+.slider { flex: 1; cursor: pointer; }
+.sliderEnd { font-size: 9px; color: var(--text-dim); letter-spacing: 1px; flex-shrink: 0; }
+.presetRow { display: flex; gap: 8px; }
+.presetBtn { flex: 1; padding: 6px 4px; background: var(--bg-base);
+  border: 1px solid var(--border-faint); color: var(--text-body);
+  font-family: var(--font-mono); font-size: 9px; letter-spacing: 1px; cursor: pointer; }
+.presetBtn:disabled { opacity: 0.35; cursor: not-allowed; }
+.note { font-size: 9px; color: var(--text-ghost); letter-spacing: 1px; line-height: 1.4; }

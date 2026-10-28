@@ -6,11 +6,16 @@ set -euo pipefail
 VPS="root@74.208.194.76"
 APP_DIR="/opt/teamstarcrew"
 SCRIPT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
+DEPLOY_MODE="${DEPLOY_MODE:-root}"
 
 echo "▶ Building frontend..."
 cd "$SCRIPT_DIR/frontend"
 npm install --silent
-npm run build
+if [ "$DEPLOY_MODE" = "path" ]; then
+  VITE_BASE_PATH=/sim npm run build
+else
+  npm run build
+fi
 
 echo "▶ Syncing code to VPS..."
 rsync -az --delete \

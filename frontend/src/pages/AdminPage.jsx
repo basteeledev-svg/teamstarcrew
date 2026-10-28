@@ -1,5 +1,6 @@
-import { useState } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { CONSOLES } from '../consoles.js'
+import { apiPath } from '../api/paths.js'
 import '../hud/hud.css'
 
 const W = 1280
@@ -86,7 +87,7 @@ function ShipStatusTab({ ship, system }) {
     ['POSITION Z',      `${ship.position?.z ?? '—'} AU`],
     ['ORBITING',        ship.orbiting_planet_id ? 'YES' : 'NO'],
     ['MINING BOTS',     ship.mining_bots ? Object.entries(ship.mining_bots).map(([k,v]) => `${k}:${v}`).join('  ') : '—'],
-    ['EFFECTIVE POWER', `${ship.effective_power_gw ?? '—'} GW`],
+    ['EFFECTIVE POWER', `${ship.effective_power_tw ?? '—'} TW`],
     ['SYSTEM',          system?.name ?? '—'],
     ['PLANETS NEARBY',  `${system?.planets?.length ?? 0}`],
   ]
@@ -130,32 +131,197 @@ function ShipStatusTab({ ship, system }) {
   )
 }
 
-/* ── Stations ── */
+/* ── Stations (live panel editor) ── */
 function StationsTab() {
+  const [stations, setStations] = useState([])
+  const [saving,   setSaving]   = useState({})   // code → 'ok' | 'err'
+  const [loading,  setLoading]  = useState(true)
+  const dragPanel = useRef(null)
+
+  useEffect(() => {
+    fetch(apiPath('/api/stations'))
+      .then(r => r.json())
+      .then(d => setStations(d.stations ?? []))
+      .catch(() => {})
+      .finally(() => setLoading(false))
+  }, [])
+
+  async function patchPanels(code, panels) {
+    setSaving(s => ({ ...s, [code]: null }))
+    try {
+      const r = await fetch(apiPath(`/api/stations/${code}/panels`), {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ panels }),
+      })
+      setSaving(s => ({ ...s, [code]: r.ok ? 'ok' : 'err' }))
+      setTimeout(() => setSaving(s => ({ ...s, [code]: null })), 1500)
+    } catch {
+      setSaving(s => ({ ...s, [code]: 'err' }))
+    }
+  }
+
+  function addPanel(code, panelId) {
+    setStations(prev => {
+      const next = prev.map(s => {
+        if (s.code !== code || s.panels.includes(panelId)) return s
+        const updated = { ...s, panels: [...s.panels, panelId] }
+        patchPanels(code, updated.panels)
+        return updated
+      })
+      return next
+    })
+  }
+
+  function removePanel(code, panelId) {
+    setStations(prev => {
+      const next = prev.map(s => {
+        if (s.code !== code) return s
+        const updated = { ...s, panels: s.panels.filter(p => p !== panelId) }
+        patchPanels(code, updated.panels)
+        return updated
+      })
+      return next
+    })
+  }
+
+  function onDrop(e, code) {
+    e.preventDefault()
+    if (dragPanel.current) addPanel(code, dragPanel.current)
+    dragPanel.current = null
+  }
+
+  if (loading) return <Placeholder text="LOADING STATIONS…" />
+  if (!stations.length) return <Placeholder text="NO STATIONS CONFIGURED — USE STATION SETUP AFTER STARTING A GAME" />
+
   return (
-    <div style={{ padding: '20px 24px' }}>
-      <SectionHeading>ALL 13 STATIONS</SectionHeading>
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12 }}>
-        {CONSOLES.map(c => (
-          <div key={c.id} style={{
-            border: `1px solid ${c.color}55`,
-            background: `${c.color}0d`,
-            boxShadow: `0 0 6px ${c.color}22`,
-            padding: '12px 14px',
-            display: 'flex', flexDirection: 'column', gap: 6,
-          }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-              <span style={{ fontSize: 22, color: c.color, textShadow: `0 0 6px ${c.color}` }}>{c.icon}</span>
-              <span style={{ fontSize: 12, color: c.color, letterSpacing: 2, fontWeight: 'bold', fontFamily: 'var(--font-mono)' }}>
-                {c.name}
-              </span>
-            </div>
-            <div style={{ fontSize: 10, color: 'var(--hud-txd)', letterSpacing: 1, lineHeight: 1.4, fontFamily: 'var(--font-mono)' }}>
-              {c.desc}
-            </div>
-          </div>
+    <div style={{ display: 'flex', height: '100%', minHeight: 0, gap: 10, padding: '10px 12px' }}>
+      {/* Panel pool */}
+      <div style={{
+        width: 200, flexShrink: 0, display: 'flex', flexDirection: 'column',
+        border: '1px solid rgba(0,229,255,0.2)', background: 'rgba(0,229,255,0.02)',
+      }}>
+        <div style={{ padding: '6px 10px', borderBottom: '1px solid rgba(0,229,255,0.15)', fontSize: 9, letterSpacing: 3, color: 'var(--hud-c)' }}>
+          PANELS — DRAG TO STATION
+        </div>
+        <div style={{ flex: 1, overflowY: 'auto', padding: '5px', display: 'flex', flexDirection: 'column', gap: 2 }}>
+          {CONSOLES.map(c => {
+            const count = stations.filter(s => s.panels.includes(c.id)).length
+            return (
+              <div
+                key={c.id}
+                draggable
+                onDragStart={() => { dragPanel.current = c.id }}
+                style={{
+                  display: 'flex', alignItems: 'center', gap: 6, padding: '5px 7px',
+                  border: `1px solid ${count > 0 ? c.color + '88' : c.color + '33'}`,
+                  background: count > 0 ? `${c.color}15` : `${c.color}08`,
+                  color: c.color, fontFamily: 'var(--font-mono)', fontSize: 10, letterSpacing: 1,
+                  cursor: 'grab', userSelect: 'none',
+                }}
+              >
+                <span style={{ fontSize: 13, flexShrink: 0 }}>{c.icon}</span>
+                <span style={{ flex: 1 }}>{c.name}</span>
+                {count > 0 && (
+                  <span style={{ fontSize: 10, fontWeight: 'bold', background: `${c.color}2a`, color: c.color, padding: '1px 4px', flexShrink: 0 }}>
+                    {count}
+                  </span>
+                )}
+              </div>
+            )
+          })}
+        </div>
+      </div>
+
+      {/* Station columns */}
+      <div style={{ flex: 1, overflowX: 'auto', display: 'flex', gap: 8, alignItems: 'stretch' }}>
+        {stations.map(st => (
+          <AdminStationColumn
+            key={st.code}
+            station={st}
+            saveStatus={saving[st.code]}
+            onDrop={e => onDrop(e, st.code)}
+            onRemovePanel={pid => removePanel(st.code, pid)}
+          />
         ))}
       </div>
+    </div>
+  )
+}
+
+function AdminStationColumn({ station, saveStatus, onDrop, onRemovePanel }) {
+  const [over, setOver] = useState(false)
+
+  return (
+    <div style={{
+      width: 160, flexShrink: 0, display: 'flex', flexDirection: 'column',
+      border: `1px solid ${station.color}55`, background: `${station.color}07`,
+    }}>
+      {/* Header */}
+      <div style={{
+        padding: '6px 8px', background: `${station.color}18`,
+        borderBottom: `1px solid ${station.color}44`,
+        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+      }}>
+        <span style={{ color: station.color, fontFamily: 'var(--font-mono)', fontSize: 11, letterSpacing: 2, fontWeight: 'bold' }}>
+          {station.name}
+        </span>
+        {saveStatus && (
+          <span style={{ fontSize: 10, color: saveStatus === 'ok' ? 'var(--hud-cg)' : 'var(--hud-cr)' }}>
+            {saveStatus === 'ok' ? '✓' : '✗'}
+          </span>
+        )}
+      </div>
+      {/* Code label */}
+      <div style={{ padding: '3px 8px', borderBottom: `1px solid ${station.color}22`, fontSize: 9, color: 'var(--hud-txd)', letterSpacing: 2 }}>
+        CODE <span style={{ color: station.color, fontWeight: 'bold', letterSpacing: 4 }}>{station.code}</span>
+      </div>
+      {/* Drop zone */}
+      <div
+        onDrop={e => { setOver(false); onDrop(e) }}
+        onDragOver={e => { e.preventDefault(); setOver(true) }}
+        onDragLeave={() => setOver(false)}
+        style={{
+          flex: 1, padding: '4px',
+          background: over ? `${station.color}18` : 'transparent',
+          outline: over ? `1px dashed ${station.color}88` : '1px dashed transparent',
+          outlineOffset: -3,
+          display: 'flex', flexDirection: 'column', gap: 3, minHeight: 60,
+        }}
+      >
+        {station.panels.length === 0 && (
+          <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'rgba(0,229,255,0.15)', fontSize: 9, letterSpacing: 2, pointerEvents: 'none', textAlign: 'center' }}>
+            DROP PANELS HERE
+          </div>
+        )}
+        {station.panels.map(pid => {
+          const c = CONSOLES.find(x => x.id === pid)
+          if (!c) return null
+          return (
+            <div key={pid} style={{
+              display: 'flex', alignItems: 'center', gap: 4, padding: '4px 5px',
+              border: `1px solid ${c.color}44`, background: `${c.color}10`,
+            }}>
+              <span style={{ color: c.color, fontSize: 12, flexShrink: 0 }}>{c.icon}</span>
+              <span style={{ flex: 1, color: c.color, fontSize: 9, letterSpacing: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                {c.name}
+              </span>
+              <button
+                onClick={() => onRemovePanel(pid)}
+                style={{ background: 'transparent', border: 'none', color: 'rgba(255,100,100,0.55)', cursor: 'pointer', fontSize: 14, lineHeight: 1, padding: '0 1px', flexShrink: 0 }}
+              >×</button>
+            </div>
+          )
+        })}
+      </div>
+    </div>
+  )
+}
+
+function Placeholder({ text }) {
+  return (
+    <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--hud-txd)', fontFamily: 'var(--font-mono)', fontSize: 11, letterSpacing: 3 }}>
+      {text}
     </div>
   )
 }
@@ -165,7 +331,7 @@ function GameControlTab({ gameState, sendCommand }) {
   const [mode, setMode] = useState('empty')
 
   async function startGame() {
-    await fetch(`/api/game/start?mode=${mode}`, { method: 'POST' })
+    await fetch(`${apiPath('/api/game/start')}?mode=${mode}`, { method: 'POST' })
   }
 
   return (
@@ -273,18 +439,6 @@ function SectionHeading({ children, style }) {
       ...style,
     }}>
       {children}
-    </div>
-  )
-}
-
-function Placeholder({ text }) {
-  return (
-    <div style={{
-      flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center',
-      color: 'var(--hud-txd)', fontSize: 12, letterSpacing: 4,
-      fontFamily: 'var(--font-mono)', padding: 40,
-    }}>
-      {text}
     </div>
   )
 }

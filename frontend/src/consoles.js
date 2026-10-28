@@ -1,11 +1,18 @@
-/** Console definitions — all 13 stations from the design doc. */
+/** Console definitions — all panels available for station assignment. */
 export const CONSOLES = [
   {
     id: 'navigation',
     name: 'NAVIGATION',
     icon: '⊕',
     color: '#00aaff',
-    desc: 'In-system piloting · compass heading · galactic jump targeting',
+    desc: 'In-system piloting · compass heading · orbit mechanics',
+  },
+  {
+    id: 'universe',
+    name: 'UNIVERSE MAP',
+    icon: '☉',
+    color: '#aa88ff',
+    desc: 'Interstellar star chart · warp targeting · galaxy navigation',
   },
   {
     id: 'short_range',
@@ -20,6 +27,20 @@ export const CONSOLES = [
     icon: '⊙',
     color: '#88ddff',
     desc: 'Galaxy-level scan · warp-range systems · stellar cartography',
+  },
+  {
+    id: 'battery',
+    name: 'BATTERY',
+    icon: '⚡',
+    color: '#00ffcc',
+    desc: 'Battery charge/discharge control · energy reserve management',
+  },
+  {
+    id: 'synthesis',
+    name: 'SYNTHESIS',
+    icon: '⬡',
+    color: '#44ddff',
+    desc: 'Molecular synthesis · fuel, enriched nuclear, electronics, repair patches, scrap',
   },
   {
     id: 'weapons',

@@ -1,0 +1,200 @@
+.container {
+  flex: 1;
+  display: flex;
+  font-family: var(--font-mono);
+  overflow: hidden;
+  background: var(--bg-label);
+}
+
+.noSignal {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-ghost);
+  font-family: var(--font-mono);
+  letter-spacing: 4px;
+  font-size: 14px;
+}
+
+/* ── Galaxy map column ─────────────────────────────── */
+.mapColumn {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  border-right: 1px solid var(--border-faint);
+  overflow: hidden;
+}
+
+.mapHeader {
+  padding: 5px 10px;
+  background: var(--bg-base);
+  border-bottom: 1px solid var(--border-faint);
+  font-size: 10px;
+  color: var(--text-muted);
+  letter-spacing: 2px;
+  flex-shrink: 0;
+}
+
+.mapWrap {
+  flex: 1;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--bg-base);
+}
+
+.mapLegend {
+  padding: 4px 10px;
+  background: var(--bg-base);
+  border-top: 1px solid var(--border-faint);
+  display: flex;
+  gap: 14px;
+  align-items: center;
+  font-size: 9px;
+  letter-spacing: 1.5px;
+  flex-shrink: 0;
+}
+
+/* ── Right column ──────────────────────────────────── */
+.rightColumn {
+  width: 260px;
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.sectionLabel {
+  padding: 6px 10px;
+  font-size: 10px;
+  letter-spacing: 3px;
+  color: var(--accent-cyan);
+  background: var(--bg-base);
+  border-bottom: 1px solid var(--border-faint);
+  flex-shrink: 0;
+}
+
+/* ── Warp capacitor ────────────────────────────────── */
+.chargeBlock {
+  padding: 10px;
+  border-bottom: 1px solid var(--border-faint);
+  flex-shrink: 0;
+}
+
+.chargeRow {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 6px;
+}
+
+.chargeLbl {
+  font-size: 9px;
+  letter-spacing: 2px;
+  color: var(--text-muted);
+}
+
+.chargeVal {
+  font-size: 11px;
+  color: var(--accent-cyan);
+}
+
+.chargeTrack {
+  height: 4px;
+  background: var(--bg-raised);
+}
+
+.chargeFill {
+  height: 100%;
+  background: var(--accent-cyan);
+  transition: width 0.3s;
+}
+
+/* ── Selected system warp panel ────────────────────── */
+.warpPanel {
+  padding: 10px;
+  border-bottom: 1px solid var(--border-faint);
+  flex-shrink: 0;
+}
+
+.warpName {
+  font-size: 13px;
+  font-weight: bold;
+  letter-spacing: 2px;
+  margin-bottom: 8px;
+}
+
+.warpGrid {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 3px 8px;
+  font-size: 10px;
+  margin-bottom: 8px;
+  color: var(--text-body);
+}
+
+.warpLbl {
+  color: var(--text-muted);
+  letter-spacing: 1px;
+}
+
+.warpInsufficient {
+  font-size: 10px;
+  color: var(--accent-red);
+  letter-spacing: 1px;
+  margin-bottom: 6px;
+}
+
+.warpBtnRow {
+  display: flex;
+  gap: 6px;
+}
+
+/* ── Systems list ──────────────────────────────────── */
+.sysList {
+  flex: 1;
+  overflow-y: auto;
+}
+
+.noData {
+  padding: 20px;
+  text-align: center;
+  color: var(--text-ghost);
+  font-size: 10px;
+  letter-spacing: 2px;
+}
+
+.sysItem {
+  padding: 7px 10px;
+  border-bottom: 1px solid var(--border-faint);
+  cursor: pointer;
+}
+
+.sysItem:hover {
+  background: var(--bg-raised) !important;
+}
+
+.sysItemTop {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 11px;
+  letter-spacing: 1px;
+  margin-bottom: 2px;
+}
+
+.visBadge {
+  font-size: 8px;
+  padding: 1px 4px;
+  background: rgba(0, 255, 200, 0.1);
+  border: 1px solid rgba(0, 255, 200, 0.3);
+  color: var(--accent-cyan);
+  letter-spacing: 1px;
+}
+
+.sysItemSub {
+  display: flex;
+  justify-content: space-between;
+  font-size: 9px;
+}

@@ -1,0 +1,26 @@
+.container { flex:1; display:flex; flex-direction:column; gap:8px; padding:10px; overflow-y:auto; font-family:var(--font-mono); background:var(--bg-label); }
+.noSignal { flex:1; display:flex; align-items:center; justify-content:center; color:var(--text-ghost); letter-spacing:4px; }
+.header { display:flex; justify-content:space-between; align-items:center; font-size:10px; letter-spacing:3px; color:var(--accent-cyan); padding-bottom:6px; border-bottom:1px solid var(--border-faint); }
+.headerTW { font-size:13px; color:var(--accent-cyan); font-weight:bold; }
+.recipes { display:flex; flex-direction:column; gap:8px; }
+.recipeCard { background:var(--bg-raised); border:1px solid var(--border-faint); padding:10px; display:flex; flex-direction:column; gap:6px; }
+.recipeHeader { display:flex; align-items:center; gap:8px; }
+.recipeIcon { font-size:16px; flex-shrink:0; }
+.recipeLabel { font-size:11px; letter-spacing:2px; font-weight:bold; flex:1; }
+.recipeTW { font-size:10px; color:var(--text-muted); flex-shrink:0; }
+.recipeIO { display:flex; justify-content:space-between; font-size:9px; letter-spacing:1px; }
+.recipeIn { color:var(--text-dim); }
+.recipeOut { font-weight:bold; }
+.sliderRow { display:flex; align-items:center; gap:8px; }
+.slider { flex:1; cursor:pointer; }
+.sliderPct { font-size:11px; font-weight:bold; width:32px; text-align:right; flex-shrink:0; }
+.progressRow { display:flex; align-items:center; gap:8px; }
+.progressTrack { flex:1; height:5px; background:var(--bg-base); border:1px solid var(--border-faint); }
+.progressFill { height:100%; transition:width 0.3s; }
+.progressLabel { font-size:9px; color:var(--text-muted); width:80px; text-align:right; flex-shrink:0; }
+.invCard { background:var(--bg-raised); border:1px solid var(--border-faint); padding:10px; margin-top:auto; }
+.invTitle { font-size:9px; letter-spacing:2px; color:var(--text-muted); margin-bottom:6px; }
+.invGrid { display:grid; grid-template-columns:repeat(2,1fr); gap:3px 12px; }
+.invItem { display:flex; justify-content:space-between; font-size:10px; }
+.invLabel { color:var(--text-dim); }
+.invQty { color:var(--accent-cyan); font-weight:bold; }

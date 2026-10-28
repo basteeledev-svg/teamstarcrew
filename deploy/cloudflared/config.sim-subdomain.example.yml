@@ -1,0 +1,10 @@
+# Cloudflared config for sim.steeledev.org
+# Copy to /etc/cloudflared/config.yml on your server and replace placeholders.
+
+tunnel: YOUR_TUNNEL_ID
+credentials-file: /etc/cloudflared/YOUR_TUNNEL_ID.json
+
+ingress:
+  - hostname: sim.steeledev.org
+    service: http://localhost:8000
+  - service: http_status:404

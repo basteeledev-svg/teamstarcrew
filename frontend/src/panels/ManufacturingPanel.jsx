@@ -1,253 +1,194 @@
 import { useState, useEffect } from 'react'
 import s from './ManufacturingPanel.module.css'
 
-// ── Style ─────────────────────────────────────────────────────────────────────
 const ACCENT  = '#ffcc44'
-const ACCENT2 = '#00ffcc'
+const MUTED   = 'var(--text-ghost)'
 
-// Mirror backend MANUFACTURING_RECIPES
-const RECIPES = {
-  fuel: {
-    kind: 'rate', label: 'FUEL',
-    materialsPerGw: { hydrocarbons: 1 }, outputPerGw: 1, unit: 'fuel',
-  },
-  transport_bot:    { kind: 'progress', label: 'TRANSPORT BOT',  totalGw: 1000, materials: { metals: 500, rare_earth: 200 } },
-  mining_bot:       { kind: 'progress', label: 'MINING BOT',     totalGw: 1000, materials: { metals: 500, rare_earth: 200, radioactive: 50 } },
-  repair_bot:       { kind: 'progress', label: 'REPAIR BOT',     totalGw: 800,  materials: { metals: 400, rare_earth: 150, radioactive: 30 } },
-  lasers:           { kind: 'progress', label: 'LASER',          totalGw: 500,  materials: { metals: 200, rare_earth: 100 } },
-  missiles:         { kind: 'progress', label: 'MISSILE',        totalGw: 400,  materials: { metals: 150, radioactive: 50 } },
-  shield_batteries: { kind: 'progress', label: 'SHIELD BATTERY', totalGw: 300,  materials: { metals: 100, rare_earth: 50 } },
-  power_batteries:  { kind: 'progress', label: 'POWER BATTERY',  totalGw: 350,  materials: { metals: 200, rare_earth: 50 } },
-  air_scrubbers:    { kind: 'progress', label: 'AIR SCRUBBER',   totalGw: 200,  materials: { metals: 50,  rare_earth: 10 } },
-}
-const RECIPE_KEYS = Object.keys(RECIPES)
+// Spec §11 fabrication recipes
+const FAB_RECIPES = [
+  { key: 'bot',         label: 'ALL BOTS',        color: '#44ffcc', ip: 1000,
+    mats: { metals: 100, rare_earth: 50, electronics: 10 }, output: '1× Bot (any type)' },
+  { key: 'component',   label: 'SHIELD GEN / LASER', color: '#4488ff', ip: 1500,
+    mats: { metals: 150, rare_earth: 30, electronics: 25 }, output: '1× Component' },
+  { key: 'air_scrubber',label: 'AIR SCRUBBER',    color: '#44ffaa', ip: 800,
+    mats: { metals: 80, silicates: 40, electronics: 15 }, output: '1× Air Scrubber' },
+  { key: 'battery',     label: 'BATTERY / WARP BATTERY', color: '#aaaaff', ip: 2000,
+    mats: { metals: 200, silicates: 120, rare_earth: 60 }, output: '1× Battery' },
+  { key: 'missile',     label: 'MISSILE',          color: '#ff6644', ip: 400,
+    mats: { metals: 40, hydrocarbons: 10, electronics: 5 }, output: '1× Missile' },
+]
 
-function fmtNum(n) {
-  if (n == null || n === 0) return '0'
-  return n % 1 === 0 ? String(Math.floor(n)) : n.toFixed(1)
+const MAT_LABELS = {
+  metals: 'METALS', rare_earth: 'RARE EARTH', electronics: 'ELECTRONICS',
+  silicates: 'SILICATES', hydrocarbons: 'HYDROCARBONS',
 }
 
-// ── Normalise alloc so all values sum to exactly 100 % ────────────────────
-// Moving `key` by delta redistributes proportionally across unlocked others.
-function normalise(alloc, locks, key, newPct) {
-  const clamped = Math.max(0, Math.min(100, newPct))
-  const delta   = clamped - (alloc[key] ?? 0)
-  if (Math.abs(delta) < 0.001) return alloc
-
-  const others  = RECIPE_KEYS.filter(k => !locks[k] && k !== key)
-  const next    = { ...alloc, [key]: clamped }
-
-  const otherSum = others.reduce((s, k) => s + Math.max(0, next[k] ?? 0), 0)
-  if (otherSum > 0.001) {
-    for (const k of others) {
-      const frac = Math.max(0, next[k] ?? 0) / otherSum
-      next[k] = Math.max(0, (next[k] ?? 0) - delta * frac)
-    }
-  } else if (others.length > 0) {
-    const share = -delta / others.length
-    for (const k of others) next[k] = Math.max(0, (next[k] ?? 0) + share)
-  }
-
-  // Absorb rounding error back into moved key
-  const total = RECIPE_KEYS.reduce((s, k) => s + (next[k] ?? 0), 0)
-  const err   = 100 - total
-  if (Math.abs(err) > 0.01) next[key] = Math.max(0, (next[key] ?? 0) + err)
-
-  for (const k of RECIPE_KEYS) next[k] = Math.round((next[k] ?? 0) * 10) / 10
-  return next
+function healthColor(h) {
+  if (h >= 70) return 'var(--status-good)'
+  if (h >= 30) return 'var(--accent-amber)'
+  return 'var(--status-danger)'
 }
-
-// ══════════════════════════════════════════════════════════════════════════════
-export default function ManufacturingPanel({ gameState, sendCommand }) {
-  const ship     = gameState?.ship
-  const mfgRoom  = ship?.rooms?.manufacturing ?? {}
-  const svrAlloc = ship?.manufacturing_alloc   ?? {}
-  const progress = ship?.manufacturing_progress ?? {}
-
-  const [alloc, setAlloc] = useState(null)
-  const [locks, setLocks] = useState(() => Object.fromEntries(RECIPE_KEYS.map(k => [k, false])))
-
-  // Sync local alloc from server on first load only
-  useEffect(() => {
-    if (svrAlloc && !alloc) {
-      // If server alloc sums to ~0 (fresh game), init evenly
-      const svrSum = RECIPE_KEYS.reduce((s, k) => s + (svrAlloc[k] ?? 0), 0)
-      if (svrSum < 1) {
-        const even = Math.round(100 / RECIPE_KEYS.length * 10) / 10
-        const init = Object.fromEntries(RECIPE_KEYS.map(k => [k, even]))
-        setAlloc(init)
-      } else {
-        setAlloc({ ...svrAlloc })
-      }
-    }
-  }, [svrAlloc])
-
-  if (!ship) {
-    return (
-      <div className={s.noSignal}>
-        NO SIGNAL
-      </div>
-    )
-  }
-
-  const curAlloc = alloc ?? svrAlloc
-  const totalGw  = ship.net_power_gw ?? 0
-  const mfgPct   = ship.power_allocation?.manufacturing ?? 0
-  const mfgGw    = totalGw * mfgPct / 100
-  const totalPct = RECIPE_KEYS.reduce((s, k) => s + (curAlloc[k] ?? 0), 0)
-
-  function handleSlider(key, rawPct) {
-    const next = normalise(curAlloc, locks, key, rawPct)
-    setAlloc(next)
-    // Send updates for all changed keys
-    for (const k of RECIPE_KEYS) {
-      if (Math.abs((next[k] ?? 0) - (curAlloc[k] ?? 0)) > 0.05) {
-        sendCommand({ type: 'set_manufacturing_alloc', item: k, pct: next[k] })
-      }
-    }
-  }
-
-  function toggleLock(key) {
-    setLocks(prev => ({ ...prev, [key]: !prev[key] }))
-  }
-
-  // Inventory items with non-zero qty
-  const invItems = Object.entries(mfgRoom).filter(([, v]) => v > 0)
-
+function chargeColor(c) {
+  if (c >= 50) return 'var(--accent)'
+  if (c >= 20) return 'var(--accent-amber)'
+  return 'var(--status-danger)'
+}
+function Bar({ value, color, height = 5 }) {
   return (
-    <div className={s.container}>
-
-      {/* ── LEFT: Inventory + power summary ─────────────────────────────── */}
-      <div className={s.sidebar}>
-
-        <div className={s.sectionLabel}>MFG INVENTORY</div>
-        {invItems.length === 0
-          ? <div className={s.invEmpty}>empty</div>
-          : invItems.map(([item, qty]) => (
-              <div key={item} className={s.invRow}>
-                <span className={s.invItem}>{item}</span>
-                <span className={s.invQty}>{fmtNum(qty)}</span>
-              </div>
-            ))
-        }
-
-        <div className={s.sectionLabelMt}>POWER</div>
-        <div className={s.powerPct}>Room alloc: {mfgPct.toFixed(1)}%</div>
-        <div className={s.powerGw}>{mfgGw.toFixed(1)} GW</div>
-        <div className={s.totalPct}>
-          Total: <span className={Math.abs(totalPct - 100) > 1 ? s.totalPctBad : s.totalPctOk}>
-            {totalPct.toFixed(0)}%
-          </span>
-        </div>
-
-        <div className={s.sectionLabelMt}>LEGEND</div>
-        <div className={s.legend}>
-          Rate items produce<br />each tick × GW.<br />
-          Progress items<br />complete then deliver<br />1 unit to inventory.<br /><br />
-          🔒 Lock a slider to<br />exclude from<br />redistribution.
-        </div>
-      </div>
-
-      {/* ── CENTER: Recipe sliders ───────────────────────────────────────── */}
-      <div className={s.center}>
-        <div className={s.sectionLabel}>PRODUCTION — POWER ALLOCATION (sum = 100%)</div>
-
-        {RECIPE_KEYS.map(key => {
-          const recipe   = RECIPES[key]
-          const pct      = curAlloc[key] ?? 0
-          const locked   = locks[key] ?? false
-          const slotGw   = mfgGw * pct / 100
-          const prog     = progress[key] ?? 0
-          const progPct  = recipe.kind === 'progress' ? Math.min(100, (prog / recipe.totalGw) * 100) : 0
-          const active   = pct > 0.05
-
-          const rateStr = (recipe.kind === 'rate' && slotGw > 0)
-            ? `→ ${fmtNum(slotGw * recipe.outputPerGw)} ${recipe.unit}/tick`
-            : ''
-
-          const matStr = recipe.kind === 'rate'
-            ? Object.entries(recipe.materialsPerGw).map(([m, r]) => `${r}/GW ${m}`).join(' · ')
-            : Object.entries(recipe.materials).map(([m, v]) => `${fmtNum(v)} ${m}`).join(' · ')
-
-          const ticksLeft = (recipe.kind === 'progress' && slotGw > 0.001)
-            ? Math.ceil((recipe.totalGw - prog) / slotGw)
-            : null
-
-          return (
-            <div key={key} className={s.recipeCard} style={{
-              background: active ? 'var(--bg-input)' : 'var(--bg-base)',
-              border: `1px solid ${locked ? '#332200' : active ? 'var(--border)' : 'var(--border-faint)'}`,
-            }}>
-              <div className={s.recipeRow}>
-                {/* Lock button */}
-                <button
-                  onClick={() => toggleLock(key)}
-                  title={locked ? 'Unlock' : 'Lock'}
-                  className={s.lockBtn}
-                  style={{ color: locked ? ACCENT : 'var(--text-dim)' }}
-                >
-                  {locked ? '🔒' : '🔓'}
-                </button>
-
-                {/* Label + material cost */}
-                <div className={s.labelWrap}>
-                  <div className={s.labelName} style={{ color: active ? ACCENT : 'var(--text-dim)' }}>
-                    {recipe.label}
-                  </div>
-                  <div className={s.labelMat}>{matStr}</div>
-                </div>
-
-                {/* Slider */}
-                <input
-                  data-testid={`mfg-slider-${key}`}
-                  type="range" min={0} max={100} step={0.5}
-                  value={pct}
-                  disabled={locked}
-                  onChange={e => handleSlider(key, parseFloat(e.target.value))}
-                  className={s.slider}
-                  style={{
-                    accentColor: locked ? '#664400' : ACCENT,
-                    cursor: locked ? 'not-allowed' : 'pointer',
-                    opacity: locked ? 0.5 : 1,
-                  }}
-                />
-
-                {/* Pct + GW readout */}
-                <div className={s.readout}>
-                  <span style={{ color: active ? (locked ? '#aa7700' : ACCENT) : 'var(--text-dim)' }}>
-                    {pct.toFixed(1)}%
-                  </span>
-                  <span className={s.readoutDim}> {slotGw.toFixed(1)}GW</span>
-                </div>
-              </div>
-
-              {/* Progress bar */}
-              {active && recipe.kind === 'progress' && (
-                <div className={s.progressWrap}>
-                  <div className={s.progressHeader}>
-                    <span>PROGRESS</span>
-                    <span className={s.progressLabel}>
-                      {progPct.toFixed(1)}%
-                      {ticksLeft != null && ` · ~${ticksLeft}t`}
-                    </span>
-                  </div>
-                  <div className={s.progressTrack}>
-                    <div className={s.progressFill} style={{ width: `${progPct}%` }} />
-                  </div>
-                </div>
-              )}
-
-              {/* Rate output */}
-              {active && recipe.kind === 'rate' && rateStr && (
-                <div className={s.rateOutput}>
-                  {rateStr}
-                </div>
-              )}
-            </div>
-          )
-        })}
-      </div>
+    <div style={{ height, background: 'var(--bg-base)', border: '1px solid var(--border-faint)' }}>
+      <div style={{ height: '100%', width: `${Math.min(100, value ?? 0)}%`, background: color, transition: 'width 0.3s' }} />
     </div>
   )
 }
 
+export default function ManufacturingPanel({ gameState, sendCommand }) {
+  const ship      = gameState?.ship
+  const isRunning = gameState?.status === 'running'
+
+  const fabBots   = ship?.fabrication_bots ?? []
+  const svrAssign = ship?.fabrication_assignment ?? {}
+  const ipProgress= ship?.industry_progress ?? {}
+  const mfgRoom   = ship?.rooms?.sub_deck_refinery ?? {}
+  const synthPct  = ship?.power_allocation?.synthesis ?? 0
+  const netPowerTW= ship?.net_power_tw ?? 0
+  const synthActive = synthPct > 5.0
+
+  const totalBots  = fabBots.length
+  const totalBotHP = totalBots > 0 ? Math.round(fabBots.reduce((s, b) => s + (b.health ?? 0), 0) / totalBots) : 0
+  const totalBotCh = totalBots > 0 ? Math.round(fabBots.reduce((s, b) => s + (b.charge ?? 0), 0) / totalBots) : 0
+
+  const [assign, setAssign] = useState(null)
+
+  useEffect(() => {
+    if (svrAssign && !assign) setAssign({ ...svrAssign })
+  }, [svrAssign])
+
+  const cur = assign ?? svrAssign
+  const totalAssigned = Object.values(cur).reduce((s, v) => s + (v ?? 0), 0)
+
+  function setCount(key, val) {
+    const newCount = Math.max(0, Math.min(totalBots, val))
+    // Clamp so total doesn't exceed totalBots
+    const others = FAB_RECIPES.filter(r => r.key !== key)
+    const othersSum = others.reduce((s, r) => s + (cur[r.key] ?? 0), 0)
+    const clamped = Math.min(newCount, Math.max(0, totalBots - othersSum))
+    const next = { ...cur, [key]: clamped }
+    setAssign(next)
+    sendCommand({ type: 'set_fabrication_assignment', assignment: next })
+  }
+
+  function calcIP(key) {
+    const count = cur[key] ?? 0
+    // Sort by health desc, take first N that aren't already assigned to earlier recipes
+    const sorted = [...fabBots].sort((a, b) => (b.health ?? 0) - (a.health ?? 0))
+    let offset = 0
+    for (const r of FAB_RECIPES) {
+      const c = cur[r.key] ?? 0
+      if (r.key === key) {
+        return sorted.slice(offset, offset + count).reduce((s, b) => s + 100 * (b.health ?? 100) / 100, 0)
+      }
+      offset += c
+    }
+    return 0
+  }
+
+  if (!ship) return <div style={{ flex:1, display:'flex', alignItems:'center', justifyContent:'center', color:MUTED, fontFamily:'var(--font-mono)', letterSpacing:3 }}>NO SIGNAL</div>
+
+  return (
+    <div style={{ flex:1, display:'flex', flexDirection:'column', padding:10, gap:8, overflowY:'auto', fontFamily:'var(--font-mono)', background:'var(--bg-label)' }}>
+
+      {/* Header */}
+      <div style={{ fontSize:10, letterSpacing:3, color:ACCENT, paddingBottom:4, borderBottom:'1px solid var(--border-faint)', display:'flex', justifyContent:'space-between' }}>
+        <span>FABRICATION MANUFACTURING</span>
+        <span style={{ color: synthActive ? ACCENT : 'var(--status-danger)' }}>
+          {synthActive ? `${Math.round(synthPct)}% SYNTH POWER` : '⚠ POWER UNSTABLE'}
+        </span>
+      </div>
+
+      {/* Fabrication bot fleet */}
+      <div style={{ background:'var(--bg-raised)', border:'1px solid var(--border-faint)', padding:'8px 10px' }}>
+        <div style={{ fontSize:9, letterSpacing:2, color:MUTED, marginBottom:5 }}>FABRICATION BOTS</div>
+        <div style={{ display:'flex', justifyContent:'space-between', marginBottom:4 }}>
+          <span style={{ fontSize:12, color:ACCENT }}>{totalBots} BOTS</span>
+          <span style={{ fontSize:11, color:totalAssigned <= totalBots ? ACCENT : 'var(--status-danger)' }}>
+            {totalAssigned} / {totalBots} ASSIGNED
+          </span>
+        </div>
+        {totalBots > 0 && (
+          <>
+            <div style={{ display:'flex', justifyContent:'space-between', fontSize:9, color:MUTED, marginBottom:2 }}>
+              <span>AVG HP</span><span style={{ color:healthColor(totalBotHP) }}>{totalBotHP}%</span>
+            </div>
+            <Bar value={totalBotHP} color={healthColor(totalBotHP)} />
+            <div style={{ display:'flex', justifyContent:'space-between', fontSize:9, color:MUTED, marginTop:4, marginBottom:2 }}>
+              <span>AVG CHARGE</span><span style={{ color:chargeColor(totalBotCh) }}>{totalBotCh}%</span>
+            </div>
+            <Bar value={totalBotCh} color={chargeColor(totalBotCh)} />
+          </>
+        )}
+        {totalBots === 0 && (
+          <div style={{ fontSize:9, color:MUTED, letterSpacing:1 }}>No fabrication bots. Manufacture one via the Bot recipe below.</div>
+        )}
+      </div>
+
+      {/* Recipes */}
+      {FAB_RECIPES.map(r => {
+        const count   = cur[r.key] ?? 0
+        const ip      = calcIP(r.key)
+        const prog    = ipProgress[r.key] ?? 0
+        const progPct = Math.min(100, (prog / r.ip) * 100)
+        const ticksLeft = ip > 0 ? Math.ceil((r.ip - prog) / ip) : null
+
+        return (
+          <div key={r.key} style={{
+            background: 'var(--bg-raised)', border: `1px solid ${count > 0 ? r.color + '66' : 'var(--border-faint)'}`,
+            padding: '8px 10px', display: 'flex', flexDirection: 'column', gap: 5,
+          }}>
+            <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center' }}>
+              <span style={{ fontSize:11, color: count > 0 ? r.color : 'var(--text-body)', letterSpacing:2, fontWeight:'bold' }}>
+                {r.label}
+              </span>
+              <span style={{ fontSize:9, color:MUTED }}>{r.output}</span>
+            </div>
+
+            {/* Materials */}
+            <div style={{ display:'flex', flexWrap:'wrap', gap:4 }}>
+              {Object.entries(r.mats).map(([mat, qty]) => {
+                const have = mfgRoom[mat] ?? 0
+                const ok   = have >= qty
+                return (
+                  <span key={mat} style={{
+                    fontSize:8, padding:'1px 6px',
+                    border:`1px solid ${ok ? 'var(--border-faint)' : 'var(--accent-red)'}`,
+                    color: ok ? 'var(--text-dim)' : 'var(--status-danger)', letterSpacing:1,
+                  }}>
+                    {MAT_LABELS[mat] ?? mat}: {typeof have === 'number' ? Math.floor(have) : have}/{qty}
+                  </span>
+                )
+              })}
+            </div>
+
+            {/* Bot count slider */}
+            <div style={{ display:'flex', alignItems:'center', gap:8 }}>
+              <span style={{ fontSize:9, color:MUTED, flexShrink:0 }}>BOTS</span>
+              <input type="range" min={0} max={totalBots} step={1} value={count}
+                onChange={e => setCount(r.key, parseInt(e.target.value))}
+                disabled={!isRunning || totalBots === 0}
+                style={{ flex:1, accentColor: r.color }} />
+              <span style={{ fontSize:11, color: count > 0 ? r.color : MUTED, width:20, textAlign:'right' }}>{count}</span>
+            </div>
+
+            {/* IP rate + progress */}
+            <div style={{ display:'flex', justifyContent:'space-between', fontSize:9, color:MUTED }}>
+              <span>{ip > 0 ? `${Math.round(ip)} IP/tick` : '—'}</span>
+              <span style={{ color: progPct > 0 ? r.color : MUTED }}>
+                {Math.round(prog)}/{r.ip} IP{ticksLeft ? ` · ~${ticksLeft} ticks` : ''}
+              </span>
+            </div>
+            <Bar value={progPct} color={r.color} height={4} />
+          </div>
+        )
+      })}
+    </div>
+  )
+}

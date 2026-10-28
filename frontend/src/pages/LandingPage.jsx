@@ -10,7 +10,7 @@ export default function LandingPage({ gameState, onNewGame, onJoin, onObserver, 
   const playerCount = gameState?.player_count ?? null
   const systemName  = gameState?.current_system?.name ?? '—'
   const hull        = gameState?.ship?.hull_health
-  const fuel        = gameState?.ship?.fuel
+  const fuel        = gameState?.ship?.rooms?.engine_bay?.fuel ?? null
 
   const clock = useClock()
 

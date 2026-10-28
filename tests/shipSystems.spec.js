@@ -12,7 +12,7 @@
  *
  * Prerequisites:
  *   - Backend  on http://localhost:8000   (./start-backend.sh)
- *   - Frontend on http://localhost:5174   (./start-frontend.sh)
+ *   - Frontend on http://localhost:5173   (./start-frontend.sh)
  *
  * Run:  npx playwright test  (from workspace root)
  */

@@ -23,27 +23,26 @@ const SYSTEM_LABELS = {
   weapons_system:      'Weapons System',
 }
 const ROOM_LABELS = {
-  power_room:     'Power Room',
-  engine_room:    'Engine Room',
-  weapons_room:   'Weapons Room',
-  shields_room:   'Shields Room',
-  living_quarters:'Living Quarters',
-  cargo_bay:      'Cargo Bay',
-  manufacturing:  'Manufacturing',
-  charging_bay:   'Charging Bay',
+  reactor_room:     'Reactor Room',
+  engine_bay:       'Engine Bay',
+  tactical_bridge:  'Tactical Bridge',
+  living_quarters:  'Living Quarters',
+  cargo_bay:        'Cargo Bay',
+  sub_deck_refinery:'Sub-Deck Refinery',
+  charging_bay:     'Charging Bay',
 }
 const OUTER_LABELS = {
-  front:     'Hull — Front',
-  back:      'Hull — Back',
+  fore:      'Hull — Fore',
+  aft:       'Hull — Aft',
   port:      'Hull — Port',
   starboard: 'Hull — Starboard',
   above:     'Hull — Above',
   below:     'Hull — Below',
 }
 const ITEM_LABELS = {
-  air_scrubbers:    'Air Scrubbers',
-  lasers:           'Lasers',
-  shield_batteries: 'Shield Batteries',
+  air_scrubbers:     'Air Scrubbers',
+  lasers:            'Lasers',
+  shield_generators: 'Shield Generators',
 }
 const BOT_TYPE_LABELS = { transport: 'Transport Bot', repair: 'Repair Bot', mining: 'Mining Bot' }
 
@@ -374,7 +373,7 @@ export default function RepairsPanel({ gameState, sendCommand }) {
   const isRunning = gameState?.status === 'running'
 
   const repairsGw = ship
-    ? (ship.net_power_gw ?? 0) * ((ship.power_allocation?.charging_bay ?? 0) / 100)
+    ? (ship.net_power_tw ?? 0) * ((ship.power_allocation?.charging_bay ?? 0) / 100)
     : 0
 
   // Summary counts for header

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, useMemo } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Btn, IconBtn } from '../components/ui'
 import { RACE_COLORS } from '../shared'
 import s from './NavigationPanel.module.css'
@@ -6,15 +6,10 @@ import s from './NavigationPanel.module.css'
 const STAR_RADIUS = 10
 const COMPASS_R   = 56
 
-// Warp cost formula (fallback; overridden by server-sent constants)
-const _WARP_COST_BASE     = 100.0
-const _WARP_COST_EXPONENT = 1.3
-
 // ── Main panel ────────────────────────────────────────────────────────────────
+// TODO (N-13): add a readOnly prop — when true, disable all steering/orbit buttons for observer stations
 export default function NavigationPanel({ gameState, sendCommand }) {
   const C = gameState?.constants ?? {}
-  const WARP_COST_BASE     = C.WARP_COST_BASE ?? _WARP_COST_BASE
-  const WARP_COST_EXPONENT = C.WARP_COST_EXPONENT ?? _WARP_COST_EXPONENT
   const canvasRef  = useRef(null)
   const compassRef = useRef(null)
   const planetHits = useRef([])
@@ -23,34 +18,12 @@ export default function NavigationPanel({ gameState, sendCommand }) {
   const [zoom,          setZoom]       = useState(1.0)
   const [selectedId,    setSelectedId] = useState(null)
   const [directHeading, setDirectHdg]  = useState('')
-  const [rightTab,      setRightTab]   = useState('CONTROLS')    // 'CONTROLS' | 'WARP'
-  const [warpTargetId,  setWarpTarget]  = useState(null)
   const [npcSelected,   setNpcSelected] = useState(null)         // selected NPC ship on map
 
   const ship    = gameState?.ship
   const planets = gameState?.current_system?.planets ?? []
   const system  = gameState?.current_system
   const npcShips = gameState?.short_range_scan?.npc_ships ?? []
-
-  // Galaxy systems list for warp tab, sorted by distance
-  const galaxySystems = useMemo(() => {
-    const systems = gameState?.galaxy_systems ?? []
-    const currentId = gameState?.ship?.current_system_id
-    return [...systems]
-      .filter(sys => sys.id !== currentId)
-      .sort((a, b) => (a.distance_ly ?? 0) - (b.distance_ly ?? 0))
-  }, [gameState?.galaxy_systems, gameState?.ship?.current_system_id])
-
-  // Selected warp target details
-  const warpTarget = useMemo(() => {
-    if (!warpTargetId) return null
-    const sys = gameState?.galaxy_systems?.find(g => g.id === warpTargetId)
-    if (!sys) return null
-    const dist = sys.distance_ly ?? 0
-    const cost = WARP_COST_BASE * (dist ** WARP_COST_EXPONENT)
-    const charge = gameState?.ship?.warp_capacitor_gw ?? 0
-    return { ...sys, cost: Math.round(cost), charge: Math.round(charge), canWarp: charge >= cost, dist }
-  }, [warpTargetId, gameState])
 
   const engaged     = (ship?.thrust ?? 0) > 0
   const engineSpeed = ship?.engine_thrust_au ?? 0
@@ -401,24 +374,9 @@ export default function NavigationPanel({ gameState, sendCommand }) {
         </div>
       </div>
 
-      {/* Right column — tabbed controls */}
+      {/* Right column — controls */}
       <div className={s.rightColumn}>
-
-        {/* Tab header */}
-        <div className={s.tabHeader}>
-          {['CONTROLS', 'WARP'].map(tab => (
-            <button key={tab} onClick={() => setRightTab(tab)} className={s.tabBtn} style={{
-              background: rightTab === tab ? 'var(--bg-raised)' : 'transparent',
-              color: rightTab === tab ? 'var(--accent-cyan)' : 'var(--text-dim)',
-              borderBottom: rightTab === tab ? '2px solid var(--accent-cyan)' : '2px solid transparent',
-            }}>
-              {tab}
-            </button>
-          ))}
-        </div>
-
-        {rightTab === 'CONTROLS' ? (
-          <div className={s.controlsScroll}>
+        <div className={s.controlsScroll}>
 
             {/* NPC ship info if selected */}
             {npcSelected && (
@@ -500,23 +458,12 @@ export default function NavigationPanel({ gameState, sendCommand }) {
             </Section>
 
           </div>
-        ) : (
-          /* WARP TAB */
-          <WarpTab
-            systems={galaxySystems}
-            warpTarget={warpTarget}
-            warpTargetId={warpTargetId}
-            setWarpTarget={setWarpTarget}
-            isRunning={isRunning}
-            onWarp={() => { sendCommand({ type: 'warp', system_id: warpTargetId }); setWarpTarget(null) }}
-          />
-        )}
       </div>
     </div>
   )
 }
 
-// ── NPC ship info (shown in CONTROLS tab when a ship is clicked) ──────────────
+// ── Sub-components ────────────────────────────────────────────────────────────
 function NpcInfo({ npc, onClose }) {
   const color = RACE_COLORS[npc.race] ?? '#aaaaaa'
   return (
@@ -532,86 +479,6 @@ function NpcInfo({ npc, onClose }) {
         <span className={s.npcGridValue}>{npc.distance_au?.toFixed(2)} AU</span>
         <span className={s.npcGridLabel}>HULL</span>
         <span className={s.npcGridValue} style={{ textTransform: 'uppercase' }}>{npc.hull_category ?? '—'}</span>
-      </div>
-    </div>
-  )
-}
-
-// ── Warp tab ──────────────────────────────────────────────────────────────────
-function WarpTab({ systems, warpTarget, warpTargetId, setWarpTarget, isRunning, onWarp }) {
-  return (
-    <div className={s.warpTabContainer}>
-
-      {/* Selected system warp panel */}
-      {warpTarget && (
-        <div className={s.warpPanel}>
-          <div className={s.warpSystemName} style={{ color: warpTarget.star_color ?? 'var(--text-primary)' }}>
-            {warpTarget.name}
-          </div>
-          <div className={s.warpGrid}>
-            <span className={s.warpGridLabel}>TYPE</span>
-            <span style={{ color: 'var(--text-secondary)' }}>{warpTarget.star_type}-TYPE STAR</span>
-            <span className={s.warpGridLabel}>DIST</span>
-            <span style={{ color: 'var(--text-body)' }}>{warpTarget.dist.toFixed(2)} LY</span>
-            <span className={s.warpGridLabel}>COST</span>
-            <span style={{ color: warpTarget.canWarp ? 'var(--accent-green)' : 'var(--accent-red)' }}>
-              {warpTarget.cost.toLocaleString()} GW
-            </span>
-            <span className={s.warpGridLabel}>CHARGE</span>
-            <span style={{ color: 'var(--text-body)' }}>{warpTarget.charge.toLocaleString()} GW</span>
-          </div>
-          {!warpTarget.canWarp && (
-            <div className={s.warpInsufficient}>
-              ✕ INSUFFICIENT WARP CHARGE
-            </div>
-          )}
-          <div className={s.warpBtnRow}>
-            <Btn onClick={onWarp} disabled={!isRunning || !warpTarget.canWarp}
-              bg={warpTarget.canWarp ? '#002244' : '#1a1a1a'} color="var(--text-bright)" borderColor="var(--border-faint)" style={{ flex: 1 }}>
-              INITIATE WARP
-            </Btn>
-            <Btn small onClick={() => setWarpTarget(null)} bg="#0a0a20" color="var(--text-bright)" borderColor="var(--border-faint)">✕</Btn>
-          </div>
-        </div>
-      )}
-
-      {/* Systems list */}
-      <div className={s.systemsList}>
-        {systems.length === 0 && (
-          <div className={s.noGalaxyData}>
-            NO GALAXY DATA
-          </div>
-        )}
-        {systems.map(sys => {
-          const isSel = sys.id === warpTargetId
-          const dist  = sys.distance_ly ?? 0
-          const cost  = Math.round(_WARP_COST_BASE * (dist ** _WARP_COST_EXPONENT))
-          return (
-            <div key={sys.id}
-              onClick={() => setWarpTarget(prev => prev === sys.id ? null : sys.id)}
-              className={s.systemItem}
-              style={{
-                background: isSel ? '#040f18' : 'transparent',
-                borderLeft: isSel ? '2px solid var(--accent-cyan)' : '2px solid transparent',
-              }}
-            >
-              <div className={s.systemItemHeader}>
-                <span className={s.systemItemName} style={{ color: sys.visited ? (sys.star_color ?? 'var(--text-primary)') : 'var(--text-muted)' }}>
-                  {sys.name}
-                </span>
-                {sys.visited && (
-                  <span className={s.visitedBadge}>
-                    VIS
-                  </span>
-                )}
-              </div>
-              <div className={s.systemItemDetails}>
-                <span style={{ color: 'var(--text-dim)' }}>{sys.star_type}-type · {sys.planet_count}pl</span>
-                <span style={{ color: 'var(--text-muted)' }}>{dist.toFixed(1)} LY · {cost.toLocaleString()} GW</span>
-              </div>
-            </div>
-          )
-        })}
       </div>
     </div>
   )

@@ -29,10 +29,10 @@ def _compute_sides(ship_direction: dict, dx: float, dz: float) -> list:
 
     sides = []
     if abs(fwd_frac) >= 0.5:
-        sides.append("front" if fwd_frac > 0 else "back")
+        sides.append("fore" if fwd_frac > 0 else "aft")
     if abs(right_frac) >= 0.5:
         sides.append("starboard" if right_frac > 0 else "port")
-    return sides if sides else (["front"] if fwd_frac >= 0 else ["back"])
+    return sides if sides else (["fore"] if fwd_frac >= 0 else ["aft"])
 
 
 def _spawn_meteor(gs) -> None:
@@ -133,7 +133,7 @@ def update_combat(gs) -> None:
 
         # ── Meteor hits ship ──────────────────────────────────────────────────
         if dist <= METEOR_HIT_RADIUS_AU:
-            all_sides = list(obj.get("from_sides") or ["front"]) + (
+            all_sides = list(obj.get("from_sides") or ["fore"]) + (
                 [obj["vert_side"]] if obj.get("vert_side") else []
             )
             nd = max(math.sqrt(dx * dx + dz * dz), 1e-9)
@@ -206,7 +206,7 @@ async def tick_loop() -> None:
             ship.consume_reactor_fuel()  # deduct fuel/rad from Power Room, shut off starved reactors
             ship.update_gw_locks()   # recalculate GW-locked station percentages
             ship.update_battery()
-            ship.update_life_support()  # kill people if LS power insufficient
+            ship.update_life_support(game_state.tick)  # O2/rations drain + atmosphere quality
             # Resolve planet stockpile for transport bot deliveries
             transport_planet_stockpile = None
             if ship.orbiting_planet_id and current:
@@ -216,8 +216,11 @@ async def tick_loop() -> None:
             ship.update_transport(planet_stockpile=transport_planet_stockpile)   # advance transport bot jobs
             ship.update_repair_bots() # advance repair bot jobs
             ship.update_item_health() # destroy items at 0% health
+            ship.update_auto_repairs() # optional passive repair loop for simplified solo mode
             ship.update_mining_bots() # consume mining bot charge
-            ship.update_manufacturing()  # run manufacturing production
+            ship.update_synthesis()      # Molecular Synthesis panel (raw → consumables)
+            ship.update_manufacturing()  # Fabrication Manufacturing panel (hardware via bots)
+            ship.update_weapon_pool()    # attack-mode lasers charge weapon_energy_pool
             ship.update_component_jobs() # advance component install/uninstall
 
             update_combat(game_state)    # meteors, missiles, laser fire, damage
@@ -234,5 +237,18 @@ async def tick_loop() -> None:
                 planet = current.get_planet(ship.orbiting_planet_id)
                 if planet:
                     planet.mine_tick(mining_counts)
+
+            # Game-over checks
+            if not game_state.game_over_reason:
+                if ship.hull_health <= 0:
+                    game_state.running = False
+                    game_state.game_over_reason = "hull_destroyed"
+                elif ship.oxygen_reserves <= 0 or ship.bio_matter_rations <= 0:
+                    game_state.life_support_countdown += 1
+                    if game_state.life_support_countdown >= 20:
+                        game_state.running = False
+                        game_state.game_over_reason = "crew_asphyxiated"
+                else:
+                    game_state.life_support_countdown = 0
 
             await manager.broadcast(game_state.to_dict())

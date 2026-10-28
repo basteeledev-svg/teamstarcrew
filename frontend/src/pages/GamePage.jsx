@@ -1,6 +1,7 @@
 import { useState, lazy, Suspense, useEffect, useRef } from 'react'
 import { CONSOLES } from '../consoles.js'
 import '../hud/hud.css'
+import { apiPath } from '../api/paths.js'
 
 // Samsung Galaxy Tab S9 11" landscape: 1280 × 800 CSS px
 const W = 1280
@@ -9,6 +10,9 @@ const H = 800
 // Map console id → lazy-loaded panel component
 const PANEL_MAP = {
   navigation:     lazy(() => import('../panels/NavigationPanel.jsx')),
+  universe:       lazy(() => import('../panels/UniversePanel.jsx')),
+  battery:        lazy(() => import('../panels/BatteryPanel.jsx')),
+  synthesis:      lazy(() => import('../panels/SynthesisPanel.jsx')),
   short_range:    lazy(() => import('../panels/ShortRangePanel.jsx')),
   long_range:     lazy(() => import('../panels/LongRangePanel.jsx')),
   weapons:        lazy(() => import('../panels/TacticalPanel.jsx')),
@@ -33,16 +37,22 @@ export default function GamePage({ consoles, gameState, sendCommand, lastError, 
 
   // General Systems power check
   const ship = gameState?.ship
-  const totalPowerGW   = ship?.net_power_gw ?? 0
+  const totalPowerTW   = ship?.net_power_tw ?? 0
   const genSysPct      = ship?.power_allocation?.general_systems ?? 0
-  const genSysGW       = (genSysPct / 100) * totalPowerGW
-  // Tolerance: GW-locked allocation can drift by ~0.1 GW from rounding,
-  // so only warn when below 19.9 GW (still effectively under the 20 GW lock)
-  const lowGenSysPower = gameState != null && genSysGW < 19.9
+  const genSysTW       = (genSysPct / 100) * totalPowerTW
+  // Tolerance: TW-locked allocation can drift by ~0.1 TW from rounding
+  const lowGenSysPower = gameState != null && genSysTW < 19.9
 
   // Game over
-  const hullHealth = ship?.hull_health ?? 100
-  const isGameOver = gameState != null && hullHealth <= 0
+  const hullHealth  = ship?.hull_health ?? 100
+  const gameOverReason = gameState?.game_over_reason ?? null
+  const lsCountdown    = gameState?.life_support_countdown ?? 0
+  const isGameOver = gameState != null && (hullHealth <= 0 || gameOverReason != null)
+
+  async function handleRestart() {
+    const pc = gameState?.player_count ?? 6
+    await fetch(apiPath('/api/game/start') + '?player_count=' + pc + '&mode=full', { method: 'POST' })
+  }
 
   const prev = () => setIndex(i => (i - 1 + count) % count)
   const next = () => setIndex(i => (i + 1) % count)
@@ -65,11 +75,10 @@ export default function GamePage({ consoles, gameState, sendCommand, lastError, 
 
   // Top-bar stats from gameState
   const hullPct    = ship?.hull_health ?? '—'
-  const fuelAmt    = ship?.fuel != null ? Math.round(ship.fuel).toLocaleString() : '—'
+  const fuelAmt    = (() => { const f = ship?.rooms?.engine_bay?.fuel ?? null; return f != null ? Math.round(f).toLocaleString() : '—' })()
   const systemName = gameState?.current_system?.name ?? '—'
-  const crewTotal  = gameState?.crew?.length ?? '—'
-  const crewActive = Array.isArray(gameState?.crew)
-    ? gameState.crew.filter(c => c.status !== 'OFFLINE').length : '—'
+  const o2Reserves = ship?.oxygen_reserves ?? null
+  const o2Color    = o2Reserves == null ? 'var(--hud-c)' : o2Reserves > 100 ? 'var(--accent-green)' : o2Reserves > 30 ? 'var(--accent-amber)' : 'var(--hud-cr)'
 
   // Hull colour class
   const hullClass = typeof hullPct === 'number'
@@ -86,13 +95,15 @@ export default function GamePage({ consoles, gameState, sendCommand, lastError, 
 
         {gameState && <>
           <span className="hud-tag">SYSTEM <b>{systemName}</b></span>
-          <span className="hud-tag">CREW <b>{crewActive}/{crewTotal}</b></span>
           <span className="hud-tag">
             HULL <b className={`pstat ${hullClass}`}>
               {typeof hullPct === 'number' ? `${hullPct.toFixed(0)}%` : hullPct}
             </b>
           </span>
           <span className="hud-tag">FUEL <b>{fuelAmt}</b></span>
+          {o2Reserves != null && (
+            <span className="hud-tag" style={{ color: o2Color }}>O2 <b>{Math.round(o2Reserves)}</b></span>
+          )}
         </>}
 
         {/* Console pip tabs */}
@@ -187,7 +198,7 @@ export default function GamePage({ consoles, gameState, sendCommand, lastError, 
                       <span style={{
                         fontSize: 14, color: '#ff7a5a', letterSpacing: 2, fontFamily: 'var(--font-mono)',
                       }}>
-                        GENERAL SYSTEMS: {genSysGW.toFixed(1)} GW — MINIMUM 20 GW REQUIRED
+                        GENERAL SYSTEMS: {genSysTW.toFixed(1)} TW — MINIMUM 20 TW REQUIRED
                       </span>
                       {isPowerConsole && (
                         <span style={{ fontSize: 12, color: '#ff7a5a99', letterSpacing: 1.5, marginTop: 4, fontFamily: 'var(--font-mono)' }}>
@@ -209,38 +220,66 @@ export default function GamePage({ consoles, gameState, sendCommand, lastError, 
         )}
       </div>
 
-      {/* ── Game Over overlay ───────────────────────────────────────────── */}
-      {isGameOver && (
+      {/* ── Life-support critical warning (20 ticks before game over) ─── */}
+      {!isGameOver && lsCountdown > 0 && (
         <div style={{
-          position: 'absolute', inset: 0, zIndex: 100,
-          background: 'rgba(6,24,40,0.95)',
-          display: 'flex', flexDirection: 'column',
-          alignItems: 'center', justifyContent: 'center', gap: 16,
+          position: 'absolute', bottom: 0, left: 0, right: 0, zIndex: 90,
+          background: 'rgba(200,0,0,0.88)', padding: '8px 16px',
+          display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 12,
+          fontFamily: 'var(--font-mono)',
         }}>
-          <span style={{
-            fontSize: 56, color: 'var(--hud-cr)', fontWeight: 'bold', letterSpacing: 10,
-            fontFamily: 'var(--font-mono)', textShadow: '0 0 40px var(--hud-cr)',
-          }}>
-            SHIP DESTROYED
+          <span style={{ fontSize: 16, color: '#fff', letterSpacing: 3, fontWeight: 'bold' }}>
+            ⚠ LIFE SUPPORT CRITICAL
           </span>
-          <span style={{ fontSize: 18, color: '#ff7a5a', letterSpacing: 3, fontFamily: 'var(--font-mono)' }}>
-            HULL INTEGRITY: 0%
+          <span style={{ fontSize: 13, color: '#ffaaaa', letterSpacing: 2 }}>
+            CREW DEATH IN {20 - lsCountdown} TICKS — RESTORE O2 OR RATIONS
           </span>
-          <span style={{ fontSize: 14, color: 'var(--hud-txd)', letterSpacing: 2, marginTop: 8, fontFamily: 'var(--font-mono)' }}>
-            TICK {gameState?.tick ?? '—'}
-          </span>
-          <button
-            className="hud-exit"
-            style={{
-              marginTop: 24, fontSize: 16, padding: '10px 36px',
-              color: 'var(--hud-cr)', borderColor: 'var(--hud-cr)',
-            }}
-            onClick={onExit}
-          >
-            ✕ EXIT
-          </button>
         </div>
       )}
+
+      {/* ── Game Over overlay ───────────────────────────────────────────── */}
+      {isGameOver && (() => {
+        const isAsphyxiated = gameOverReason === 'crew_asphyxiated'
+        const title = isAsphyxiated ? 'CREW LOST' : 'SHIP DESTROYED'
+        const sub   = isAsphyxiated ? 'LIFE SUPPORT FAILURE — ALL HANDS LOST' : `HULL INTEGRITY: ${hullHealth.toFixed(0)}%`
+        return (
+          <div style={{
+            position: 'absolute', inset: 0, zIndex: 100,
+            background: 'rgba(6,24,40,0.96)',
+            display: 'flex', flexDirection: 'column',
+            alignItems: 'center', justifyContent: 'center', gap: 16,
+          }}>
+            <span style={{
+              fontSize: 52, color: 'var(--hud-cr)', fontWeight: 'bold', letterSpacing: 8,
+              fontFamily: 'var(--font-mono)', textShadow: '0 0 40px var(--hud-cr)',
+            }}>
+              {title}
+            </span>
+            <span style={{ fontSize: 16, color: '#ff7a5a', letterSpacing: 3, fontFamily: 'var(--font-mono)' }}>
+              {sub}
+            </span>
+            <span style={{ fontSize: 12, color: 'var(--hud-txd)', letterSpacing: 2, fontFamily: 'var(--font-mono)' }}>
+              SURVIVED {gameState?.tick ?? 0} TICKS ({Math.floor((gameState?.tick ?? 0) / 60)}m {(gameState?.tick ?? 0) % 60}s)
+            </span>
+            <div style={{ display: 'flex', gap: 16, marginTop: 24 }}>
+              <button
+                className="hbtn hbtn-md grn"
+                style={{ letterSpacing: 3, minWidth: 160 }}
+                onClick={handleRestart}
+              >
+                ↺ NEW GAME
+              </button>
+              <button
+                className="hud-exit"
+                style={{ fontSize: 14, padding: '8px 24px', color: 'var(--hud-cr)', borderColor: 'var(--hud-cr)' }}
+                onClick={onExit}
+              >
+                ✕ EXIT
+              </button>
+            </div>
+          </div>
+        )
+      })()}
     </div>
   )
 }

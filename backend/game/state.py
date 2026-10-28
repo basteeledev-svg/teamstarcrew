@@ -14,19 +14,21 @@ from .constants import (
     SCAN_PLANET_TIER1, SCAN_PLANET_TIER2, SCAN_PLANET_TIER3, SCAN_PLANET_TIER4,
     SCAN_SHIP_TIER1, SCAN_SHIP_TIER2, SCAN_SHIP_TIER3, SCAN_SHIP_TIER4,
     LRS_TIER1, LRS_TIER2, LRS_TIER3, LRS_TIER4, LRS_TIER5, LRS_TIER6,
-    MAX_REACTOR_OUTPUT_GW, REACTOR_COUNT,
+    FUEL_GENERATOR_MAX_TW, NUCLEAR_REACTOR_MAX_TW, REACTOR_COUNT,
     REACTOR_START_OUTPUT,
     FUEL_ENGINE_MAX_THRUST_AU, ELEC_ENGINE_MAX_THRUST_AU,
-    WARP_CAPACITOR_MAX_GW, WARP_CAPACITOR_LEAK_GW,
-    WARP_COST_BASE, WARP_COST_EXPONENT,
+    WARP_CAPACITOR_MAX_TW, WARP_CAPACITOR_LEAK_TW,
+    WARP_COST_BASE, WARP_COST_EXPONENT, WARP_COST_ADDITIVE,
     MINING_BOTS_MAX,
     MINING_BOT_START_COUNT,
     MINING_BOT_CHARGE_MAX,
-    CHARGING_BAY_CHARGE_RATE_PER_GW,
-    BATTERY_CAPACITY_GW,
+    CHARGING_BAY_CHARGE_RATE_PER_TW,
+    BATTERY_CAPACITY_TW,
     ROOM_CAPACITY_STANDARD,
     ROOM_CAPACITY_LARGE,
     ORBIT_DISTANCE_AU,
+    PC_TO_LY,
+    SCAN_LRS_T1_COEFF, SCAN_LRS_T2_COEFF, SCAN_LRS_T3_COEFF, SCAN_LRS_T4_COEFF, SCAN_LRS_T5_COEFF,
 )
 
 # ── Comms helpers — planet type → display metadata ───────────────────────────
@@ -97,6 +99,11 @@ class GameState:
         # {"deliver_at_tick": int, "kwargs": dict-for-_make_message}
         # Drained every tick by tick_loop → drain_pending_messages.
         self.pending_messages: list   = []
+        # code → {code, station_id, name, icon, color, panels}
+        self.stations: dict           = {}
+        # Game over tracking
+        self.game_over_reason: str | None = None
+        self.life_support_countdown: int  = 0
 
     def is_started(self) -> bool:
         return self.galaxy is not None and self.ship is not None
@@ -560,6 +567,8 @@ class GameState:
         return {
             "type": "state",
             "status": "running",
+            "game_over_reason": self.game_over_reason,
+            "life_support_countdown": self.life_support_countdown,
             "tick": self.tick,
             "player_count": self.player_count,
             "ship": self.ship.to_dict(),
@@ -576,20 +585,23 @@ class GameState:
             "dynamic_objects":  self.dynamic_objects,
             "targeting_contacts": targeting,
             "constants": {
-                "MAX_REACTOR_OUTPUT_GW": MAX_REACTOR_OUTPUT_GW,
+                "FUEL_GENERATOR_MAX_TW": FUEL_GENERATOR_MAX_TW,
+                "NUCLEAR_REACTOR_MAX_TW": NUCLEAR_REACTOR_MAX_TW,
                 "REACTOR_COUNT": REACTOR_COUNT,
                 "FUEL_ENGINE_MAX_THRUST_AU": FUEL_ENGINE_MAX_THRUST_AU,
                 "ELEC_ENGINE_MAX_THRUST_AU": ELEC_ENGINE_MAX_THRUST_AU,
-                "WARP_CAPACITOR_MAX_GW": WARP_CAPACITOR_MAX_GW,
-                "WARP_CAPACITOR_LEAK_GW": WARP_CAPACITOR_LEAK_GW,
+                "WARP_CAPACITOR_MAX_TW": WARP_CAPACITOR_MAX_TW,
+                "WARP_CAPACITOR_LEAK_TW": WARP_CAPACITOR_LEAK_TW,
                 "WARP_COST_BASE": WARP_COST_BASE,
                 "WARP_COST_EXPONENT": WARP_COST_EXPONENT,
+                "WARP_COST_ADDITIVE": WARP_COST_ADDITIVE,
                 "MINING_BOTS_MAX": MINING_BOTS_MAX,
-                "CHARGING_BAY_CHARGE_RATE_PER_GW": CHARGING_BAY_CHARGE_RATE_PER_GW,
-                "BATTERY_CAPACITY_GW": BATTERY_CAPACITY_GW,
+                "CHARGING_BAY_CHARGE_RATE_PER_TW": CHARGING_BAY_CHARGE_RATE_PER_TW,
+                "BATTERY_CAPACITY_TW": BATTERY_CAPACITY_TW,
                 "ROOM_CAPACITY_STANDARD": ROOM_CAPACITY_STANDARD,
                 "ROOM_CAPACITY_LARGE": ROOM_CAPACITY_LARGE,
                 "ORBIT_DISTANCE_AU": ORBIT_DISTANCE_AU,
+                "PC_TO_LY": PC_TO_LY,
             },
         }
 
