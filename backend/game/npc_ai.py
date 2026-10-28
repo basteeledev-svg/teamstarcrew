@@ -178,7 +178,7 @@ def _handle_attack(gs, npc: dict, fire: bool = True) -> None:
     speed = npc.get("speed") or NPC_DEFAULT_SPEED_AU
 
     # Stay at ~80% of weapon range (don't crash into target)
-    desired = weapon_range * 0.8
+    desired = npc.get("hold_distance_au") or weapon_range * 0.8
     if d > desired:
         _set_velocity(npc, ux, uz, min(speed, d - desired))
     else:

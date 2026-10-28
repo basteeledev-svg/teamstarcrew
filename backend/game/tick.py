@@ -206,6 +206,7 @@ def advance_tick(game_state) -> None:
         world.apply_autopilot(game_state)
         ship.update_tick(planet_center=planet_center)
     ship.update_reactor_heat()
+    ship.update_engine_heat()
     ship.consume_reactor_fuel()  # deduct fuel/rad from Power Room, shut off starved reactors
     ship.update_gw_locks()   # recalculate GW-locked station percentages
     ship.update_battery()
@@ -229,7 +230,7 @@ def advance_tick(game_state) -> None:
     if not in_transit:
         update_combat(game_state)    # meteors, missiles, laser fire, damage
         update_npcs(game_state)      # AI-driven NPC steering & combat
-    world.update_world(game_state)   # encounters, situations, objectives
+    world.update_world(game_state)   # NPCs react to deliveries, distress, raids
     _drain_pending_messages(game_state)  # release delayed AI messages
 
     # Mark system visited on arrival

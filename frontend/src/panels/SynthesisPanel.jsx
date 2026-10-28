@@ -5,7 +5,7 @@ const ACCENT = 'var(--accent-cyan)'
 
 const RECIPES = [
   { key: 'fuel',             label: 'FUEL SYNTHESIS',       color: '#ff6600', icon: '◉',
-    inputs: '1× Hydrocarbons', output: '1× Fuel',         threshold: 1  },
+    inputs: '1× Hydrocarbons', output: '1× Fuel',         threshold: 0.2  },
   { key: 'enriched_nuclear', label: 'ENRICHED NUCLEAR',    color: '#aaff44', icon: '☢',
     inputs: '1× Radioactive',  output: '1× Enriched Nuclear', threshold: 1  },
   { key: 'electronics',      label: 'ELECTRONICS',          color: '#00ffcc', icon: '◆',
@@ -14,6 +14,10 @@ const RECIPES = [
     inputs: '10× Metals + 2× Rare Earth', output: '1× Repair Patch', threshold: 10 },
   { key: 'space_scrap',      label: 'SCRAP RECLAMATION',    color: '#888899', icon: '⬡',
     inputs: '2× Metals + 2× Rare Earth',  output: '10× Space Scrap', threshold: 3  },
+  { key: 'oxygen',           label: 'OXYGEN (ICE)',         color: '#66ccff', icon: '○',
+    inputs: '2× Silicates', output: '1× Oxygen (load into life support)', threshold: 0.5 },
+  { key: 'rations',          label: 'RATIONS',              color: '#99dd66', icon: '❖',
+    inputs: '2× Hydrocarbons', output: '1× Ration (load into life support)', threshold: 0.5 },
 ]
 
 export default function SynthesisPanel({ gameState, sendCommand }) {

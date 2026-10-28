@@ -16,8 +16,10 @@ const ROOM_LABELS = {
   cargo_bay:         'CARGO BAY',
   sub_deck_refinery: 'SUB-DECK REFINERY',
   charging_bay:      'CHARGING BAY',
-  planet:            'PLANET',
+  planet:            'PLANET SURFACE',
+  life_support:      'LIFE SUPPORT TANKS',
 }
+const PEOPLE_PER_TRIP = 6
 
 // Rooms excluded from item transport (bots-only or internal)
 const TRANSPORT_EXCLUDED_ROOMS = new Set(['charging_bay'])
@@ -73,24 +75,37 @@ export default function TransportationPanel({ gameState, sendCommand }) {
         ?.find(p => p.id === orbitingPlanet)?.stockpile ?? null
     : null
 
-  // Build source options: non-excluded rooms + planet
-  const sourceKeys = Object.keys(rooms).filter(k => !TRANSPORT_EXCLUDED_ROOMS.has(k))
+  // Other ships a bot could reach (within transport range) and those just out of reach
+  const targets   = gameState?.world?.transport_targets ?? []
+  const reachable = targets.filter(t => t.in_range)
+  const range     = gameState?.world?.constants?.TRANSPORT_RANGE_AU ?? 1.5
+  const tanks     = { oxygen_reserves: ship.oxygen_reserves ?? 0, bio_matter_rations: ship.bio_matter_rations ?? 0 }
+  const isOutside = k => k === 'planet' || String(k).startsWith('ship:')
+  const label     = k => String(k).startsWith('ship:') ? (targets.find(t => t.id === k)?.name ?? 'SHIP') : (ROOM_LABELS[k] ?? k)
+
+  // Build source options: rooms, life-support tanks, the planet below, nearby ships
+  const shipRooms  = Object.keys(rooms).filter(k => !TRANSPORT_EXCLUDED_ROOMS.has(k))
+  const sourceKeys = [...shipRooms, 'life_support']
   if (planetStockpile) sourceKeys.push('planet')
+  sourceKeys.push(...reachable.map(t => t.id))
 
   // Items available at selected source
-  const sourceInv = selSource === 'planet'
-    ? planetStockpile ?? {}
-    : rooms[selSource] ?? {}
+  const invOf = k => k === 'planet' ? planetStockpile ?? {}
+    : k === 'life_support' ? tanks
+    : String(k).startsWith('ship:') ? (reachable.find(t => t.id === k)?.cargo ?? {})
+    : rooms[k] ?? {}
+  const sourceInv = invOf(selSource)
   const sourceItems = Object.entries(sourceInv).filter(([, v]) => v > 0)
 
-  // Destination options: ship rooms only (exclude source and excluded rooms)
-  const destKeys = Object.keys(rooms).filter(k => k !== selSource && !TRANSPORT_EXCLUDED_ROOMS.has(k))
+  // Destinations: anywhere else, but one end of the trip must be this ship
+  const destKeys = [...shipRooms, 'life_support', ...(planetStockpile ? ['planet'] : []), ...reachable.map(t => t.id)]
+    .filter(k => k !== selSource && !(isOutside(selSource) && isOutside(k)))
 
   // Max amount for selected item
   const maxAmt = selItem
     ? Math.min(
         sourceInv[selItem] ?? 0,
-        LARGE_ITEMS.has(selItem) ? 1 : 1000
+        selItem === 'people' ? PEOPLE_PER_TRIP : LARGE_ITEMS.has(selItem) ? 1 : 1000
       )
     : 0
 
@@ -181,13 +196,13 @@ export default function TransportationPanel({ gameState, sendCommand }) {
                   )}
                 </div>
                 <div className={s.jobRoute}>
-                  {ROOM_LABELS[bot.job.source] ?? bot.job.source}
-                  {' → '}{ROOM_LABELS[bot.job.dest] ?? bot.job.dest}
+                  {label(bot.job.source)}
+                  {' → '}{label(bot.job.dest)}
                 </div>
                 <div className={s.jobProgress}>
                   <div className={s.jobTrack}>
                     <div className={s.jobFill} style={{
-                      width: `${((5 - bot.job.ticks_left) / 5) * 100}%`,
+                      width: `${(((bot.job.travel_ticks ?? 5) - bot.job.ticks_left) / (bot.job.travel_ticks ?? 5)) * 100}%`,
                       background: bot.state === 'pickup' ? '#ffaa00' : ACCENT,
                     }} />
                   </div>
@@ -215,13 +230,26 @@ export default function TransportationPanel({ gameState, sendCommand }) {
           DISPATCH TRANSPORT
         </div>
 
+        {/* Nearby ships */}
+        <Section label={`SHIPS NEARBY (bots reach ${range} AU)`}>
+          {targets.length === 0 && <span className={s.noItems}>No ships close by</span>}
+          {targets.map(t => (
+            <div key={t.id} style={{ fontSize: 11, color: t.in_range ? 'var(--text-bright)' : DIM, padding: '1px 0' }}>
+              {t.in_range ? '●' : '○'} {t.name} · {t.distance_au} AU
+              {t.in_range && t.cargo && Object.keys(t.cargo).length > 0 && (
+                <span style={{ color: DIM }}> — {Object.entries(t.cargo).map(([k, v]) => `${k.replace(/_/g, ' ')} ${fmtNum(v)}`).join(', ')}</span>
+              )}
+            </div>
+          ))}
+        </Section>
+
         {/* Source selection */}
         <Section label="SOURCE">
           <div className={s.chipWrap}>
             {sourceKeys.map(k => (
-              <ChipBtn key={k} data-testid={`src-${k}`} onClick={() => { setSelSource(k); setSelItem(null); setSelAmount('') }}
+              <ChipBtn key={k} data-testid={`src-${k}`} onClick={() => { setSelSource(k); setSelItem(null); setSelAmount(''); setSelDest(null) }}
                        active={selSource === k} accentColor={ACCENT} activeBg="#1a0a18">
-                {ROOM_LABELS[k] ?? k}
+                {label(k)}
               </ChipBtn>
             ))}
           </div>
@@ -249,7 +277,7 @@ export default function TransportationPanel({ gameState, sendCommand }) {
               {destKeys.map(k => (
                 <ChipBtn key={k} data-testid={`dst-${k}`} onClick={() => setSelDest(k)}
                          active={selDest === k} accentColor={ACCENT} activeBg="#1a0a18">
-                  {ROOM_LABELS[k] ?? k}
+                  {label(k)}
                 </ChipBtn>
               ))}
             </div>
@@ -305,7 +333,7 @@ export default function TransportationPanel({ gameState, sendCommand }) {
                borderColor={idleBots.length > 0 ? ACCENT2 : 'var(--border-faint)'}
                style={{ marginTop: '4px', padding: '8px 12px', fontSize: '11px', letterSpacing: '1px', borderRadius: '4px', opacity: idleBots.length > 0 ? 1 : 0.4 }}>
             {idleBots.length > 0
-              ? `DISPATCH: ${fmtNum(selAmount || maxAmt)} ${selItem}  →  ${ROOM_LABELS[selDest] ?? selDest}`
+              ? `DISPATCH: ${fmtNum(selAmount || maxAmt)} ${selItem}  →  ${label(selDest)}`
               : 'NO IDLE TRANSPORTS'}
           </Btn>
         )}

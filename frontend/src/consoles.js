@@ -2,10 +2,10 @@
 export const CONSOLES = [
   {
     id: 'mission',
-    name: 'MISSION',
+    name: "CAPTAIN'S LOG",
     icon: '◆',
     color: '#ffaa00',
-    desc: 'Crew decisions · objectives & deadlines · settlements · factions',
+    desc: "Crew plan board · ship's log · people aboard · diplomatic standing",
   },
   {
     id: 'navigation',

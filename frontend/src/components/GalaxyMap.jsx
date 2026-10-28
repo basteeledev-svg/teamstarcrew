@@ -47,8 +47,7 @@ export default function GalaxyMap({ gameState, onSelectSystem }) {
 
     metaRef.current = { systems, minX, minZ, scale }
 
-    const objectiveIds = new Set((gameState?.world?.objectives ?? [])
-      .filter(o => o.status === 'active' && o.system_id).map(o => o.system_id))
+    const objectiveIds = new Set()
 
     for (const s of systems) {
       const { cx, cy } = toCanvas(s)

@@ -150,6 +150,21 @@ export default function ManufacturingPanel({ gameState, sendCommand }) {
               </span>
               <span style={{ fontSize:9, color:MUTED }}>{r.output}</span>
             </div>
+            {r.key === 'battery' && (
+              <div style={{ display:'flex', gap:6, fontSize:9 }}>
+                {[['warp_batteries', 'WARP (+capacitor, goes to reactor room)'], ['power_batteries', 'POWER (battery bank)']].map(([k, lbl]) => {
+                  const chosen = (gameState?.ship?.fabrication_choice?.battery ?? 'warp_batteries') === k
+                  return (
+                    <button key={k} onClick={() => sendCommand({ type: 'set_fabrication_choice', recipe: 'battery', output: k })}
+                      style={{ background: chosen ? '#1a1a3a' : 'transparent', border: `1px solid ${chosen ? r.color : 'var(--border-faint)'}`,
+                               color: chosen ? r.color : 'var(--text-dim)', fontFamily: 'var(--font-mono)', fontSize: 9,
+                               padding: '2px 6px', cursor: 'pointer', letterSpacing: 1 }}>
+                      {lbl}
+                    </button>
+                  )
+                })}
+              </div>
+            )}
 
             {/* Materials */}
             <div style={{ display:'flex', flexWrap:'wrap', gap:4 }}>

@@ -57,35 +57,22 @@ send_message:
          video_url: str? = null,             # absolute URL or /videos/foo.mp4 (optional)
          deliver_in_seconds: float = 0}
 
-create_situation:
-  Put a DECISION in front of the whole crew. They see it on every station with
-  a countdown, vote, and the captain commits. Use this for dilemmas instead of
-  just sending a message. Effects run when an option is chosen.
-  args: {title: str, body: str, default_option: str (an option id),
-         deadline_seconds: float = 60 (15-600),
-         source_id: str? (npc id the situation is about),
-         options: [ {id: str, label: str, hint: str?,
-                     requires: {max_distance_au: float?, cargo: {item: amount}?}?,
-                     effects: [effect, ...]} ]  (2-4 options)}
-  effect types (amounts are clamped):
-    {type:"message", from_name, subject, body}
-    {type:"npc_behavior", npc_id?, behavior, target_id?}   (npc_id defaults to source_id)
-    {type:"cargo", delta:{metals:-50, "engine_bay.fuel":1000}}
-    {type:"passengers", delta:int}
-    {type:"standing", faction:str, delta:int}
-    {type:"hull", delta:float}
-    {type:"despawn", npc_id?}
-    {type:"text", text:str}         (shown to the crew as the outcome)
-    {type:"bluff", success:[...], failure:[...]}  (odds rise with weapons+shields power)
+set_npc_cargo:
+  Set what is physically in an NPC ship's hold. The crew can take or give
+  things with transport bots once within 1.5 AU. Put people aboard and set
+  air_seconds to make a crippled ship whose air really runs out.
+  args: {npc_id: str, cargo: {item: amount, "people": int},
+         disabled: bool?, air_seconds: float?}
 
-create_objective:
-  Give the crew a task with a destination and deadline. They complete it by
-  orbiting the planet and using the settlement services.
-  args: {title: str, detail: str?, kind: "visit|deliver_passengers|deliver_cargo",
-         planet_id: str (an INHABITED planet id), amount: int = 0,
-         deadline_seconds: float?,
-         reward: {standing:{faction:int}, cargo:{item:amount}}?,
-         penalty: {standing:{faction:int}}?}
+set_npc_wants:
+  What an NPC will accept and what it pays when the goods actually arrive in
+  its hold by transport bot (payment appears in its hold for the crew to fetch).
+  args: {npc_id: str, wants: [{item: str, amount: float, give: {item: amount},
+                                reply: str?, standing: int?}]}
+
+set_settlement_wants:
+  Same for a settlement; payment lands in its depot on the surface.
+  args: {planet_id: str, wants: [...same shape...]}
 
 annotate_system:
   Attach narrative metadata to a star system. Persists across the game.
@@ -129,10 +116,15 @@ class BackendClient:
                 r = await self._client.post(f"{self.url}/api/ai/event", json=args)
             elif tool == "send_message":
                 r = await self._client.post(f"{self.url}/api/ai/message", json=args)
-            elif tool == "create_situation":
-                r = await self._client.post(f"{self.url}/api/ai/situation", json=args)
-            elif tool == "create_objective":
-                r = await self._client.post(f"{self.url}/api/ai/objective", json=args)
+            elif tool == "set_npc_cargo":
+                npc_id = args.pop("npc_id")
+                r = await self._client.post(f"{self.url}/api/ai/npc/{npc_id}/cargo", json=args)
+            elif tool == "set_npc_wants":
+                npc_id = args.pop("npc_id")
+                r = await self._client.post(f"{self.url}/api/ai/npc/{npc_id}/wants", json=args)
+            elif tool == "set_settlement_wants":
+                pid = args.pop("planet_id")
+                r = await self._client.post(f"{self.url}/api/ai/settlement/{pid}/wants", json=args)
             elif tool == "annotate_system":
                 sid = args.pop("system_id")
                 r = await self._client.post(f"{self.url}/api/ai/galaxy/system/{sid}/annotate", json=args)

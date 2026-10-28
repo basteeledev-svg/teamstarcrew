@@ -8,7 +8,7 @@ const ACCENT = '#aa88ff'   // purple — mining
 
 const _MINING_BOTS_MAX = 20
 
-const RESOURCES = ['metals', 'rare_earth', 'radioactive', 'hydrocarbons']
+const RESOURCES = ['metals', 'silicates', 'rare_earth', 'radioactive', 'hydrocarbons']
 const RES_CONFIG = {
   metals:       { label: 'METALS',       icon: '◼', color: '#aabbdd' },
   rare_earth:   { label: 'RARE EARTH',   icon: '◆', color: '#44ffcc' },

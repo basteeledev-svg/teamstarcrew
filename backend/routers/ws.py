@@ -105,21 +105,14 @@ async def _handle_command(ws: WebSocket, cmd: dict) -> None:
         game_state.ship.course = None
         await ws.send_text(json.dumps({"type": "ack", "cmd": "clear_course"}))
 
-    elif cmd_type == "situation_vote":
-        err = world.cast_vote(game_state, str(cmd.get("situation_id", "")), str(cmd.get("option_id", "")),
-                              str(cmd.get("voter_id", "anon")), str(cmd.get("voter_label", "Crew")))
-        await ws.send_text(json.dumps({"type": "error", "detail": err} if err else
-                                      {"type": "ack", "cmd": "situation_vote"}))
-
-    elif cmd_type == "situation_commit":
-        err = world.commit_situation(game_state, str(cmd.get("situation_id", "")), str(cmd.get("option_id", "")),
-                                     by=str(cmd.get("voter_label", "captain"))[:24])
-        await ws.send_text(json.dumps({"type": "error", "detail": err} if err else
-                                      {"type": "ack", "cmd": "situation_commit"}))
-
-    elif cmd_type == "settlement":
-        ok, detail = world.settlement_action(game_state, str(cmd.get("action", "")), cmd.get("trade"))
-        await ws.send_text(json.dumps({"type": "ack" if ok else "error", "cmd": "settlement", "detail": detail}))
+    elif cmd_type in ("add_note", "toggle_note", "delete_note"):
+        if cmd_type == "add_note":
+            err = world.add_note(game_state, str(cmd.get("text", "")), str(cmd.get("author", "Crew")))
+        elif cmd_type == "toggle_note":
+            err = world.toggle_note(game_state, str(cmd.get("note_id", "")))
+        else:
+            err = world.delete_note(game_state, str(cmd.get("note_id", "")))
+        await ws.send_text(json.dumps({"type": "error", "detail": err} if err else {"type": "ack", "cmd": cmd_type}))
 
     elif cmd_type == "orbit":
         planet_id = cmd.get("planet_id")
@@ -147,7 +140,7 @@ async def _handle_command(ws: WebSocket, cmd: dict) -> None:
             await ws.send_text(json.dumps({"type": "error", "detail": "Not in orbit"}))
             return
         resource = cmd.get("resource")
-        if resource not in ("metals", "rare_earth", "radioactive", "hydrocarbons"):
+        if resource not in ("metals", "silicates", "rare_earth", "radioactive", "hydrocarbons"):
             await ws.send_text(json.dumps({"type": "error", "detail": "Invalid resource"}))
             return
         target_count = max(0, int(cmd.get("value", 0)))
@@ -288,6 +281,9 @@ async def _handle_command(ws: WebSocket, cmd: dict) -> None:
         if engine_key not in _VALID_ENGINES:
             await ws.send_text(json.dumps({"type": "error", "detail": "Invalid engine key"}))
             return
+        if game_state.ship.engine_shutdown.get(engine_key):
+            await ws.send_text(json.dumps({"type": "error", "detail": "Engine burned out — wait for it to cool completely"}))
+            return
         value = max(0.0, min(1.0, float(cmd.get("value", 0.0))))
         game_state.ship.engine_outputs[engine_key] = value
         await ws.send_text(json.dumps({"type": "ack", "cmd": "set_engine_output",
@@ -420,6 +416,7 @@ async def _handle_command(ws: WebSocket, cmd: dict) -> None:
                 bot_id = None
         trips_raw = cmd.get("trips", 1)   # 1 = one trip, null = infinite
         trips_remaining: Optional[int] = None if trips_raw is None else int(trips_raw)
+        world.refresh_externals(game_state)     # which ships are close enough right now
         ok, msg, bot = game_state.ship.queue_transport(source, dest, item, amount, bot_id, planet_stockpile, trips_remaining)
         if ok:
             await ws.send_text(json.dumps({"type": "ack", "cmd": "transport_items", "detail": msg, "bot": bot}))
@@ -485,7 +482,7 @@ async def _handle_command(ws: WebSocket, cmd: dict) -> None:
 
     elif cmd_type == "set_synthesis_alloc":
         alloc = cmd.get("alloc", {})
-        SYNTHESIS_KEYS = {"fuel", "enriched_nuclear", "electronics", "repair_patches", "space_scrap"}
+        SYNTHESIS_KEYS = {"fuel", "enriched_nuclear", "electronics", "repair_patches", "space_scrap", "oxygen", "rations"}
         if not isinstance(alloc, dict) or not set(alloc.keys()).issubset(SYNTHESIS_KEYS):
             await ws.send_text(json.dumps({"type": "error", "detail": "Invalid synthesis alloc keys"}))
             return
@@ -510,6 +507,16 @@ async def _handle_command(ws: WebSocket, cmd: dict) -> None:
         game_state.ship.manufacturing_alloc[item] = round(max(0.0, min(100.0, pct)), 1)
         await ws.send_text(json.dumps({"type": "ack", "cmd": "set_manufacturing_alloc",
                                        "item": item, "pct": game_state.ship.manufacturing_alloc[item]}))
+
+    elif cmd_type == "set_fabrication_choice":
+        recipe = cmd.get("recipe")
+        out = cmd.get("output")
+        rec = game_state.ship.FABRICATION_RECIPES.get(recipe)
+        if not rec or out not in rec["out_choices"]:
+            await ws.send_text(json.dumps({"type": "error", "detail": "Invalid recipe/output"}))
+            return
+        game_state.ship.fabrication_choice[recipe] = out
+        await ws.send_text(json.dumps({"type": "ack", "cmd": "set_fabrication_choice", "recipe": recipe, "output": out}))
 
     elif cmd_type == "set_fabrication_assignment":
         assignment = cmd.get("assignment", {})

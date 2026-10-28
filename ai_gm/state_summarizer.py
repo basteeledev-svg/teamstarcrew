@@ -62,19 +62,11 @@ def summarize_recent_events(state: dict[str, Any], last_n: int = 6) -> str:
 
 
 def summarize_world(state: dict[str, Any]) -> str:
-    """Crew decisions, objectives and faction standings from the server's world layer."""
+    """What the crew has been doing (ship's log), their own plan, and standings."""
     w = state.get("world") or {}
-    tick = state.get("tick", 0)
-    out = []
-    for s in w.get("situations", []):
-        if s.get("status") == "open":
-            opts = ", ".join(o["label"] for o in s.get("options", []))
-            out.append(f"  OPEN DECISION ({s['deadline_tick'] - tick}s left): {s['title']} — options: {opts}")
-        else:
-            out.append(f"  decided: {s['title']} → {s.get('outcome') or s.get('chosen')}")
-    for o in w.get("objectives", []):
-        left = f"{o['deadline_tick'] - tick}s left" if o.get("deadline_tick") and o["status"] == "active" else o["status"]
-        out.append(f"  OBJECTIVE [{left}]: {o['title']}")
+    out = [f"  log T{l['tick']}: {l['text']}" for l in (w.get("log") or [])[-10:]]
+    for n in w.get("notes") or []:
+        out.append(f"  crew plan{' (done)' if n.get('done') else ''}: {n['text']}")
     facs = ((state.get("ai") or {}).get("factions")) or {}
     for f in facs.values():
         out.append(f"  faction {f['name']}: standing {f['standing']}, {', '.join(f.get('traits', []))}, speaks {f.get('speech','')}")

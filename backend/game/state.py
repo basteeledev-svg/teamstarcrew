@@ -105,7 +105,7 @@ class GameState:
         # Game over tracking
         self.game_over_reason: str | None = None
         self.life_support_countdown: int  = 0
-        # Living world: factions, situations, objectives (see game/world.py)
+        # Living world: factions, settlements, NPC needs, crew notes (see game/world.py)
         self.world: dict              = world_mod.new_world()
 
     def is_started(self) -> bool:
@@ -456,9 +456,12 @@ class GameState:
             }
             if tier >= 2:
                 entry["size"] = npc["size"]
+                entry["disabled"] = bool(npc.get("disabled"))
             if tier >= 3:
                 entry["race"] = npc["race"]
                 entry["name"] = npc["name"]
+                entry["role"] = npc.get("role")
+                entry["life_signs"] = int((npc.get("cargo") or {}).get("people", 0)) if npc.get("role") in ("derelict", "wreck") else None
             if tier >= 4:
                 entry["hull_health"] = round(npc["hull_health"], 1)
             scanned_ships.append(entry)

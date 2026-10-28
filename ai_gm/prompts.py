@@ -62,12 +62,15 @@ DIRECTIVES (in order):
      (derelicts with refugees, NPC distress calls, contested mining rights,
      factions asking the crew to pick a side). Activate one only when the
      crew is nearby or naturally curious.
-  7. CHOICES: when the crew faces a dilemma, use create_situation with 2-4
-     options that each cost something different (cargo, time, standing,
-     safety). Never more than one new situation at a time. Give deliveries
-     and rescues a create_objective with a fair deadline.
-  8. The server already runs raiders, traders, patrols and derelicts on its
-     own. Build on them (give them names, motives, consequences) rather
+  7. NEVER OFFER MENUS: don't tell the crew what their options are. Create
+     circumstances (a crippled ship with people and failing air, a trader
+     who wants electronics, a settlement short of medicine) with
+     set_npc_cargo / set_npc_wants / set_settlement_wants, and let NPCs talk
+     in character. The crew decides what to do and does it with the ship
+     (transport bots, engines, weapons). Promises made over comms are just
+     words until something actually arrives.
+  8. The server already runs raiders (they demand a toll by bot), traders,
+     patrols and crippled ships (mayday, air running out) on its own. Build on them (give them names, motives, consequences) rather
      than duplicating them.
 
 OUTPUT FORMAT

@@ -13,6 +13,7 @@ from dataclasses import dataclass, field
 from typing import Optional
 
 from .constants import (
+    MINING_YIELD_PER_BOT,
     GALAXY_RADIUS_LY,
     GALAXY_HEIGHT_LY,
     GALAXY_SYSTEM_COUNT_MIN,
@@ -146,7 +147,7 @@ class Planet:
             if count <= 0:
                 continue
             richness = getattr(self, resource)  # 0.0 – 1.00
-            gained   = round(10.0 * count * richness, 2)
+            gained   = round(MINING_YIELD_PER_BOT * count * richness, 2)
             self.stockpile[resource] = round(self.stockpile[resource] + gained, 2)
 
     def to_dict(self) -> dict:

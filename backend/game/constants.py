@@ -61,8 +61,8 @@ FUEL_ENGINE_MAX_THRUST_AU = 0.5      # AU/tick at 100% throttle (both engines fu
 FUEL_ENGINE_MAX_MN        = 500.0    # display unit max per fuel engine
 ELEC_ENGINE_MAX_THRUST_AU = 0.25     # AU/tick at 100% power
 ELEC_ENGINE_MAX_MN        = 100.0    # display unit max per electric engine
-BASE_FUEL_COEFF           = 0.001    # coefficient in throttle^2.5 consumption formula
-ENGINE_ROOM_FUEL_START    = 50_000.0 # units of fuel in Engine Room at game start
+BASE_FUEL_COEFF           = 0.0002   # throttle^2.5: 60% ≈ 5.6 fuel/s per engine, 100% = 20/s (fast but thirsty)
+ENGINE_ROOM_FUEL_START    = 2_500.0  # units of fuel in Engine Room at game start
 
 # ── Warp capacitor ────────────────────────────────────────────────────────────
 WARP_CAPACITOR_MAX_TW  = 4_000.0    # maximum storable warp energy (TW) — about two medium jumps, so charge is a budget
@@ -99,13 +99,13 @@ ORBIT_ANGULAR_SPEED     = 0.05       # radians per tick (~17 sec for a full orbi
 # Formula: gained = count * richness / 100  (richness is 0-100 %)
 # e.g. richness=50, count=3 → 3 * 50 / 100 = 1.5 units/tick
 MINING_BOTS_MAX         = 20     # max bots assignable per resource
-MINING_BOT_START_COUNT  = 3      # mining bots aboard at game start
+MINING_BOT_START_COUNT  = 4      # mining bots aboard at game start
 MINING_BOT_CHARGE_MAX   = 100.0  # max charge per mining bot
 MINING_BOT_HEALTH_MAX   = 100.0  # max health per mining bot
 MINING_BOT_CHARGE_COST  = 0.15   # charge consumed per tick while mining (spec)
 
 # ── Transport bots ────────────────────────────────────────────────────────────
-TRANSPORT_BOT_START_COUNT      = 1       # bots aboard at game start
+TRANSPORT_BOT_START_COUNT      = 2       # bots aboard at game start
 TRANSPORT_BOT_CHARGE_MAX       = 100.0   # max charge per bot
 TRANSPORT_BOT_CHARGE_COST      = 0.10    # charge consumed per tick on mission (spec)
 TRANSPORT_BOT_CHARGE_RATE      = 5.0     # charge regained per tick while idle
@@ -210,3 +210,21 @@ TARGETING_RANGE_PER_TW     = 0.8   # AU of targeting range per TW to targeting s
 # ── Shield generators ─────────────────────────────────────────────────────────
 SHIELD_REDUCTION_PER_TW    = 5.0   # % damage reduction per TW to one shield generator
 MAX_SHIELD_REDUCTION       = 0.85  # absolute cap on damage reduction per side
+
+
+# ── Economy & wear (balanced with backend/tools/balance_sim.py) ──────────────
+# Reactors burn their stock in proportion to output: units per tick at 100%.
+REACTOR_FUEL_PER_TICK_AT_FULL = 3.0     # fuel generators burn "fuel"
+REACTOR_RAD_PER_TICK_AT_FULL  = 3.0     # nuclear reactors burn "radioactive" (4x the power per unit)
+REACTOR_ROOM_FUEL_START       = 3_000.0
+REACTOR_ROOM_RAD_START        = 4_000.0
+MINING_YIELD_PER_BOT          = 25.0    # units per tick per bot at richness 1.0
+SYNTH_FUEL_PER_TW             = 5.0     # synthesis: hydrocarbons -> fuel, units per TW
+# Fuel engines heat up like reactors (bands on throttle); see Ship.update_engine_heat
+ENGINE_MELTDOWN_DAMAGE        = 25.0
+# Warp drive wear per jump: base + per parsec (health is 0-100)
+WARP_WEAR_BASE                = 1.0
+WARP_WEAR_PER_PC              = 0.12
+WARP_MIN_HEALTH               = 20.0    # at or below this the drive won't spool
+WARP_BATTERY_BONUS_TW         = 3_500.0 # each warp battery in the reactor room raises the charge cap
+WARP_BATTERIES_START          = 1

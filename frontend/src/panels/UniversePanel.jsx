@@ -36,16 +36,16 @@ export default function UniversePanel({ gameState, sendCommand }) {
     const cost    = WARP_COST_BASE * (dist_pc ** WARP_COST_EXPONENT) + WARP_COST_ADDITIVE
     const charge  = ship?.warp_capacitor_tw ?? 0
     const W = gameState?.world?.constants ?? {}
-    const transit = Math.round((W.WARP_TRANSIT_BASE ?? 10) + (W.WARP_TRANSIT_PER_PC ?? 2) * dist_pc)
+    const transit = Math.round((W.WARP_TRANSIT_BASE ?? 6) + (W.WARP_TRANSIT_PER_PC ?? 1.5) * dist_pc)
     return { ...sys, cost: Math.round(cost), charge: Math.round(charge), canWarp: charge >= cost, dist, dist_pc,
              transit, spool: W.WARP_SPOOL_TICKS ?? 8 }
   }, [warpTargetId, gameState])
 
   const isRunning  = gameState?.status === 'running'
-  const capMax     = C.WARP_CAPACITOR_MAX_TW ?? 4_000
+  const capMax     = ship?.warp_capacitor_max_tw ?? C.WARP_CAPACITOR_MAX_TW ?? 4_000
   const warp       = gameState?.world?.warp ?? null
-  const objectiveSystems = new Set((gameState?.world?.objectives ?? [])
-    .filter(o => o.status === 'active' && o.system_id).map(o => o.system_id))
+  const objectiveSystems = new Set()
+  const warpHealth = ship?.system_health?.warp_drive ?? 100
   const capCharge  = ship?.warp_capacitor_tw ?? 0
   const capPct     = Math.min(100, (capCharge / capMax) * 100)
 
@@ -124,7 +124,15 @@ export default function UniversePanel({ gameState, sendCommand }) {
               <span className={s.warpLbl}>CHARGE</span>
               <span style={{ color: 'var(--text-body)' }}>{warpTarget.charge.toLocaleString()} TW</span>
               <span className={s.warpLbl}>TIME</span>
-              <span style={{ color: 'var(--text-body)' }}>{warpTarget.spool}s spool + {warpTarget.transit}s transit</span>
+              <span style={{ color: 'var(--text-body)' }}>{Math.round(warpTarget.spool * (1 + (100 - warpHealth) / 50))}s spool + {warpTarget.transit}s transit</span>
+              <span className={s.warpLbl}>DRIVE</span>
+              <span style={{ color: warpHealth > 50 ? 'var(--text-body)' : 'var(--accent-red)' }}>
+                {Math.round(warpHealth)}% · wear ~{(1 + 0.12 * warpTarget.dist_pc).toFixed(1)}% this jump
+              </span>
+              {warpTarget.cost > capMax && <>
+                <span className={s.warpLbl}>CAPACITY</span>
+                <span style={{ color: 'var(--accent-red)' }}>beyond the capacitor — needs more warp batteries</span>
+              </>}
               {objectiveSystems.has(warpTarget.id) && <>
                 <span className={s.warpLbl}>MISSION</span>
                 <span style={{ color: 'var(--hud-ca)' }}>◆ objective destination</span>

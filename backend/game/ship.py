@@ -5,6 +5,9 @@ import random
 from dataclasses import dataclass, field
 from typing import ClassVar, Optional
 from .constants import (
+    REACTOR_FUEL_PER_TICK_AT_FULL, REACTOR_RAD_PER_TICK_AT_FULL,
+    REACTOR_ROOM_FUEL_START, REACTOR_ROOM_RAD_START, SYNTH_FUEL_PER_TW, ENGINE_MELTDOWN_DAMAGE,
+    WARP_BATTERY_BONUS_TW, WARP_BATTERIES_START,
     MAX_SPEED_AU_PER_TICK,
     TURN_RATE_DEG_PER_TICK,
     SHIP_START_DISTANCE_AU,
@@ -70,6 +73,39 @@ LARGE_ITEMS = {
     "lasers", "missiles", "shield_generators", "power_batteries",
     "warp_batteries", "air_scrubbers", "transport_bots", "repair_bots",
 }
+# A transport bot's cabin holds this many people per trip.
+PEOPLE_PER_TRIP = 6
+# Where people may be carried to/from (ship rooms); planets and other ships also allowed.
+PEOPLE_ROOMS = {"living_quarters"}
+
+
+TANK_ITEMS = ("oxygen_reserves", "bio_matter_rations")
+
+
+class _LifeSupportTanks:
+    """Lets transport bots load from / unload into the life-support tanks
+    (ship.oxygen_reserves / ship.bio_matter_rations) as if it were a room."""
+
+    def __init__(self, ship):
+        self._ship = ship
+
+    def get(self, key, default=0):
+        return getattr(self._ship, key) if key in TANK_ITEMS else default
+
+    def __getitem__(self, key):
+        return self.get(key)
+
+    def __setitem__(self, key, value):
+        if key in TANK_ITEMS:
+            setattr(self._ship, key, round(max(0.0, float(value)), 2))
+
+    def items(self):
+        return [(k, getattr(self._ship, k)) for k in TANK_ITEMS]
+
+
+def is_external(endpoint: str) -> bool:
+    """'planet' or 'ship:<npc id>' — places outside our hull."""
+    return endpoint == "planet" or str(endpoint).startswith("ship:")
 # ── Manufacturing recipes ──────────────────────────────────────────────────────────
 # kind="rate":     produces output_per_gw units per GW delivered per tick
 # kind="progress": accumulates GW toward total_gw; completion delivers 1 item
@@ -168,6 +204,15 @@ class Ship:
         "reactor_3_rad":  False, "reactor_4_rad":  False,
     })
     # Engine outputs -- 4 propulsion engines (warp drive managed via power_allocation)
+    # Engines heat up when pushed (same bands as reactors); overheating damages them
+    engine_heat: dict = field(default_factory=lambda: {
+        "engine_1_electric": 0.0, "engine_2_electric": 0.0,
+        "engine_3_fuel": 0.0, "engine_4_fuel": 0.0,
+    })
+    engine_shutdown: dict = field(default_factory=lambda: {
+        "engine_1_electric": False, "engine_2_electric": False,
+        "engine_3_fuel": False, "engine_4_fuel": False,
+    })
     engine_outputs: dict = field(default_factory=lambda: {
         "engine_1_electric": 0.0,
         "engine_2_electric": 0.0,
@@ -187,6 +232,11 @@ class Ship:
     course: Optional[dict] = None
     # Set by the autopilot each tick so the ship stops short of its target
     max_step_au: Optional[float] = None
+    # Other ships a transport bot can reach right now: {"ship:<npc id>": cargo dict}.
+    # Refreshed every tick by game/world.py (only ships close enough are listed).
+    external_inventories: dict = field(default_factory=dict)
+    # Deliveries/pickups to places outside the ship, consumed by game/world.py.
+    transport_events: list = field(default_factory=list)
     # Single-player simplification toggle: passive repairs consume materials every tick.
     auto_repair_enabled: bool = False
     # Computed each tick by update_engines(); drives update_tick() movement
@@ -240,9 +290,9 @@ class Ship:
     # Power Room: fuel (for R1/R2), radioactive (for R3/R4), power_batteries (alias of battery_count)
     rooms: dict = field(default_factory=lambda: {
         "reactor_room": {
-            "fuel":              1_000_000.0,
+            "fuel":              REACTOR_ROOM_FUEL_START,
             "enriched_nuclear":  0.0,          # produced by synthesis; consumed by nuclear reactors
-            "radioactive":       1_000_000.0,  # raw; consumed to make enriched_nuclear
+            "radioactive":       REACTOR_ROOM_RAD_START,  # raw; burned by the nuclear reactors
             "warp_batteries":    0,
         },
         "engine_bay": {
@@ -348,10 +398,12 @@ class Ship:
     synthesis_alloc: dict = field(default_factory=lambda: {
         "fuel": 20.0, "enriched_nuclear": 20.0,
         "electronics": 20.0, "repair_patches": 20.0, "space_scrap": 20.0,
+        "oxygen": 0.0, "rations": 0.0,
     })
     synthesis_progress: dict = field(default_factory=lambda: {
         "fuel": 0.0, "enriched_nuclear": 0.0,
         "electronics": 0.0, "repair_patches": 0.0, "space_scrap": 0.0,
+        "oxygen": 0.0, "rations": 0.0,
     })
     # Fabrication bots — entity list (id, charge, health, assignment)
     fabrication_bots: list = field(default_factory=list)
@@ -370,6 +422,8 @@ class Ship:
     })
 
     # Industry point accumulator per recipe (spec §11)
+    # Which variant a multi-output recipe makes, e.g. {"battery": "power_batteries"}
+    fabrication_choice: dict = field(default_factory=dict)
     industry_progress: dict = field(default_factory=lambda: {
         "bot": 0.0, "component": 0.0, "air_scrubber": 0.0, "battery": 0.0, "missile": 0.0,
     })
@@ -405,7 +459,7 @@ class Ship:
                 bot["location"] = "charging_bay"
     def mining_bot_counts(self) -> dict:
         """Derive resource -> count mapping from mining bot entity assignments."""
-        counts = {"metals": 0, "rare_earth": 0, "radioactive": 0, "hydrocarbons": 0}
+        counts = {"metals": 0, "silicates": 0, "rare_earth": 0, "radioactive": 0, "hydrocarbons": 0}
         for bot in self.mining_bots_list:
             if bot["state"] == "mining" and bot.get("assignment") in counts:
                 counts[bot["assignment"]] += 1
@@ -596,6 +650,9 @@ class Ship:
                 ttype = target.get("type")
                 full = False
                 hp_gained = 0.0
+                if getattr(self, "patch_debt", 0.0) >= 0.95 and not any(
+                        self.rooms.get(r, {}).get("repair_patches", 0) >= 1 for r in ("cargo_bay", "sub_deck_refinery")):
+                    continue   # out of repair patches: the bot waits on station
                 if ttype == "system":
                     key = target.get("key")
                     if key in self.system_health:
@@ -645,18 +702,16 @@ class Ship:
                             round(before + REPAIR_BOT_REPAIR_RATE, 4))
                         hp_gained = self.item_health[item] - before
                         full = self.item_health[item] >= 100.0
-                # N-3: consume 1 repair_patch per 10 HP restored
+                # N-3: one repair patch per 10 HP restored (tracked fractionally)
                 if hp_gained > 0:
-                    patches_needed = max(1, int(hp_gained / 10.0))
-                    for src_room in ("cargo_bay", "sub_deck_refinery"):
-                        inv = self.rooms.get(src_room, {})
-                        have = inv.get("repair_patches", 0)
-                        used = min(have, patches_needed)
-                        if used > 0:
-                            inv["repair_patches"] = have - used
-                            patches_needed -= used
-                        if patches_needed <= 0:
+                    self.patch_debt = getattr(self, "patch_debt", 0.0) + hp_gained / 10.0
+                    while self.patch_debt >= 1.0:
+                        src = next((r for r in ("cargo_bay", "sub_deck_refinery")
+                                    if self.rooms.get(r, {}).get("repair_patches", 0) >= 1), None)
+                        if src is None:
                             break
+                        self.rooms[src]["repair_patches"] -= 1
+                        self.patch_debt -= 1.0
                 if full:
                     bot["state"] = "returning"
                     bot["job"] = {"ticks_left": REPAIR_BOT_TRAVEL_TICKS}
@@ -755,6 +810,16 @@ class Ship:
                 bot["health"] = min(TRANSPORT_BOT_HEALTH_MAX, round(bot["health"] + amount, 2))
                 return True, f"Bot #{bot_id} health -> {bot['health']}"
         return False, f"No bot #{bot_id}"
+    def _endpoint_inv(self, name: str, planet_stockpile: Optional[dict] = None):
+        """Inventory dict for a room, the orbited planet or a reachable ship (None if unavailable)."""
+        if name == "life_support":
+            return _LifeSupportTanks(self)
+        if name == "planet":
+            return planet_stockpile
+        if str(name).startswith("ship:"):
+            return self.external_inventories.get(name)
+        return self.rooms.get(name)
+
     def _validate_transport(self, source: str, dest: str, item: str, amount: float,
                             planet_stockpile: Optional[dict] = None) -> tuple:
         """Validate a transport request. Returns (ok, message, clamped_amount)."""
@@ -762,36 +827,41 @@ class Ship:
             return False, "Amount must be positive", 0
         if source == dest:
             return False, "Source and destination are the same", 0
-        # Resolve source inventory
-        if source == "planet":
-            if planet_stockpile is None:
+        if is_external(source) and is_external(dest):
+            return False, "One end of a trip must be this ship", 0
+        src_inv = self._endpoint_inv(source, planet_stockpile)
+        if src_inv is None:
+            if source == "planet":
                 return False, "Not orbiting a planet", 0
-            src_inv = planet_stockpile
-        else:
-            src_inv = self.rooms.get(source)
-            if src_inv is None:
-                return False, f"Unknown source room: {source}", 0
-        # Resolve destination
-        if dest == "planet":
-            if planet_stockpile is None:
+            if str(source).startswith("ship:"):
+                return False, "That ship is out of transport range", 0
+            return False, f"Unknown source room: {source}", 0
+        dst_inv = self._endpoint_inv(dest, planet_stockpile)
+        if dst_inv is None:
+            if dest == "planet":
                 return False, "Not orbiting a planet", 0
-            dst_inv = planet_stockpile
-        else:
-            dst_inv = self.rooms.get(dest)
-            if dst_inv is None:
-                return False, f"Unknown destination room: {dest}", 0
+            if str(dest).startswith("ship:"):
+                return False, "That ship is out of transport range", 0
+            return False, f"Unknown destination room: {dest}", 0
         # Check source has item
         available = src_inv.get(item, 0)
         if available <= 0:
             return False, f"Source has no {item}", 0
         actual = min(amount, available)
-        # Clamp to bot cargo capacity (1 large item or 1000 consumables)
-        if item in LARGE_ITEMS:
+        if item == "people":
+            for end in (source, dest):
+                if not is_external(end) and end not in PEOPLE_ROOMS:
+                    return False, "People can only ride to or from the living quarters", 0
+            actual = min(int(actual), PEOPLE_PER_TRIP)
+        elif item in LARGE_ITEMS:
             actual = min(actual, TRANSPORT_BOT_CARGO_LARGE)
         else:
             actual = min(actual, TRANSPORT_BOT_CARGO_CONSUMABLE)
-        # Check destination permission (planet accepts everything)
-        if dest != "planet":
+        # Check destination permission (places outside the ship accept everything)
+        if dest == "life_support":
+            if item not in TANK_ITEMS:
+                return False, "Only oxygen and rations go into the life-support tanks", 0
+        elif not is_external(dest):
             perms = self.ROOM_PERMISSIONS.get(dest)
             if perms is not None and item not in perms:
                 return False, f"{dest} does not accept {item}", 0
@@ -801,6 +871,7 @@ class Ship:
                 return False, f"{dest} is full", 0
             actual = min(actual, free)
         return True, "OK", actual
+
     def queue_transport(self, source: str, dest: str, item: str, amount: float,
                         bot_id: Optional[int] = None,
                         planet_stockpile: Optional[dict] = None,
@@ -835,16 +906,15 @@ class Ship:
         if bot["charge"] < TRANSPORT_BOT_CHARGE_COST:
             return False, f"Bot #{bot['id']} charge too low ({bot['charge']}/{TRANSPORT_BOT_CHARGE_COST} needed)", None
         # Reserve items: deduct from source now
-        if source == "planet":
-            src_inv = planet_stockpile
-        else:
-            src_inv = self.rooms[source]
+        src_inv = self._endpoint_inv(source, planet_stockpile)
         src_inv[item] = round(src_inv.get(item, 0) - actual, 2)
+        if is_external(source):
+            self.transport_events.append({"kind": "pickup", "where": source, "item": item, "amount": actual})
         # Consume charge and health
         bot["charge"] = round(bot["charge"] - TRANSPORT_BOT_CHARGE_COST, 2)
         bot["health"] = round(bot["health"] - TRANSPORT_BOT_HEALTH_COST, 2)
         # Assign job -- double travel time for planet trips
-        travel_ticks = TRANSPORT_TRAVEL_TICKS * 2 if (source == "planet" or dest == "planet") else TRANSPORT_TRAVEL_TICKS
+        travel_ticks = TRANSPORT_TRAVEL_TICKS * 2 if (is_external(source) or is_external(dest)) else TRANSPORT_TRAVEL_TICKS
         bot["state"] = "pickup"
         bot["job"] = {
             "source": source,
@@ -868,7 +938,10 @@ class Ship:
                 if bot["job"] is not None:
                     job = bot["job"]
                     if "item" in job:
-                        return_to = job["source"] if job["source"] != "planet" else "cargo_bay"
+                        if not is_external(job["source"]):
+                            return_to = job["source"]
+                        else:
+                            return_to = "living_quarters" if job["item"] == "people" else "cargo_bay"
                         inv = self.rooms.get(return_to, self.rooms["cargo_bay"])
                         inv[job["item"]] = round(inv.get(job["item"], 0) + job["amount"], 2)
                     bot["state"] = "idle"
@@ -940,11 +1013,14 @@ class Ship:
         total_pct = sum(self.synthesis_alloc.values())
         scale = 1.0 if total_pct >= 99.9 else 100.0 / max(total_pct, 0.001)
         SYNTHESIS_RECIPES = {
-            "fuel":             {"cost": {"hydrocarbons": 1.0},                                  "out_key": "fuel",             "out_amt": 1.0, "threshold": 1.0},
+            "fuel":             {"cost": {"hydrocarbons": 1.0},                                  "out_key": "fuel",             "out_amt": 1.0, "threshold": 1.0 / SYNTH_FUEL_PER_TW},
             "enriched_nuclear": {"cost": {"radioactive":  1.0},                                  "out_key": "enriched_nuclear", "out_amt": 1.0, "threshold": 1.0},
             "electronics":      {"cost": {"silicates": 5.0, "rare_earth": 5.0, "metals": 3.0},  "out_key": "electronics",      "out_amt": 1,   "threshold": 10.0},
             "repair_patches":   {"cost": {"metals": 10.0, "rare_earth": 2.0},                   "out_key": "repair_patches",   "out_amt": 1,   "threshold": 10.0},
             "space_scrap":      {"cost": {"metals": 2.0, "rare_earth": 2.0},                    "out_key": "space_scrap",      "out_amt": 10.0,"threshold": 3.0},
+            # Life support: electrolyse ice for air, culture hydrocarbons into food
+            "oxygen":           {"cost": {"silicates": 2.0},                                    "out_key": "oxygen_reserves",  "out_amt": 1.0, "threshold": 0.5},
+            "rations":          {"cost": {"hydrocarbons": 2.0},                                 "out_key": "bio_matter_rations","out_amt": 1.0, "threshold": 0.5},
         }
         for recipe_key, recipe in SYNTHESIS_RECIPES.items():
             pct = self.synthesis_alloc.get(recipe_key, 0.0) * scale
@@ -969,7 +1045,7 @@ class Ship:
         "bot":        {"mats": {"metals": 100.0, "rare_earth": 50.0, "electronics": 10}, "ip": 1000, "out_choices": ["transport_bot","repair_bot","mining_bot","fabrication_bot"]},
         "component":  {"mats": {"metals": 150.0, "rare_earth": 30.0, "electronics": 25}, "ip": 1500, "out_choices": ["lasers","shield_generators"]},
         "air_scrubber":{"mats": {"metals": 80.0, "silicates": 40.0, "electronics": 15}, "ip": 800,  "out_choices": ["air_scrubbers"]},
-        "battery":    {"mats": {"metals": 200.0,"silicates": 120.0,"rare_earth": 60.0}, "ip": 2000, "out_choices": ["power_batteries"]},
+        "battery":    {"mats": {"metals": 200.0,"silicates": 120.0,"rare_earth": 60.0}, "ip": 2000, "out_choices": ["warp_batteries", "power_batteries"]},
         "missile":    {"mats": {"metals": 40.0, "hydrocarbons": 10.0,"electronics": 5}, "ip": 400,  "out_choices": ["missiles"]},
     }
 
@@ -1006,9 +1082,9 @@ class Ship:
             # Industry Points this tick
             ip = sum(100.0 * (b.get("health", 100.0) / 100.0) for b in assigned_bots)
 
-            # Check materials are present
+            # The full bill of materials must be on hand to work on an item
             mats_ok = all(
-                mfg.get(mat, 0.0) >= qty * (ip / recipe["ip"]) - 0.001
+                mfg.get(mat, 0.0) >= qty - 0.001
                 for mat, qty in recipe["mats"].items()
             )
             if not mats_ok:
@@ -1029,12 +1105,13 @@ class Ship:
 
             if self.industry_progress[recipe_key] >= recipe["ip"]:
                 self.industry_progress[recipe_key] = 0.0
-                # Consume materials
-                frac = ip / recipe["ip"]
+                # Consume the full bill of materials
                 for mat, qty in recipe["mats"].items():
-                    mfg[mat] = round(max(0.0, mfg.get(mat, 0.0) - qty * frac), 2)
-                # Deliver output (first choice in out_choices)
-                out_key = recipe["out_choices"][0]
+                    mfg[mat] = round(max(0.0, mfg.get(mat, 0.0) - qty), 2)
+                # Deliver output (the crew's chosen variant, else the first)
+                out_key = self.fabrication_choice.get(recipe_key) or recipe["out_choices"][0]
+                if out_key not in recipe["out_choices"]:
+                    out_key = recipe["out_choices"][0]
                 if out_key == "fabrication_bot":
                     self.fabrication_bots.append(self._make_fabrication_bot())
                 elif out_key == "transport_bot":
@@ -1105,19 +1182,28 @@ class Ship:
                     job["ticks_left"] = job.get("travel_ticks", TRANSPORT_TRAVEL_TICKS)
                 else:
                     # Delivery complete -> deposit items, update location
-                    if job["dest"] == "planet":
-                        if planet_stockpile is not None:
-                            planet_stockpile[job["item"]] = round(
-                                planet_stockpile.get(job["item"], 0) + job["amount"], 2)
-                        bot["location"] = "planet"
+                    if is_external(job["dest"]):
+                        dst = self._endpoint_inv(job["dest"], planet_stockpile)
+                        if dst is not None:
+                            dst[job["item"]] = round(dst.get(job["item"], 0) + job["amount"], 2)
+                            self.transport_events.append({"kind": "delivery", "where": job["dest"],
+                                                          "item": job["item"], "amount": job["amount"]})
+                        else:
+                            # Target gone or out of range: bring the load home
+                            home = "living_quarters" if job["item"] == "people" else "cargo_bay"
+                            inv = self.rooms[home]
+                            inv[job["item"]] = round(inv.get(job["item"], 0) + job["amount"], 2)
+                            self.transport_events.append({"kind": "aborted", "where": job["dest"],
+                                                          "item": job["item"], "amount": job["amount"]})
+                        bot["location"] = "planet" if job["dest"] == "planet" else "charging_bay"
                     else:
-                        dst_inv = self.rooms.get(job["dest"], {})
+                        dst_inv = self._endpoint_inv(job["dest"]) or self.rooms["cargo_bay"]
                         dst_inv[job["item"]] = round(dst_inv.get(job["item"], 0) + job["amount"], 2)
                         bot["location"] = job["dest"]
                     # ── Repeat trips ────────────────────────────────────────
                     trips = job.get("trips_remaining")  # 1 = last, None = infinite
                     source = job["source"]
-                    should_repeat = (trips is None or trips > 1) and source != "planet" and job["dest"] != "planet"
+                    should_repeat = (trips is None or trips > 1) and not is_external(source) and not is_external(job["dest"])
                     if should_repeat:
                         next_trips = None if trips is None else trips - 1
                         ok, _, actual = self._validate_transport(
@@ -1126,7 +1212,7 @@ class Ship:
                                   and bot["charge"] >= TRANSPORT_BOT_CHARGE_COST
                                   and bot["health"] > 0)
                         if can_go:
-                            src_inv = self.rooms[source]
+                            src_inv = self._endpoint_inv(source)
                             src_inv[job["item"]] = round(
                                 src_inv.get(job["item"], 0) - actual, 2)
                             bot["charge"] = round(bot["charge"] - TRANSPORT_BOT_CHARGE_COST, 2)
@@ -1271,9 +1357,14 @@ class Ship:
         # ── Warp capacitor: charge at capped rate, leak passively ─────────────
         net_charge = actual_warp_gw - WARP_CAPACITOR_LEAK_GW
         self.warp_capacitor_gw = round(
-            max(0.0, min(WARP_CAPACITOR_MAX_GW, self.warp_capacitor_gw + net_charge)), 2
+            max(0.0, min(self.warp_capacity(), self.warp_capacitor_gw + net_charge)), 2
         )
     # ── Power helpers ─────────────────────────────────────────────────────────
+    def warp_capacity(self) -> float:
+        """Charge cap: the drive's own capacitor plus every warp battery in the reactor room."""
+        n = int(self.rooms.get("reactor_room", {}).get("warp_batteries", 0) or 0)
+        return WARP_CAPACITOR_MAX_GW + WARP_BATTERY_BONUS_TW * n
+
     def comms_gw(self) -> float:
         """GW currently allocated to the comms array (degraded by system health)."""
         health_frac = self.system_health.get("comms_array", 100.0) / 100.0
@@ -1445,6 +1536,39 @@ class Ship:
                 if random.random() < 0.10:
                     health -= 0.1       # 10 % chance of 1 HP
             self.system_health[key] = round(max(0.0, health), 4)
+    def update_engine_heat(self) -> None:
+        """Engines heat like reactors: <=40% cools, 40-60% holds, 60-80% +1/tick,
+        >80% +2/tick. Hot engines take damage; at 100 heat they burn out
+        (ENGINE_MELTDOWN_DAMAGE) and stay off until fully cooled."""
+        for key, out in self.engine_outputs.items():
+            if self.engine_shutdown.get(key):
+                self.engine_outputs[key] = 0.0
+                out = 0.0
+            heat = self.engine_heat.get(key, 0.0)
+            if   out <= 0.20: heat -= 2.0
+            elif out <= 0.40: heat -= 1.0
+            elif out <= 0.60: pass
+            elif out <= 0.80: heat += 1.0
+            else:             heat += 2.0
+            heat = max(0.0, min(100.0, heat))
+            self.engine_heat[key] = heat
+            if self.engine_shutdown.get(key) and heat <= 0.0:
+                self.engine_shutdown[key] = False
+            health = self.system_health.get(key, 100.0)
+            if heat >= 100.0:
+                health -= ENGINE_MELTDOWN_DAMAGE
+                self.engine_shutdown[key] = True
+                self.engine_outputs[key] = 0.0
+            elif heat > 90.0:
+                health -= 0.3
+            elif heat > 75.0:
+                if random.random() < 0.5:
+                    health -= 0.2
+            elif heat > 50.0:
+                if random.random() < 0.1:
+                    health -= 0.1
+            self.system_health[key] = round(max(0.0, health), 4)
+
     def consume_reactor_fuel(self) -> None:
         """Deduct fuel/radioactive material from the Power Room each tick.
         Fuel reactors consume output_frac*100 units of fuel.
@@ -1456,7 +1580,7 @@ class Ship:
         rad_reactors  = ("reactor_3_rad",  "reactor_4_rad")
         # Fuel-burning reactors
         fuel_used = sum(
-            self.reactor_outputs.get(k, 0.0) * 100.0 for k in fuel_reactors
+            self.reactor_outputs.get(k, 0.0) * REACTOR_FUEL_PER_TICK_AT_FULL for k in fuel_reactors
         )
         if fuel_used > 0:
             new_fuel = power_room["fuel"] - fuel_used
@@ -1468,7 +1592,7 @@ class Ship:
                 power_room["fuel"] = round(new_fuel, 2)
         # Radioactive-material reactors
         rad_used = sum(
-            self.reactor_outputs.get(k, 0.0) * 100.0 for k in rad_reactors
+            self.reactor_outputs.get(k, 0.0) * REACTOR_RAD_PER_TICK_AT_FULL for k in rad_reactors
         )
         if rad_used > 0:
             new_rad = power_room["radioactive"] - rad_used
@@ -1827,6 +1951,10 @@ class Ship:
             "system_health": self.system_health,
             "reactor_outputs": self.reactor_outputs,
             "reactor_heat": self.reactor_heat,
+            "warp_capacitor_max_tw": self.warp_capacity(),
+            "fabrication_choice": self.fabrication_choice,
+            "engine_heat": self.engine_heat,
+            "engine_shutdown": self.engine_shutdown,
             "reactor_shutdown": self.reactor_shutdown,
             "effective_power_tw": self.effective_reactor_output_gw(),
             "net_power_tw": self.net_power_gw(),
@@ -1918,6 +2046,7 @@ def create_ship(starting_system_id: str) -> Ship:
     # Seed battery with starting charge
     ship.battery_energy_gw = 50.0    # generous starting battery charge
     ship.warp_capacitor_gw = 1200.0  # enough for one short jump at the start
+    ship.rooms["reactor_room"]["warp_batteries"] = WARP_BATTERIES_START
 
     # ── Seed starting resources so all stations are immediately playable ──────
 

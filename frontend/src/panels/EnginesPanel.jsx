@@ -25,19 +25,17 @@ const WARP    = '#aa44ff'   // purple (warp)
 const ACCENT2 = '#00ffcc'   // teal  (readouts) → var(--accent-cyan)
 
 // ── Quadratic consumption formula ─────────────────────────────────────────────
-// floor(x * (1 + 3x/100)) where x = output fraction × 100
-// → 1 unit/% at low power, 4 units/% at 100%
+// Matches the server (Ship.engine_consumption): 0.0002 × throttle%^2.5 per tick.
+// Fuel engines burn that much fuel; electric engines draw that many TW.
+// 60% ≈ 5.6/tick, 100% = 20/tick — pushing is fast but thirsty (and runs hot).
 function engineConsumption(outputFrac) {
-  const x = outputFrac * 100
-  return Math.floor(x * (1 + 3 * x / 100))
+  return Math.round(0.0002 * Math.pow(outputFrac * 100, 2.5) * 10) / 10
 }
 
-// Inverse of engineConsumption: given a GW budget, return max output fraction (0-1)
-// Solves floor(x*(1+3x/100)) = budget  →  quadratic: 3x²/100 + x - budget = 0
-// → x = (-100 + √(10000 + 1200·budget)) / 6  (in %, then /100 for fraction)
+// Inverse of engineConsumption: given a TW budget, return max output fraction (0-1)
 function maxOutputFracForBudget(budgetGW) {
   if (budgetGW <= 0) return 0
-  const pct = (-100 + Math.sqrt(10000 + 1200 * budgetGW)) / 6
+  const pct = Math.pow(budgetGW / 0.0002, 1 / 2.5)
   return Math.max(0, Math.min(1, pct / 100))
 }
 
@@ -47,7 +45,7 @@ export default function EnginesPanel({ gameState, sendCommand }) {
   const C = gameState?.constants ?? {}
   const FUEL_ENGINE_MAX_THRUST = C.FUEL_ENGINE_MAX_THRUST_AU ?? _FUEL_ENGINE_MAX_THRUST
   const ELEC_ENGINE_MAX_THRUST = C.ELEC_ENGINE_MAX_THRUST_AU ?? _ELEC_ENGINE_MAX_THRUST
-  const WARP_CAP_MAX           = C.WARP_CAPACITOR_MAX_TW ?? _WARP_CAP_MAX
+  const WARP_CAP_MAX           = ship?.warp_capacitor_max_tw ?? C.WARP_CAPACITOR_MAX_TW ?? _WARP_CAP_MAX
   const WARP_LEAK_GW           = C.WARP_CAPACITOR_LEAK_TW ?? _WARP_LEAK_TW
 
   const [engineOutputs, setEngineOutputs] = useState(null)
@@ -222,6 +220,8 @@ export default function EnginesPanel({ gameState, sendCommand }) {
             label={ENGINE_LABELS[key]}
             output={curEngines[key] ?? 0}
             health={sysHealth[key] ?? 100}
+            heat={ship?.engine_heat?.[key] ?? 0}
+            burnedOut={!!ship?.engine_shutdown?.[key]}
             isFuel={true}
             onOutput={v => handleEngineChange(key, v)}
           />
@@ -236,6 +236,8 @@ export default function EnginesPanel({ gameState, sendCommand }) {
               label={ENGINE_LABELS[key]}
               output={curEngines[key] ?? 0}
               health={sysHealth[key] ?? 100}
+              heat={ship?.engine_heat?.[key] ?? 0}
+              burnedOut={!!ship?.engine_shutdown?.[key]}
               isFuel={false}
               maxOutputFrac={maxFracThis}
               fuelMaxThrust={FUEL_ENGINE_MAX_THRUST}
@@ -267,7 +269,7 @@ export default function EnginesPanel({ gameState, sendCommand }) {
 // ══════════════════════════════════════════════════════════════════════════════
 // ENGINE CARD
 // ══════════════════════════════════════════════════════════════════════════════
-function EngineCard({ label, output, health, isFuel, maxOutputFrac = 1,
+function EngineCard({ label, output, health, isFuel, maxOutputFrac = 1, heat = 0, burnedOut = false,
                      fuelMaxThrust = _FUEL_ENGINE_MAX_THRUST,
                      elecMaxThrust = _ELEC_ENGINE_MAX_THRUST,
                      onOutput }) {
@@ -292,6 +294,9 @@ function EngineCard({ label, output, health, isFuel, maxOutputFrac = 1,
 
       <div className={s.engineCardStats}>
         <span style={{ color: healthColor(health) }}>HP {health.toFixed(1)}%</span>
+        <span style={{ color: burnedOut ? '#ff4444' : heat >= 75 ? '#ff4444' : heat >= 50 ? '#ffaa00' : 'var(--text-dim)' }}>
+          {burnedOut ? 'BURNED OUT — COOLING' : `HEAT ${Math.round(heat)}°`}
+        </span>
         <span style={{ color: ACCENT2 }}>{thrustContrib.toFixed(2)} AU/s</span>
       </div>
 

@@ -419,6 +419,8 @@ function NpcShipDetail({ ship, scanGw, thresholds }) {
           ['SIGNAL',   `${ship.signal}`],
           ...(ship.tier >= 2 ? [['CLASS', (ship.size ?? '—').toUpperCase()]] : []),
           ...(ship.tier >= 3 ? [['FACTION', ship.race ?? '—']] : []),
+          ...(ship.tier >= 2 && ship.disabled ? [['STATUS', 'ADRIFT — NO DRIVE SIGNATURE']] : []),
+          ...(ship.tier >= 3 && ship.life_signs != null ? [['LIFE SIGNS', ship.life_signs > 0 ? ship.life_signs : 'NONE']] : []),
         ].map(([k, v]) => (
           <>
             <span key={`k-${k}`} className={s.scanDataKey}>{k}</span>
