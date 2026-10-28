@@ -48,7 +48,7 @@ export default function EnginesPanel({ gameState, sendCommand }) {
   const FUEL_ENGINE_MAX_THRUST = C.FUEL_ENGINE_MAX_THRUST_AU ?? _FUEL_ENGINE_MAX_THRUST
   const ELEC_ENGINE_MAX_THRUST = C.ELEC_ENGINE_MAX_THRUST_AU ?? _ELEC_ENGINE_MAX_THRUST
   const WARP_CAP_MAX           = C.WARP_CAPACITOR_MAX_TW ?? _WARP_CAP_MAX
-  const WARP_LEAK_GW           = C.WARP_CAPACITOR_LEAK_GW ?? _WARP_LEAK_GW
+  const WARP_LEAK_GW           = C.WARP_CAPACITOR_LEAK_TW ?? _WARP_LEAK_TW
 
   const [engineOutputs, setEngineOutputs] = useState(null)
   const [warpDrivePct,  setWarpDrivePct]  = useState(null)
@@ -334,7 +334,7 @@ function EngineCard({ label, output, health, isFuel, maxOutputFrac = 1,
 function WarpCapacitorSection({ capacitorGW, warpAllocGW, netRate,
                                 warpDrivePct, maxWarpPct,
                                 warpCapMax = _WARP_CAP_MAX,
-                                warpLeakGW = _WARP_LEAK_GW,
+                                warpLeakGW = _WARP_LEAK_TW,
                                 onWarpChange }) {
   const WARP_CAP_MAX = warpCapMax
   const WARP_LEAK_GW = warpLeakGW
@@ -357,7 +357,7 @@ function WarpCapacitorSection({ capacitorGW, warpAllocGW, netRate,
         </span>
         <div className={s.warpTitleStats}>
           <span style={{ color: netColor }}>{netLabel}</span>
-          <span className={s.warpLeakLabel}>−{WARP_LEAK_GW} GW/tk leak</span>
+          <span className={s.warpLeakLabel}>−{WARP_LEAK_GW} TW/tk leak</span>
           <span style={{ color: WARP }}>
             {Math.round(capacitorGW).toLocaleString()} / {WARP_CAP_MAX.toLocaleString()} TW
           </span>

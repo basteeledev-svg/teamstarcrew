@@ -6,6 +6,7 @@ import s from './TransportationPanel.module.css'
 // ── Style constants (match other panels) ──────────────────────────────────
 const ACCENT  = '#ff88cc'
 const ACCENT2 = 'var(--accent-cyan)'
+const DIM     = 'var(--text-dim)'
 
 const ROOM_LABELS = {
   reactor_room:      'REACTOR ROOM',

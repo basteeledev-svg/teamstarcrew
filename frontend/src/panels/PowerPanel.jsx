@@ -298,7 +298,7 @@ export default function PowerPanel({ gameState, sendCommand }) {
               gwTarget={curGwTargets[key] ?? null}
               isLifeSupport={key === 'life_support'}
               totalPowerTW={totalPowerTW}
-              lsMinGW={key === 'life_support' ? lsMinGW : undefined}
+              lsMinGW={key === 'life_support' ? lsMinTW : undefined}
               onPct={v => curGwTargets[key] !== null ? handleGwAllocChange(key, v) : handleAllocChange(key, v)}
               onLockCycle={() => handleLockCycle(key)}
             />
@@ -480,7 +480,7 @@ function FuelBar({ label, value, max, color }) {
 // ══════════════════════════════════════════════════════════════════════════════
 function AllocSlider({
   label, station, pct, pctLocked, gwLocked, gwTarget,
-  isLifeSupport, totalPowerGW, lsMinGW,
+  isLifeSupport, totalPowerTW: totalPowerGW, lsMinGW,
   onPct, onLockCycle
 }) {
   const actualGW      = (pct / 100) * totalPowerGW
@@ -503,7 +503,7 @@ function AllocSlider({
               style={{ color: gwLocked ? '#00ccff' : pctLocked ? ACCENT : 'var(--text-body)' }}>{label}</span>
         <div className={s.allocCardRight}>
           {isLifeSupport && lsMinGW !== undefined && (
-            <span className={s.allocLsMin}>MIN {lsMinGW.toFixed(0)}GW</span>
+            <span className={s.allocLsMin}>MIN {lsMinGW.toFixed(0)} TW</span>
           )}
           <span className={s.allocPct} style={{ color: ACCENT2 }}>
             {pct.toFixed(1)}%
@@ -511,8 +511,8 @@ function AllocSlider({
           {/* Show GW target when GW-locked, otherwise show actual flowing GW */}
           <span className={s.allocGw} style={{ color: gwLocked ? '#00ccff' : 'var(--text-bright)' }}>
             {gwLocked
-              ? `🟴${(gwTarget ?? 0).toFixed(0)}GW`
-              : `${Math.abs(actualGW).toFixed(0)}GW`
+              ? `🟴${(gwTarget ?? 0).toFixed(0)} TW`
+              : `${Math.abs(actualGW).toFixed(0)} TW`
             }
           </span>
           <button
