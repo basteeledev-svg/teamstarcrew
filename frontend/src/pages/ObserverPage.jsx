@@ -6,8 +6,6 @@ import ShipStatus   from '../components/ShipStatus.jsx'
 import { apiPath }  from '../api/paths.js'
 import '../hud/hud.css'
 
-const W = 1280
-const H = 800
 
 export default function ObserverPage({ gameState, sendCommand, onExit }) {
   const [selectedSystem, setSelectedSystem] = useState(null)
@@ -31,7 +29,7 @@ export default function ObserverPage({ gameState, sendCommand, onExit }) {
   const isRunning = gameState?.status === 'running'
 
   return (
-    <div className="hud-wrap" style={{ width: W, height: H, display: 'flex', flexDirection: 'column' }}>
+    <div className="hud-wrap" style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column' }}>
 
       {/* Top bar */}
       <div className="hud-top">

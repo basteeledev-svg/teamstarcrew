@@ -4,9 +4,6 @@ import '../hud/hud.css'
 import { apiPath } from '../api/paths.js'
 import CrewBanner from '../components/CrewBanner.jsx'
 
-// Samsung Galaxy Tab S9 11" landscape: 1280 × 800 CSS px
-const W = 1280
-const H = 800
 
 // Map console id → lazy-loaded panel component
 const PANEL_MAP = {
@@ -88,7 +85,7 @@ export default function GamePage({ consoles, gameState, sendCommand, lastError, 
     : 'vc'
 
   return (
-    <div className="hud-wrap" style={{ width: W, height: H, display: 'flex', flexDirection: 'column' }}>
+    <div className="hud-wrap" style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column' }}>
 
       {/* ── Top bar ────────────────────────────────────────────────────── */}
       <div className="hud-top">

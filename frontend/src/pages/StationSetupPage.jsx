@@ -3,8 +3,6 @@ import { CONSOLES } from '../consoles.js'
 import { apiPath } from '../api/paths.js'
 import '../hud/hud.css'
 
-const W = 1280
-const H = 800
 
 const STATION_COLORS = [
   '#00ffcc', '#00aaff', '#ff6688', '#ffee00',
@@ -132,7 +130,7 @@ export default function StationSetupPage({ onBack, onAdmin }) {
   }
 
   return (
-    <div className="hud-wrap" style={{ width: W, height: H, display: 'flex', flexDirection: 'column' }}>
+    <div className="hud-wrap" style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column' }}>
       <div className="hud-top">
         <span className="hud-logo">★ STATION SETUP</span>
         <span className="hud-pip" />
@@ -227,7 +225,7 @@ export default function StationSetupPage({ onBack, onAdmin }) {
 
 function CountStep({ count, setCount, onNext, onBack }) {
   return (
-    <div className="hud-wrap" style={{ width: W, height: H, display: 'flex', flexDirection: 'column' }}>
+    <div className="hud-wrap" style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column' }}>
       <div className="hud-top">
         <span className="hud-logo">★ STATION SETUP</span>
         <span className="hud-sp" />
@@ -396,7 +394,7 @@ function CodesView({ codes, origin, basePath, onBack, onAdmin }) {
   }
 
   return (
-    <div className="hud-wrap" style={{ width: W, height: H, display: 'flex', flexDirection: 'column' }}>
+    <div className="hud-wrap" style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column' }}>
       <div className="hud-top">
         <span className="hud-logo">★ CREW CODES</span>
         <span className="hud-pip" />

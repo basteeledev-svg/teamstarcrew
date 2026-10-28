@@ -1,8 +1,6 @@
 import { useMemo, useState } from 'react'
 import '../hud/hud.css'
 
-const W = 1280
-const H = 800
 
 export default function OnePlayerPage({ gameState, sendCommand, lastError, lastAck, connected = true, onExit }) {
   const ship = gameState?.ship
@@ -26,7 +24,7 @@ export default function OnePlayerPage({ gameState, sendCommand, lastError, lastA
 
   if (!ship || !system) {
     return (
-      <div className="hud-wrap" style={{ width: W, height: H, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+      <div className="hud-wrap" style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
         <div style={{ color: 'var(--hud-txd)', fontFamily: 'var(--font-mono)', letterSpacing: 2 }}>WAITING FOR GAME STATE...</div>
       </div>
     )
@@ -40,7 +38,7 @@ export default function OnePlayerPage({ gameState, sendCommand, lastError, lastA
   const battery = `${Math.round(ship.battery_energy_tw ?? 0)} / ${Math.round(ship.battery_capacity_tw ?? 0)} TW`
 
   return (
-    <div className="hud-wrap" style={{ width: W, height: H, display: 'flex', flexDirection: 'column' }}>
+    <div className="hud-wrap" style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column' }}>
       <div className="hud-top">
         <span className="hud-logo">★ ONE-PLAYER COCKPIT</span>
         <span className={`hud-pip${connected ? '' : ' offline'}`} />

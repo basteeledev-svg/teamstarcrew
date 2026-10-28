@@ -3,8 +3,6 @@ import { CONSOLES } from '../consoles.js'
 import { apiPath, BASE_PATH } from '../api/paths.js'
 import '../hud/hud.css'
 
-const W = 1280
-const H = 800
 
 export default function StationJoinPage({ code, gameState, onEnter }) {
   const [station, setStation] = useState(null)
@@ -38,7 +36,7 @@ export default function StationJoinPage({ code, gameState, onEnter }) {
   const mainHref  = BASE_PATH || '/'
 
   return (
-    <div className="hud-wrap" style={{ width: W, height: H, display: 'flex', flexDirection: 'column' }}>
+    <div className="hud-wrap" style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column' }}>
       <div className="hud-top">
         <span className="hud-logo">★ TEAM STAR CREW</span>
         <span className="hud-pip" />

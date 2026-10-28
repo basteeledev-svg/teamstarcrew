@@ -2,8 +2,6 @@
 import { apiPath } from '../api/paths.js'
 import '../hud/hud.css'
 
-const W = 1280
-const H = 800
 
 export default function NewGamePage({ onCancel, onStarted }) {
   const [seed, setSeed]   = useState('')
@@ -33,7 +31,7 @@ export default function NewGamePage({ onCancel, onStarted }) {
   }
 
   return (
-    <div className="hud-wrap" style={{ width: W, height: H, display: 'flex', flexDirection: 'column' }}>
+    <div className="hud-wrap" style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column' }}>
       <div className="hud-top">
         <span className="hud-logo">★ NEW GAME</span>
         <span className="hud-sp" />

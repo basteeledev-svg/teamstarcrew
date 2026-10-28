@@ -17,7 +17,18 @@ function _detectCode() {
   return /^\d{4}$/.test(suffix) ? suffix : null
 }
 
-// App content is authored at 1280×800; a CSS scale fills any screen without reflowing.
+// App content is authored for 1280×800 (a landscape tablet). The stage keeps that
+// as its minimum and stretches the other dimension to match the screen's shape,
+// then scales to fill the window exactly — no letterboxing on any screen.
+const BASE_W = 1280
+const BASE_H = 800
+function fitStage() {
+  const w = window.innerWidth, h = window.innerHeight
+  const aspect = w / h
+  const vw = aspect >= BASE_W / BASE_H ? Math.round(BASE_H * aspect) : BASE_W
+  const vh = aspect >= BASE_W / BASE_H ? BASE_H : Math.round(BASE_W / aspect)
+  return { vw, vh, scale: w / vw }
+}
 export default function App() {
   const { gameState, connected, sendCommand, lastError, lastAck } = useGameSocket()
   // page: 'landing' | 'newGame' | 'select' | 'game' | 'solo' | 'admin' | 'observer' | 'setup' | 'join'
@@ -25,10 +36,10 @@ export default function App() {
   const [page, setPage]         = useState(() => _detectCode() ? 'join' : 'landing')
   const [consoles, setConsoles] = useState([])
   const [stationName, setStationName] = useState(null)
-  const [scale, setScale]       = useState(() => Math.min(window.innerWidth / 1280, window.innerHeight / 800))
+  const [stage, setStage]       = useState(fitStage)
 
   useEffect(() => {
-    function onResize() { setScale(Math.min(window.innerWidth / 1280, window.innerHeight / 800)) }
+    function onResize() { setStage(fitStage()) }
     window.addEventListener('resize', onResize)
     return () => window.removeEventListener('resize', onResize)
   }, [])
@@ -55,11 +66,12 @@ export default function App() {
   }
 
   return (
-    <div style={{ width: '100vw', height: '100vh', background: '#000', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
+    <div style={{ position: 'fixed', inset: 0, background: '#000', overflow: 'hidden' }}>
     <div style={{
-      width: 1280, height: 800,
-      transform: `scale(${scale})`,
-      transformOrigin: 'center center',
+      position: 'absolute', top: 0, left: 0,
+      width: stage.vw, height: stage.vh,
+      transform: `scale(${stage.scale})`,
+      transformOrigin: '0 0',
       overflow: 'hidden',
       position: 'relative',
       background: 'var(--bg-base)',

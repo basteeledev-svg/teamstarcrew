@@ -3,8 +3,6 @@ import { CONSOLES } from '../consoles.js'
 import { STATIONS } from '../crewLayouts.js'
 import '../hud/hud.css'
 
-const W = 1280
-const H = 800
 const MAX_CUSTOM_SELECTION = 4
 
 /**
@@ -51,7 +49,7 @@ export default function ConsoleSelectPage({ gameState, onEnter, onNewGame }) {
   }
 
   return (
-    <div className="hud-wrap" style={{ width: W, height: H, display: 'flex', flexDirection: 'column' }}>
+    <div className="hud-wrap" style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column' }}>
       {/* ── Top bar ──────────────────────────────────────────────────── */}
       <div className="hud-top">
         <span className="hud-logo">★ TEAM STAR CREW</span>
@@ -232,7 +230,7 @@ function StationPicker({ stations, onTake, onCustomise }) {
 // ── Panel-customisation overlay ───────────────────────────────────────────────
 function ConfigureOverlay({ station, panels, onToggle, onBack, onEnter }) {
   return (
-    <div className="hud-wrap" style={{ width: W, height: H, display: 'flex', flexDirection: 'column' }}>
+    <div className="hud-wrap" style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column' }}>
       <div className="hud-top">
         <span className="hud-logo">★ TEAM STAR CREW</span>
         <span className="hud-pip" />

@@ -1,8 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import '../hud/hud.css'
 
-const W = 1280
-const H = 800
 
 export default function LandingPage({ gameState, onNewGame, onJoin, onObserver, onAdmin }) {
   const isRunning   = gameState?.status === 'running'
@@ -18,7 +16,7 @@ export default function LandingPage({ gameState, onNewGame, onJoin, onObserver, 
     typeof hull === 'number' ? (hull > 60 ? 'g' : hull > 30 ? 'a' : 'r') : 'c'
 
   return (
-    <div className="hud-wrap" style={{ width: W, height: H, display: 'flex', flexDirection: 'column' }}>
+    <div className="hud-wrap" style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column' }}>
       {/* ── Top bar ──────────────────────────────────────────────────── */}
       <div className="hud-top">
         <span className="hud-logo">★ TEAM STAR CREW</span>

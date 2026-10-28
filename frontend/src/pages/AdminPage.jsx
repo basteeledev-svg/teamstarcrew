@@ -3,8 +3,6 @@ import { CONSOLES } from '../consoles.js'
 import { apiPath } from '../api/paths.js'
 import '../hud/hud.css'
 
-const W = 1280
-const H = 800
 
 export default function AdminPage({ gameState, sendCommand, onExit, onObserver }) {
   const [activeTab, setActiveTab] = useState('ship')
@@ -13,7 +11,7 @@ export default function AdminPage({ gameState, sendCommand, onExit, onObserver }
   const system = gameState?.current_system
 
   return (
-    <div className="hud-wrap" style={{ width: W, height: H, display: 'flex', flexDirection: 'column' }}>
+    <div className="hud-wrap" style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column' }}>
       {/* Top bar */}
       <div className="hud-top">
         <span className="hud-logo">★ ADMIN</span>
